@@ -2,6 +2,7 @@ import { faker } from '@faker-js/faker';
 import { expect, test } from '@playwright/test';
 import { getTestContext } from '~/.server/context';
 import { signup } from '~/.server/services/auth';
+import { getUserById } from '~/.server/services/user';
 import {
   addUser,
   createWorkspace,
@@ -67,8 +68,10 @@ test('Redirects to workspace picker for more than one workspace', async ({
     )
   ).unwrap();
 
+  const user = await getUserById({ id: userId }, context);
+
   (
-    await createWorkspace({ userId, name: workspaceNames[1] }, context)
+    await createWorkspace({ name: workspaceNames[1] }, { ...context, user })
   ).unwrap();
 
   await page.getByLabel('Email').fill(email);

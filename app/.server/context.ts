@@ -4,6 +4,7 @@ import config from './config';
 import type { TransactionType } from './db';
 import type { users } from './db/schema';
 import { type PreferencesData, getPreferences } from './preferences';
+import { getPermissionsForUserId } from './services/security';
 import { getUserById } from './services/user';
 import { type SessionData, type SessionFlashData, getSession } from './session';
 
@@ -15,6 +16,7 @@ export type Context = {
   tx: TransactionType | undefined;
   config: typeof config;
   user: Option<User>;
+  permissions: Option<Permissions>;
 };
 
 export async function getContext(request: Request): Promise<Context> {
@@ -28,14 +30,17 @@ export async function getContext(request: Request): Promise<Context> {
     tx: undefined,
     config,
     user: None,
+    permissions: None,
   };
 
   if (userId) {
     const user = await getUserById({ id: userId }, context);
+    const permissions = await getPermissionsForUserId({ id: userId }, context);
 
     return {
       ...context,
       user,
+      permissions,
     };
   }
 
@@ -49,5 +54,6 @@ export async function getTestContext(): Promise<Context> {
     tx: undefined,
     config,
     user: None,
+    permissions: None,
   };
 }

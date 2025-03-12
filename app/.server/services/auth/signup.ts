@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { Err, Ok, type Result } from 'ts-results-es';
+import { Err, Ok, type Result, Some } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { userWorkspaceRoles, users, workspaces } from '~/.server/db/schema';
@@ -122,9 +122,7 @@ export async function signup(
         emailConfirmationCode,
         passwordHash: hash,
       })
-      .returning({
-        id: users.id,
-      });
+      .returning();
 
     if (!userRows || userRows.length === 0) {
       return Err(new ApiError('Failed to insert user record'));
@@ -134,18 +132,20 @@ export async function signup(
 
     await createWorkspace(
       {
-        userId: user.id,
         name: workspaceName,
       },
-      { ...context, tx },
+      { ...context, tx, user: Some(user) },
     );
 
     await sendSignupEmail(
       { to: email, code: emailConfirmationCode },
-      { ...context, tx },
+      { ...context, tx, user: Some(user) },
     );
 
-    const token = await createToken({ userId: user.id }, { ...context, tx });
+    const token = await createToken(
+      { userId: user.id },
+      { ...context, tx, user: Some(user) },
+    );
 
     return Ok({
       userId: user.id,
