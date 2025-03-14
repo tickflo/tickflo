@@ -14,10 +14,7 @@ export async function loader({ context, params }: Route.LoaderArgs) {
     throw new AuthError('User not found');
   }
 
-  const roles = await getRoles(
-    { userId: user.value.id, slug: params.slug },
-    ctx,
-  );
+  const roles = await getRoles({ slug: params.slug }, ctx);
 
   return data({ roles });
 }
@@ -50,15 +47,15 @@ export default function workspaceRoles({ loaderData }: Route.ComponentProps) {
       <table className="table-zebra table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Permissions</th>
+            <th>Name </th>
+            <th> Permissions </th>
             <th> </th>
           </tr>
         </thead>
         <tbody>
           {roles.map((role) => (
             <tr key={role.role}>
-              <td>{role.role}</td>
+              <td>{role.role} </td>
               <td>...</td>
               <td className="flex justify-end gap-2">
                 <button className="btn btn-primary btn-outline" type="button">

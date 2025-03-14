@@ -1,2 +1,2 @@
-export * from './get-permissions-for-user-id';
+export * from './get-permissions';
 export * from './update-permissions-for-role';

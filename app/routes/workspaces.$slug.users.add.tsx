@@ -15,10 +15,7 @@ export async function loader({ context, params }: Route.LoaderArgs) {
     throw new AuthError('User not found');
   }
 
-  const roles = await getRoles(
-    { userId: user.value.id, slug: params.slug },
-    ctx,
-  );
+  const roles = await getRoles({ slug: params.slug }, ctx);
 
   return data({
     roles,
@@ -38,10 +35,7 @@ export async function action({ context, request, params }: Route.ActionArgs) {
   const email = formData.get('email')?.toString();
   const roleId = Number.parseInt(formData.get('role')?.toString() || '', 10);
 
-  const result = await addUser(
-    { userId: user.value.id, slug: params.slug, name, email, roleId },
-    ctx,
-  );
+  const result = await addUser({ slug: params.slug, name, email, roleId }, ctx);
   if (result.isErr()) {
     return data({ error: result.error.message });
   }

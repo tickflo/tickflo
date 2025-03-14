@@ -9,10 +9,7 @@ import {
 } from '~/.server/db/schema';
 
 export async function getUserCount(
-  {
-    userId: _, // TODO: permissions
-    slug,
-  }: { userId: number; slug: string },
+  { slug }: { slug: string },
   context: Context,
 ): Promise<number> {
   const { tx } = context;

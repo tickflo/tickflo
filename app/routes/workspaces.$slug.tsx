@@ -1,25 +1,18 @@
 import { FaLock, FaUsers } from 'react-icons/fa';
 import { FaShield } from 'react-icons/fa6';
 import { Link, NavLink, Outlet, data } from 'react-router';
-import { AuthError } from '~/.server/errors';
 import { errorRedirect } from '~/.server/helpers';
-import { getWorkspaceForUser } from '~/.server/services/workspace';
+import { getWorkspaceBySlug } from '~/.server/services/workspace';
 import { commitSession } from '~/.server/session';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces.$slug';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
-  const { session, user } = ctx;
+  const { session } = ctx;
 
-  if (user.isNone()) {
-    throw new AuthError('User not found');
-  }
+  const workspace = await getWorkspaceBySlug({ slug: params.slug }, ctx);
 
-  const workspace = await getWorkspaceForUser(
-    { userId: user.value.id, slug: params.slug },
-    ctx,
-  );
   if (workspace.isNone()) {
     return errorRedirect(
       session,

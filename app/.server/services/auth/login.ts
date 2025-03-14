@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { Err, Ok, type Result } from 'ts-results-es';
+import { Err, Ok, type Result, Some } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { users } from '~/.server/db/schema';
@@ -33,10 +33,6 @@ export async function login(
   const { tx } = context;
 
   const user = await (tx || db).query.users.findFirst({
-    columns: {
-      id: true,
-      passwordHash: true,
-    },
     where: eq(users.email, email),
   });
 
@@ -58,7 +54,7 @@ export async function login(
     return Err(new AuthError());
   }
 
-  const token = await createToken({ userId: user.id }, context);
+  const token = await createToken({ ...context, user: Some(user) });
 
   return Ok({
     userId: user.id,

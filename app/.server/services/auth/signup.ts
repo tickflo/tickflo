@@ -142,10 +142,7 @@ export async function signup(
       { ...context, tx, user: Some(user) },
     );
 
-    const token = await createToken(
-      { userId: user.id },
-      { ...context, tx, user: Some(user) },
-    );
+    const token = await createToken({ ...context, tx, user: Some(user) });
 
     return Ok({
       userId: user.id,
@@ -168,21 +165,28 @@ async function signupInvitee(
   const hash = await createHash(`${email}${password}`);
 
   return await db.transaction(async (tx) => {
-    await tx
+    const result = await tx
       .update(users)
       .set({
         name,
         passwordHash: hash,
         updatedBy: userId,
       })
-      .where(eq(users.id, userId));
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (result.length === 0) {
+      throw new ApiError('Failed to update user record');
+    }
+
+    const user = result[0];
 
     await tx
       .update(userWorkspaceRoles)
       .set({ accepted: true })
       .where(eq(userWorkspaceRoles.userId, userId));
 
-    const token = await createToken({ userId }, { ...context, tx });
+    const token = await createToken({ ...context, tx, user: Some(user) });
 
     return Ok({
       userId,

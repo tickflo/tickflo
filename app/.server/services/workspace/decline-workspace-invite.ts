@@ -4,32 +4,32 @@ import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { userWorkspaceRoles } from '~/.server/db/schema';
 import { type ApiError, InputError } from '~/.server/errors';
+import { loginRedirect } from '~/.server/helpers';
 
 type Request = {
-  userId: number;
   workspaceId: number;
 };
 
 export async function declineWorkspaceInvite(
-  { userId, workspaceId }: Request,
+  { workspaceId }: Request,
   context: Context,
 ): Promise<Result<void, ApiError>> {
-  if (Number.isNaN(userId)) {
-    return Err(new InputError(`Invalid userId ${userId}`));
+  const { user, session, tx } = context;
+
+  if (user.isNone()) {
+    throw loginRedirect(session);
   }
 
   if (Number.isNaN(workspaceId)) {
     return Err(new InputError(`Invalid workspaceId ${workspaceId}`));
   }
 
-  const { tx } = context;
-
   const role = await (tx || db).query.userWorkspaceRoles.findFirst({
     columns: {
       accepted: true,
     },
     where: and(
-      eq(userWorkspaceRoles.userId, userId),
+      eq(userWorkspaceRoles.userId, user.value.id),
       eq(userWorkspaceRoles.workspaceId, workspaceId),
     ),
   });

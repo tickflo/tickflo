@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
+import { loginRedirect } from '~/.server/helpers';
 import { db } from '../../db';
 import { roles, userWorkspaceRoles, users } from '../../db/schema';
 import { ApiError, InputError } from '../../errors';
@@ -11,12 +12,10 @@ import { sendInviteEmail } from './send-invite-email';
 
 export async function addUser(
   {
-    userId,
     slug,
     roleId,
     ...request
   }: {
-    userId: number;
     slug: string;
     name: string | undefined;
     email: string | undefined;
@@ -27,7 +26,11 @@ export async function addUser(
   const name = request.name?.toString().trim();
   const email = request.email?.toString().trim().toLowerCase();
 
-  const { config } = context;
+  const { config, user, session } = context;
+
+  if (user.isNone()) {
+    throw loginRedirect(session);
+  }
 
   if (
     !name ||
@@ -85,7 +88,7 @@ export async function addUser(
         userId: existing.value.id,
         workspaceId: workspace.value.id,
         roleId: role.id,
-        createdBy: userId,
+        createdBy: user.value.id,
       });
 
       const result = await sendInviteEmail(
@@ -109,7 +112,7 @@ export async function addUser(
         name,
         email,
         emailConfirmationCode,
-        createdBy: userId,
+        createdBy: user.value.id,
       })
       .returning({ id: users.id });
 
@@ -117,17 +120,17 @@ export async function addUser(
       return Err(new ApiError('Failed to insert user record'));
     }
 
-    const user = userRows[0];
+    const newUser = userRows[0];
 
     await tx.insert(userWorkspaceRoles).values({
-      userId: user.id,
+      userId: newUser.id,
       workspaceId: workspace.value.id,
       roleId: role.id,
-      createdBy: userId,
+      createdBy: user.value.id,
     });
 
     const result = await sendInviteEmail(
-      { userId: user.id, slug },
+      { userId: newUser.id, slug },
       { ...context, tx },
     );
 

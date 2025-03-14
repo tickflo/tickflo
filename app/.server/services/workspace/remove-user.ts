@@ -14,14 +14,13 @@ import { getWorkspaceBySlug } from './get-workspace-by-slug';
 type Request = {
   userId: number;
   slug: string;
-  removeUserId: number;
 };
 
 export async function removeUser(
-  { userId, slug, removeUserId }: Request,
+  { userId, slug }: Request,
   context: Context,
 ): Promise<Result<void, ApiError>> {
-  if (Number.isNaN(removeUserId)) {
+  if (Number.isNaN(userId)) {
     return Err(new InputError('Invalid user id'));
   }
 
@@ -33,7 +32,7 @@ export async function removeUser(
     return Err(new InputError(`Workspace ${slug} does not exist`));
   }
 
-  const userCount = await getUserCount({ userId, slug }, context);
+  const userCount = await getUserCount({ slug }, context);
 
   if (userCount <= 1) {
     return Err(new InputError('Can not remove last member of workspace'));
@@ -44,7 +43,7 @@ export async function removeUser(
     .from(userWorkspaceRoles)
     .innerJoin(
       users,
-      and(eq(users.id, removeUserId), eq(users.id, userWorkspaceRoles.userId)),
+      and(eq(users.id, userId), eq(users.id, userWorkspaceRoles.userId)),
     )
     .where(eq(userWorkspaceRoles.workspaceId, workspace.value.id));
 
@@ -59,7 +58,7 @@ export async function removeUser(
       .delete(userWorkspaceRoles)
       .where(
         and(
-          eq(userWorkspaceRoles.userId, removeUserId),
+          eq(userWorkspaceRoles.userId, userId),
           eq(userWorkspaceRoles.workspaceId, workspace.value.id),
         ),
       );

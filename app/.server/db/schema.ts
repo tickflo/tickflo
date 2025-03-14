@@ -177,7 +177,7 @@ export const roles = pgTable('roles', {
   updatedBy: integer('updated_by').references(() => users.id),
 });
 
-export const rolesPermissions = relations(roles, ({ many }) => ({
+export const rolesRelations = relations(roles, ({ many }) => ({
   permissions: many(rolePermissions),
 }));
 

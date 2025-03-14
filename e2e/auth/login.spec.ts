@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { expect, test } from '@playwright/test';
+import { Some } from 'ts-results-es';
 import { getTestContext } from '~/.server/context';
 import { signup } from '~/.server/services/auth';
 import { getUserById } from '~/.server/services/user';
@@ -116,20 +117,21 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
     )
   ).unwrap();
 
+  const user = (await getUserById({ id: userId }, context)).unwrap();
+
   const slug = slugify(workspaceNames[1]);
 
-  const roles = await getRoles({ slug, userId }, context);
+  const roles = await getRoles({ slug }, { ...context, user: Some(user) });
 
   (
     await addUser(
       {
-        userId,
         slug,
         email,
         name: faker.person.firstName(),
         roleId: roles[0].id,
       },
-      context,
+      { ...context, user: Some(user) },
     )
   ).unwrap();
 
@@ -163,18 +165,19 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
     )
   ).unwrap();
 
-  const roles = await getRoles({ slug, userId }, context);
+  const user = (await getUserById({ id: userId }, context)).unwrap();
+
+  const roles = await getRoles({ slug }, { ...context, user: Some(user) });
 
   (
     await addUser(
       {
-        userId,
         slug,
         email,
         name: faker.person.firstName(),
         roleId: roles[0].id,
       },
-      context,
+      { ...context, user: Some(user) },
     )
   ).unwrap();
 
@@ -191,7 +194,12 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
     )
   ).unwrap();
 
-  (await removeUser({ userId, slug, removeUserId }, context)).unwrap();
+  (
+    await removeUser(
+      { userId: removeUserId, slug },
+      { ...context, user: Some(user) },
+    )
+  ).unwrap();
 
   await page.getByLabel('Email').fill(email);
   await page.locator('input[name="password"]').fill(PASSWORD);

@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { eq } from 'drizzle-orm';
+import { Some } from 'ts-results-es';
 import { expect, test } from 'vitest';
 import { getTestContext } from '~/.server/context';
 import { emailTemplates } from '~/.server/data';
@@ -8,7 +9,7 @@ import { slugify } from '~/utils/slugify';
 import { db } from '../../db';
 import { emails } from '../../db/schema';
 import { signup } from '../auth';
-import { getUserByEmail } from '../user';
+import { getUserByEmail, getUserById } from '../user';
 import { addUser } from './add-user';
 import { getRoles } from './get-roles';
 
@@ -16,17 +17,31 @@ test('Throws on invalid name', async () => {
   const context = await getTestContext();
   const { config } = context;
 
+  const { userId } = (
+    await signup(
+      {
+        name: faker.person.firstName(),
+        email: faker.internet.email(),
+        workspaceName: faker.company.name(),
+        password: 'password',
+        confirmPassword: 'password',
+      },
+      context,
+    )
+  ).unwrap();
+
+  const user = (await getUserById({ id: userId }, context)).unwrap();
+
   expect(
     (
       await addUser(
         {
-          userId: 1,
           slug: 'foo-bar',
           roleId: 1,
           email: faker.internet.email(),
           name: undefined,
         },
-        context,
+        { ...context, user: Some(user) },
       )
     ).unwrapErr(),
   ).toBeInstanceOf(InputError);
@@ -35,13 +50,12 @@ test('Throws on invalid name', async () => {
     (
       await addUser(
         {
-          userId: 1,
           slug: 'foo-bar',
           roleId: 1,
           email: faker.internet.email(),
           name: faker.string.alpha({ length: config.USER.MIN_NAME_LENGTH - 1 }),
         },
-        context,
+        { ...context, user: Some(user) },
       )
     ).unwrapErr(),
   ).toBeInstanceOf(InputError);
@@ -50,13 +64,12 @@ test('Throws on invalid name', async () => {
     (
       await addUser(
         {
-          userId: 1,
           slug: 'foo-bar',
           roleId: 1,
           email: faker.internet.email(),
           name: faker.string.alpha({ length: config.USER.MAX_NAME_LENGTH + 1 }),
         },
-        context,
+        { ...context, user: Some(user) },
       )
     ).unwrapErr(),
   ).toBeInstanceOf(InputError);
@@ -64,17 +77,30 @@ test('Throws on invalid name', async () => {
 
 test('Throws on invalid email', async () => {
   const context = await getTestContext();
+  const { userId } = (
+    await signup(
+      {
+        name: faker.person.firstName(),
+        email: faker.internet.email(),
+        workspaceName: faker.company.name(),
+        password: 'password',
+        confirmPassword: 'password',
+      },
+      context,
+    )
+  ).unwrap();
+
+  const user = (await getUserById({ id: userId }, context)).unwrap();
   expect(
     (
       await addUser(
         {
-          userId: 1,
           slug: 'foo-bar',
           roleId: 1,
           email: undefined,
           name: faker.person.firstName(),
         },
-        context,
+        { ...context, user: Some(user) },
       )
     ).unwrapErr(),
   ).toBeInstanceOf(InputError);
@@ -82,17 +108,30 @@ test('Throws on invalid email', async () => {
 
 test('Throws on invalid roleId', async () => {
   const context = await getTestContext();
+  const { userId } = (
+    await signup(
+      {
+        name: faker.person.firstName(),
+        email: faker.internet.email(),
+        workspaceName: faker.company.name(),
+        password: 'password',
+        confirmPassword: 'password',
+      },
+      context,
+    )
+  ).unwrap();
+
+  const user = (await getUserById({ id: userId }, context)).unwrap();
   expect(
     (
       await addUser(
         {
-          userId: 1,
           slug: 'foo-bar',
           roleId: Number.NaN,
           email: faker.internet.email(),
           name: faker.person.firstName(),
         },
-        context,
+        { ...context, user: Some(user) },
       )
     ).unwrapErr(),
   ).toBeInstanceOf(InputError);
@@ -116,17 +155,18 @@ test('Throws on non-existent role', async () => {
     )
   ).unwrap();
 
+  const user = (await getUserById({ id: userId }, context)).unwrap();
+
   expect(
     (
       await addUser(
         {
-          userId,
           slug,
           roleId: 99,
           email: faker.internet.email(),
           name: faker.person.firstName(),
         },
-        context,
+        { ...context, user: Some(user) },
       )
     ).unwrapErr(),
   ).toBeInstanceOf(InputError);
@@ -134,17 +174,31 @@ test('Throws on non-existent role', async () => {
 
 test('Throw on non-existent workspace', async () => {
   const context = await getTestContext();
+  const { userId } = (
+    await signup(
+      {
+        name: faker.person.firstName(),
+        email: faker.internet.email(),
+        workspaceName: faker.company.name(),
+        password: 'password',
+        confirmPassword: 'password',
+      },
+      context,
+    )
+  ).unwrap();
+
+  const user = (await getUserById({ id: userId }, context)).unwrap();
+
   expect(
     (
       await addUser(
         {
-          userId: 1,
           slug: slugify(faker.company.name()),
           roleId: 1,
           email: faker.internet.email(),
           name: faker.person.firstName(),
         },
-        context,
+        { ...context, user: Some(user) },
       )
     ).unwrapErr(),
   ).toBeInstanceOf(InputError);
@@ -170,19 +224,20 @@ test('Throw on adding existing member', async () => {
     )
   ).unwrap();
 
-  const roles = await getRoles({ slug, userId }, context);
+  const user = (await getUserById({ id: userId }, context)).unwrap();
+
+  const roles = await getRoles({ slug }, { ...context, user: Some(user) });
 
   expect(
     (
       await addUser(
         {
-          userId,
           slug,
           roleId: roles[0]?.id,
           email,
           name,
         },
-        context,
+        { ...context, user: Some(user) },
       )
     ).unwrapErr(),
   ).toBeInstanceOf(InputError);
@@ -206,26 +261,28 @@ test('Add new user', async () => {
     )
   ).unwrap();
 
-  const roles = await getRoles({ slug, userId }, context);
+  const user = (await getUserById({ id: userId }, context)).unwrap();
+
+  const roles = await getRoles({ slug }, { ...context, user: Some(user) });
+
   const name = faker.person.firstName();
   const email = faker.internet.email();
 
   (
     await addUser(
       {
-        userId,
         slug,
         roleId: roles[0]?.id,
         email,
         name,
       },
-      context,
+      { ...context, user: Some(user) },
     )
   ).unwrap();
 
-  const user = (await getUserByEmail({ email }, context)).unwrap();
+  const newUser = (await getUserByEmail({ email }, context)).unwrap();
 
-  expect(user.name).toBe(name);
+  expect(newUser.name).toBe(name);
 
   const emailRecord = await db.query.emails.findFirst({
     where: eq(emails.to, email.toLowerCase()),
