@@ -9,7 +9,7 @@ import type { Route } from './+types/workspaces.$slug';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
-  const { session } = ctx;
+  const { session, permissions } = ctx;
 
   const workspace = await getWorkspaceBySlug({ slug: params.slug }, ctx);
 
@@ -22,7 +22,7 @@ export async function loader({ context, params }: Route.LoaderArgs) {
   }
 
   return data(
-    { workspace: workspace.value },
+    { workspace: workspace.value, permissions },
     {
       headers: {
         'Set-Cookie': await commitSession(session),
@@ -32,7 +32,7 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 }
 
 export default function workspaces({ loaderData }: Route.ComponentProps) {
-  const { workspace } = loaderData;
+  const { workspace, permissions } = loaderData;
   const { slug } = workspace;
 
   return (
@@ -43,35 +43,41 @@ export default function workspaces({ loaderData }: Route.ComponentProps) {
         </Link>
 
         <ul className="menu w-56 rounded-box bg-base-200">
-          <li>
-            <details open>
-              <summary>
-                <FaLock /> Authorization
-              </summary>
-              <ul>
-                <li>
-                  <NavLink
-                    to={`/workspaces/${slug}/users`}
-                    className={({ isActive }) =>
-                      isActive ? 'menu-active' : ''
-                    }
-                  >
-                    <FaUsers /> Users
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink
-                    to={`/workspaces/${workspace.slug}/roles`}
-                    className={({ isActive }) =>
-                      isActive ? 'menu-active' : ''
-                    }
-                  >
-                    <FaShield /> Roles
-                  </NavLink>
-                </li>
-              </ul>
-            </details>
-          </li>
+          {(permissions.users.read || permissions.roles.read) && (
+            <li>
+              <details open>
+                <summary>
+                  <FaLock /> Authorization
+                </summary>
+                <ul>
+                  {permissions.users.read && (
+                    <li>
+                      <NavLink
+                        to={`/workspaces/${slug}/users`}
+                        className={({ isActive }) =>
+                          isActive ? 'menu-active' : ''
+                        }
+                      >
+                        <FaUsers /> Users
+                      </NavLink>
+                    </li>
+                  )}
+                  {permissions.roles.read && (
+                    <li>
+                      <NavLink
+                        to={`/workspaces/${workspace.slug}/roles`}
+                        className={({ isActive }) =>
+                          isActive ? 'menu-active' : ''
+                        }
+                      >
+                        <FaShield /> Roles
+                      </NavLink>
+                    </li>
+                  )}
+                </ul>
+              </details>
+            </li>
+          )}
         </ul>
       </aside>
       <div className="flex-1 overflow-x-auto p-2">
