@@ -3,7 +3,7 @@ import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { emailTemplates } from '~/.server/data';
 import { db } from '~/.server/db';
-import { userWorkspaceRoles, users, workspaces } from '~/.server/db/schema';
+import { userWorkspaces, users, workspaces } from '~/.server/db/schema';
 import { type ApiError, InputError } from '~/.server/errors';
 import { getEmailTemplateId, sendEmail } from '../email';
 
@@ -18,35 +18,35 @@ export async function sendInviteEmail(
 ): Promise<Result<void, ApiError>> {
   const { tx, config } = context;
 
-  const roles = await (tx || db)
+  const rows = await (tx || db)
     .select({
-      accepted: userWorkspaceRoles.accepted,
+      accepted: userWorkspaces.accepted,
       name: users.name,
       email: users.email,
       passwordHash: users.passwordHash,
     })
-    .from(userWorkspaceRoles)
+    .from(userWorkspaces)
     .innerJoin(
       workspaces,
       and(
-        eq(workspaces.id, userWorkspaceRoles.workspaceId),
+        eq(workspaces.id, userWorkspaces.workspaceId),
         eq(workspaces.slug, slug),
       ),
     )
-    .innerJoin(users, eq(users.id, userWorkspaceRoles.userId))
-    .where(eq(userWorkspaceRoles.userId, userId));
+    .innerJoin(users, eq(users.id, userWorkspaces.userId))
+    .where(eq(userWorkspaces.userId, userId));
 
-  if (!roles || roles.length === 0) {
+  if (!rows || rows.length === 0) {
     return Err(new InputError('User does not belong to workspace'));
   }
 
-  const role = roles[0];
+  const row = rows[0];
 
-  if (role.accepted) {
+  if (row.accepted) {
     return Err(new InputError('User already accepted invitation'));
   }
 
-  const signedUp = !!role.passwordHash;
+  const signedUp = !!row.passwordHash;
   if (signedUp) {
     const templateId = await getEmailTemplateId(
       {
@@ -62,10 +62,10 @@ export async function sendInviteEmail(
 
     await sendEmail(
       {
-        to: role.email,
+        to: row.email,
         templateId: templateId.value,
         vars: {
-          name: role.name,
+          name: row.name,
           login_link: `${config.BASE_URL}/workspaces`,
         },
       },
@@ -86,12 +86,12 @@ export async function sendInviteEmail(
 
     await sendEmail(
       {
-        to: role.email,
+        to: row.email,
         templateId: templateId.value,
         vars: {
-          name: role.name,
+          name: row.name,
           signup_link: `${config.BASE_URL}/signup?email=${encodeURIComponent(
-            role.email,
+            row.email,
           )}`,
         },
       },

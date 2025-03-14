@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { None, type Option, Some } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
-import { userWorkspaceRoles, workspaces } from '~/.server/db/schema';
+import { userWorkspaces, workspaces } from '~/.server/db/schema';
 
 type Workspace = typeof workspaces.$inferSelect;
 
@@ -19,15 +19,15 @@ export async function getWorkspaceBySlug(
 
   const rows = await (tx || db)
     .select()
-    .from(userWorkspaceRoles)
+    .from(userWorkspaces)
     .innerJoin(
       workspaces,
       and(
-        eq(workspaces.id, userWorkspaceRoles.workspaceId),
+        eq(workspaces.id, userWorkspaces.workspaceId),
         eq(workspaces.slug, slug),
       ),
     )
-    .where(eq(userWorkspaceRoles.userId, user.id))
+    .where(eq(userWorkspaces.userId, user.id))
     .limit(1);
 
   if (!rows || !rows.length) {

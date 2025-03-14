@@ -12,6 +12,7 @@ import {
   defaultUserPermissions,
 } from '~/.server/permissions';
 
+// TODO: this should take slug
 export async function getPermissions(context: Context): Promise<Permissions> {
   const { tx } = context;
   const user = context.user.unwrap();

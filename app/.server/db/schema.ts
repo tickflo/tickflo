@@ -38,7 +38,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.updatedBy],
     references: [users.id],
   }),
-  workspaces: many(workspaces),
+  workspaces: many(userWorkspaces),
   roles: many(userWorkspaceRoles),
 }));
 
@@ -159,6 +159,41 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   emailTemplates: many(emailTemplates),
 }));
 
+export const userWorkspaces = pgTable(
+  'user_workspaces',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    workspaceId: integer('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    accepted: boolean().notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: integer('created_by')
+      .notNull()
+      .references(() => users.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+      () => new Date(),
+    ),
+    updatedBy: integer('updated_by').references(() => users.id),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.workspaceId] })],
+);
+
+export const userWorkspacesRelations = relations(userWorkspaces, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [userWorkspaces.workspaceId],
+    references: [workspaces.id],
+  }),
+  user: one(users, {
+    fields: [userWorkspaces.userId],
+    references: [users.id],
+  }),
+}));
+
 export const roles = pgTable('roles', {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   workspaceId: integer('workspace_id')
@@ -193,7 +228,6 @@ export const userWorkspaceRoles = pgTable(
     roleId: integer('role_id')
       .notNull()
       .references(() => roles.id),
-    accepted: boolean().notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -201,7 +235,9 @@ export const userWorkspaceRoles = pgTable(
       .notNull()
       .references(() => users.id),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.workspaceId] })],
+  (table) => [
+    primaryKey({ columns: [table.userId, table.workspaceId, table.roleId] }),
+  ],
 );
 
 export const userWorkspaceRolesRelations = relations(

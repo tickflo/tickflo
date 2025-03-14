@@ -37,7 +37,7 @@ test('Throws on invalid name', async () => {
       await addUser(
         {
           slug: 'foo-bar',
-          roleId: 1,
+          roleIds: [1],
           email: faker.internet.email(),
           name: undefined,
         },
@@ -51,7 +51,7 @@ test('Throws on invalid name', async () => {
       await addUser(
         {
           slug: 'foo-bar',
-          roleId: 1,
+          roleIds: [1],
           email: faker.internet.email(),
           name: faker.string.alpha({ length: config.USER.MIN_NAME_LENGTH - 1 }),
         },
@@ -65,7 +65,7 @@ test('Throws on invalid name', async () => {
       await addUser(
         {
           slug: 'foo-bar',
-          roleId: 1,
+          roleIds: [1],
           email: faker.internet.email(),
           name: faker.string.alpha({ length: config.USER.MAX_NAME_LENGTH + 1 }),
         },
@@ -96,7 +96,7 @@ test('Throws on invalid email', async () => {
       await addUser(
         {
           slug: 'foo-bar',
-          roleId: 1,
+          roleIds: [1],
           email: undefined,
           name: faker.person.firstName(),
         },
@@ -127,7 +127,7 @@ test('Throws on invalid roleId', async () => {
       await addUser(
         {
           slug: 'foo-bar',
-          roleId: Number.NaN,
+          roleIds: [Number.NaN],
           email: faker.internet.email(),
           name: faker.person.firstName(),
         },
@@ -162,7 +162,7 @@ test('Throws on non-existent role', async () => {
       await addUser(
         {
           slug,
-          roleId: 99,
+          roleIds: [99],
           email: faker.internet.email(),
           name: faker.person.firstName(),
         },
@@ -194,7 +194,7 @@ test('Throw on non-existent workspace', async () => {
       await addUser(
         {
           slug: slugify(faker.company.name()),
-          roleId: 1,
+          roleIds: [1],
           email: faker.internet.email(),
           name: faker.person.firstName(),
         },
@@ -233,7 +233,7 @@ test('Throw on adding existing member', async () => {
       await addUser(
         {
           slug,
-          roleId: roles[0]?.id,
+          roleIds: [roles[0]?.id],
           email,
           name,
         },
@@ -274,7 +274,7 @@ test('Add new user', async () => {
     await addUser(
       {
         slug,
-        roleId: roles[0]?.id,
+        roleIds: [roles[0]?.id],
         email,
         name,
       },

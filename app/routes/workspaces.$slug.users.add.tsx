@@ -37,9 +37,15 @@ export async function action({ context, request, params }: Route.ActionArgs) {
   const formData = await request.formData();
   const name = formData.get('name')?.toString();
   const email = formData.get('email')?.toString();
-  const roleId = Number.parseInt(formData.get('role')?.toString() || '', 10);
+  const roleIds = formData
+    .getAll('roles')
+    .map((v) => Number.parseInt(v.toString(), 10));
 
-  const result = await addUser({ slug: params.slug, name, email, roleId }, ctx);
+  const result = await addUser(
+    { slug: params.slug, name, email, roleIds },
+    ctx,
+  );
+
   if (result.isErr()) {
     return data({ error: result.error.message });
   }
@@ -84,16 +90,21 @@ export default function workspaceAddUser({
               placeholder="Email"
               required
             />
-            <label htmlFor="role" className="fieldset-label">
-              Role
+            <label htmlFor="roles" className="fieldset-label">
+              Roles
             </label>
-            <select id="role" name="role" className="select w-full">
+            <div className="flex max-w-full flex-wrap gap-3">
               {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.role}
-                </option>
+                <input
+                  type="checkbox"
+                  className="btn"
+                  key={r.id}
+                  aria-label={r.role}
+                  value={r.id}
+                  name="roles"
+                />
               ))}
-            </select>
+            </div>
             {errorMessage && <ErrorAlert message={errorMessage} />}
           </fieldset>
           <div className="modal-action">

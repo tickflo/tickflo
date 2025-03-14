@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '../../db';
-import { roles, userWorkspaceRoles, users } from '../../db/schema';
+import { userWorkspaceRoles, userWorkspaces, users } from '../../db/schema';
 import { ApiError, InputError, PermissionsError } from '../../errors';
 import { getUserByEmail } from '../user';
 import { getWorkspaceBySlug } from './get-workspace-by-slug';
@@ -12,13 +12,13 @@ import { sendInviteEmail } from './send-invite-email';
 export async function addUser(
   {
     slug,
-    roleId,
+    roleIds,
     ...request
   }: {
     slug: string;
     name: string | undefined;
     email: string | undefined;
-    roleId: number;
+    roleIds: number[];
   },
   context: Context,
 ): Promise<Result<void, InputError>> {
@@ -49,8 +49,10 @@ export async function addUser(
     return Err(new InputError('Email is required'));
   }
 
-  if (Number.isNaN(roleId)) {
-    return Err(new InputError('Invalid Role'));
+  for (const roleId of roleIds) {
+    if (Number.isNaN(roleId)) {
+      return Err(new InputError('Invalid Role'));
+    }
   }
 
   const workspace = await getWorkspaceBySlug({ slug }, context);
@@ -59,24 +61,16 @@ export async function addUser(
     return Err(new InputError(`Workspace ${slug} does not exist`));
   }
 
-  const role = await db.query.roles.findFirst({
-    where: and(eq(roles.workspaceId, workspace.value.id), eq(roles.id, roleId)),
-  });
-
-  if (!role) {
-    return Err(new InputError('Role not found'));
-  }
-
-  const existingWorkspaceUserRole = await db
+  const existingWorkspace = await db
     .select({ id: users.id })
-    .from(userWorkspaceRoles)
+    .from(userWorkspaces)
     .innerJoin(
       users,
-      and(eq(users.email, email), eq(users.id, userWorkspaceRoles.userId)),
+      and(eq(users.email, email), eq(users.id, userWorkspaces.userId)),
     )
-    .where(eq(userWorkspaceRoles.workspaceId, workspace.value.id));
+    .where(eq(userWorkspaces.workspaceId, workspace.value.id));
 
-  if (existingWorkspaceUserRole && existingWorkspaceUserRole.length > 0) {
+  if (existingWorkspace && existingWorkspace.length > 0) {
     return Err(
       new InputError(`${email} is already a member of this workspace`),
     );
@@ -85,12 +79,20 @@ export async function addUser(
   const existing = await getUserByEmail({ email }, context);
   if (existing.isSome()) {
     return await db.transaction(async (tx) => {
-      await tx.insert(userWorkspaceRoles).values({
+      await tx.insert(userWorkspaces).values({
         userId: existing.value.id,
         workspaceId: workspace.value.id,
-        roleId: role.id,
         createdBy: user.id,
       });
+
+      await tx.insert(userWorkspaceRoles).values(
+        roleIds.map((id) => ({
+          roleId: id,
+          userId: existing.value.id,
+          workspaceId: workspace.value.id,
+          createdBy: user.id,
+        })),
+      );
 
       const result = await sendInviteEmail(
         { userId: existing.value.id, slug },
@@ -123,12 +125,30 @@ export async function addUser(
 
     const newUser = userRows[0];
 
-    await tx.insert(userWorkspaceRoles).values({
+    await tx.insert(userWorkspaces).values({
       userId: newUser.id,
       workspaceId: workspace.value.id,
-      roleId: role.id,
       createdBy: user.id,
     });
+
+    try {
+      await tx.insert(userWorkspaceRoles).values(
+        roleIds.map((id) => ({
+          userId: newUser.id,
+          workspaceId: workspace.value.id,
+          roleId: id,
+          createdBy: user.id,
+        })),
+      );
+    } catch (e) {
+      if (e instanceof Error) {
+        if (e.message.indexOf('foreign key') > -1) {
+          return Err(new InputError('Invalid role id'));
+        }
+
+        throw e;
+      }
+    }
 
     const result = await sendInviteEmail(
       { userId: newUser.id, slug },

@@ -1,0 +1,2 @@
+ALTER TABLE "user_workspace_roles" DROP CONSTRAINT "user_workspace_roles_user_id_workspace_id_pk";--> statement-breakpoint
+ALTER TABLE "user_workspace_roles" ADD CONSTRAINT "user_workspace_roles_user_id_workspace_id_role_id_pk" PRIMARY KEY("user_id","workspace_id","role_id");

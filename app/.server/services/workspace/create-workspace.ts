@@ -6,6 +6,7 @@ import {
   emailTemplates,
   roles,
   userWorkspaceRoles,
+  userWorkspaces,
   workspaces,
 } from '~/.server/db/schema';
 import {
@@ -103,10 +104,15 @@ export async function createWorkspace(
     context,
   );
 
+  await (tx || db).insert(userWorkspaces).values({
+    userId: user.id,
+    workspaceId: workspace.id,
+    createdBy: user.id,
+  });
+
   await (tx || db).insert(userWorkspaceRoles).values({
     userId: user.id,
     workspaceId: workspace.id,
-    accepted: true,
     roleId: adminRole.id,
     createdBy: user.id,
   });

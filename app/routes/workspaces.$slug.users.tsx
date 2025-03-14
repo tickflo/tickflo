@@ -57,7 +57,7 @@ export default function workspaceUsers({
                 <FaEnvelope className="inline pb-1" /> Email
               </th>
               <th>
-                <FaShield className="inline pb-1" /> Role
+                <FaShield className="inline pb-1" /> Roles
               </th>
             </tr>
           </thead>
@@ -106,7 +106,13 @@ export default function workspaceUsers({
                     </div>
                   )}
                 </td>
-                <td> {user.role} </td>
+                <td className="flex max-w-md flex-wrap gap-2">
+                  {user.roles.map((role) => (
+                    <div className="badge badge-soft" key={role}>
+                      {role}
+                    </div>
+                  ))}
+                </td>
               </tr>
             ))}
           </tbody>

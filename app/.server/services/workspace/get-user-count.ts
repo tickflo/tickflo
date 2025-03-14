@@ -1,12 +1,7 @@
 import { and, count, eq } from 'drizzle-orm';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
-import {
-  roles,
-  userWorkspaceRoles,
-  users,
-  workspaces,
-} from '~/.server/db/schema';
+import { userWorkspaces, users, workspaces } from '~/.server/db/schema';
 
 export async function getUserCount(
   { slug }: { slug: string },
@@ -19,15 +14,14 @@ export async function getUserCount(
       count: count(),
     })
     .from(users)
-    .innerJoin(userWorkspaceRoles, eq(userWorkspaceRoles.userId, users.id))
+    .innerJoin(userWorkspaces, eq(userWorkspaces.userId, users.id))
     .innerJoin(
       workspaces,
       and(
-        eq(workspaces.id, userWorkspaceRoles.workspaceId),
+        eq(workspaces.id, userWorkspaces.workspaceId),
         eq(workspaces.slug, slug),
       ),
-    )
-    .innerJoin(roles, eq(roles.id, userWorkspaceRoles.roleId));
+    );
 
   if (result.length === 0) {
     return 0;

@@ -36,6 +36,20 @@
       "when": 1741809785393,
       "tag": "0004_quiet_drax",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1741980946081,
+      "tag": "0005_chunky_naoko",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1741982363859,
+      "tag": "0006_messy_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

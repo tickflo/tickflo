@@ -131,7 +131,7 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
         slug,
         email,
         name: faker.person.firstName(),
-        roleId: roles[0].id,
+        roleIds: [roles[0].id],
       },
       { ...context, user: Some(user) },
     )
@@ -179,7 +179,7 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
         slug,
         email,
         name: faker.person.firstName(),
-        roleId: roles[0].id,
+        roleIds: [roles[0].id],
       },
       { ...context, user: Some(user) },
     )

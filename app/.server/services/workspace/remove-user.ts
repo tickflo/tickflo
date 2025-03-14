@@ -3,7 +3,7 @@ import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { emailTemplates } from '~/.server/data';
 import { db } from '~/.server/db';
-import { userWorkspaceRoles, users } from '~/.server/db/schema';
+import { userWorkspaceRoles, userWorkspaces, users } from '~/.server/db/schema';
 import { type ApiError, InputError, PermissionsError } from '~/.server/errors';
 import { getEmailTemplateId, sendEmail } from '../email';
 import { getUserCount } from './get-user-count';
@@ -44,12 +44,12 @@ export async function removeUser(
 
   const rows = await (tx || db)
     .select({ id: users.id, email: users.email, name: users.name })
-    .from(userWorkspaceRoles)
+    .from(userWorkspaces)
     .innerJoin(
       users,
-      and(eq(users.id, userId), eq(users.id, userWorkspaceRoles.userId)),
+      and(eq(users.id, userId), eq(users.id, userWorkspaces.userId)),
     )
-    .where(eq(userWorkspaceRoles.workspaceId, workspace.value.id));
+    .where(eq(userWorkspaces.workspaceId, workspace.value.id));
 
   if (rows.length === 0) {
     return Err(new InputError('User is not a member of this workspace'));
@@ -64,6 +64,15 @@ export async function removeUser(
         and(
           eq(userWorkspaceRoles.userId, userId),
           eq(userWorkspaceRoles.workspaceId, workspace.value.id),
+        ),
+      );
+
+    await tx
+      .delete(userWorkspaces)
+      .where(
+        and(
+          eq(userWorkspaces.userId, userId),
+          eq(userWorkspaces.workspaceId, workspace.value.id),
         ),
       );
 

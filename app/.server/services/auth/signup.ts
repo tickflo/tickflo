@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { Err, Ok, type Result, Some } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
-import { userWorkspaceRoles, users, workspaces } from '~/.server/db/schema';
+import { userWorkspaces, users, workspaces } from '~/.server/db/schema';
 import { ApiError, InputError } from '../../errors';
 import { createWorkspace } from '../workspace';
 import { createToken } from './create-token';
@@ -182,9 +182,9 @@ async function signupInvitee(
     const user = result[0];
 
     await tx
-      .update(userWorkspaceRoles)
+      .update(userWorkspaces)
       .set({ accepted: true })
-      .where(eq(userWorkspaceRoles.userId, userId));
+      .where(eq(userWorkspaces.userId, userId));
 
     const token = await createToken({ ...context, tx, user: Some(user) });
 
