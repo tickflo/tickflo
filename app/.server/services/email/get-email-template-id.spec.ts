@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { and, eq } from 'drizzle-orm';
+import { Some } from 'ts-results-es';
 import { expect, test } from 'vitest';
 import { getTestContext } from '~/.server/context';
 import { emailTemplates as templates } from '~/.server/data';
@@ -7,6 +8,7 @@ import { slugify } from '~/utils/slugify';
 import { db } from '../../db';
 import { emailTemplates } from '../../db/schema';
 import { signup } from '../auth';
+import { getUserById } from '../user';
 import { getWorkspaceBySlug } from '../workspace';
 import { getEmailTemplateId } from './get-email-template-id';
 
@@ -59,7 +61,7 @@ test('Return None for missing template', async () => {
   const workspaceName = faker.company.name();
   const slug = slugify(workspaceName);
 
-  (
+  const { userId } = (
     await signup(
       {
         name: faker.person.firstName(),
@@ -72,7 +74,11 @@ test('Return None for missing template', async () => {
     )
   ).unwrap();
 
-  const workspace = (await getWorkspaceBySlug({ slug }, context)).unwrap();
+  const user = (await getUserById({ id: userId }, context)).unwrap();
+
+  const workspace = (
+    await getWorkspaceBySlug({ slug }, { ...context, user: Some(user) })
+  ).unwrap();
 
   await db
     .delete(emailTemplates)

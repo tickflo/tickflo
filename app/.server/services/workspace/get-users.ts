@@ -8,6 +8,7 @@ import {
   workspaces,
 } from '~/.server/db/schema';
 import { loginRedirect } from '~/.server/helpers';
+import { getPermissions } from '../security';
 
 type User = {
   id: number;
@@ -27,10 +28,7 @@ export async function getUsers(
     throw loginRedirect(session);
   }
 
-  const _permissions = getPermissionsForUserId(
-    { userId: user.value.id },
-    context,
-  );
+  const _permissions = getPermissions(context);
 
   return (tx || db)
     .select({
