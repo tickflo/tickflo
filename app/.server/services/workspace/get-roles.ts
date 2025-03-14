@@ -4,6 +4,7 @@ import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { type ApiError, PermissionsError } from '~/.server/errors';
 import { roles, type roles as rolesType, workspaces } from '../../db/schema';
+import { getPermissions } from '../security';
 
 type Role = typeof rolesType.$inferSelect;
 
@@ -11,8 +12,9 @@ export async function getRoles(
   { slug }: { slug: string },
   context: Context,
 ): Promise<Result<Role[], ApiError>> {
-  const { tx, permissions } = context;
+  const { tx } = context;
 
+  const permissions = await getPermissions({ slug }, context);
   if (!permissions.roles.read) {
     return Err(
       new PermissionsError('You do not have permission to view roles'),

@@ -10,6 +10,7 @@ import {
   workspaces,
 } from '~/.server/db/schema';
 import { type ApiError, PermissionsError } from '~/.server/errors';
+import { getPermissions } from '../security';
 
 type User = {
   id: number;
@@ -23,8 +24,9 @@ export async function getUsers(
   { slug }: { slug: string },
   context: Context,
 ): Promise<Result<User[], ApiError>> {
-  const { tx, permissions } = context;
+  const { tx } = context;
 
+  const permissions = await getPermissions({ slug }, context);
   if (!permissions.users.read) {
     return Err(
       new PermissionsError('You do not have permission to view users'),

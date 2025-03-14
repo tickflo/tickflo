@@ -6,14 +6,17 @@ import {
   rolePermissions,
   roles,
   userWorkspaceRoles,
+  workspaces,
 } from '~/.server/db/schema';
 import {
   type Permissions,
   defaultUserPermissions,
 } from '~/.server/permissions';
 
-// TODO: this should take slug
-export async function getPermissions(context: Context): Promise<Permissions> {
+export async function getPermissions(
+  { slug }: { slug: string },
+  context: Context,
+): Promise<Permissions> {
   const { tx } = context;
   const user = context.user.unwrap();
 
@@ -33,6 +36,13 @@ export async function getPermissions(context: Context): Promise<Permissions> {
       and(
         eq(userWorkspaceRoles.userId, user.id),
         eq(userWorkspaceRoles.roleId, roles.id),
+      ),
+    )
+    .innerJoin(
+      workspaces,
+      and(
+        eq(workspaces.id, userWorkspaceRoles.workspaceId),
+        eq(workspaces.slug, slug),
       ),
     );
 

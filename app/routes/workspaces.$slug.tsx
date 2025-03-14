@@ -2,6 +2,7 @@ import { FaLock, FaUsers } from 'react-icons/fa';
 import { FaShield } from 'react-icons/fa6';
 import { Link, NavLink, Outlet, data } from 'react-router';
 import { errorRedirect } from '~/.server/helpers';
+import { getPermissions } from '~/.server/services/security';
 import { getWorkspaceBySlug } from '~/.server/services/workspace';
 import { commitSession } from '~/.server/session';
 import { appContext } from '~/app-context';
@@ -9,9 +10,10 @@ import type { Route } from './+types/workspaces.$slug';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
-  const { session, permissions } = ctx;
+  const { session } = ctx;
 
   const workspace = await getWorkspaceBySlug({ slug: params.slug }, ctx);
+  const permissions = await getPermissions({ slug: params.slug }, ctx);
 
   if (workspace.isNone()) {
     return errorRedirect(

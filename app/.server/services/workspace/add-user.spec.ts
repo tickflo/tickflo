@@ -15,6 +15,8 @@ import { getRoles } from './get-roles';
 
 test('Throws on invalid name', async () => {
   const context = await getTestContext();
+  const workspaceName = faker.company.name();
+  const slug = slugify(workspaceName);
   const { config } = context;
 
   const { userId } = (
@@ -22,7 +24,7 @@ test('Throws on invalid name', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
-        workspaceName: faker.company.name(),
+        workspaceName,
         password: 'password',
         confirmPassword: 'password',
       },
@@ -36,7 +38,7 @@ test('Throws on invalid name', async () => {
     (
       await addUser(
         {
-          slug: 'foo-bar',
+          slug,
           roleIds: [1],
           email: faker.internet.email(),
           name: undefined,
@@ -50,7 +52,7 @@ test('Throws on invalid name', async () => {
     (
       await addUser(
         {
-          slug: 'foo-bar',
+          slug,
           roleIds: [1],
           email: faker.internet.email(),
           name: faker.string.alpha({ length: config.USER.MIN_NAME_LENGTH - 1 }),
@@ -64,7 +66,7 @@ test('Throws on invalid name', async () => {
     (
       await addUser(
         {
-          slug: 'foo-bar',
+          slug,
           roleIds: [1],
           email: faker.internet.email(),
           name: faker.string.alpha({ length: config.USER.MAX_NAME_LENGTH + 1 }),
@@ -76,13 +78,15 @@ test('Throws on invalid name', async () => {
 });
 
 test('Throws on invalid email', async () => {
+  const workspaceName = faker.company.name();
+  const slug = slugify(workspaceName);
   const context = await getTestContext();
   const { userId } = (
     await signup(
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
-        workspaceName: faker.company.name(),
+        workspaceName,
         password: 'password',
         confirmPassword: 'password',
       },
@@ -95,7 +99,7 @@ test('Throws on invalid email', async () => {
     (
       await addUser(
         {
-          slug: 'foo-bar',
+          slug,
           roleIds: [1],
           email: undefined,
           name: faker.person.firstName(),
@@ -107,13 +111,15 @@ test('Throws on invalid email', async () => {
 });
 
 test('Throws on invalid roleId', async () => {
+  const workspaceName = faker.company.name();
+  const slug = slugify(workspaceName);
   const context = await getTestContext();
   const { userId } = (
     await signup(
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
-        workspaceName: faker.company.name(),
+        workspaceName,
         password: 'password',
         confirmPassword: 'password',
       },
@@ -126,7 +132,7 @@ test('Throws on invalid roleId', async () => {
     (
       await addUser(
         {
-          slug: 'foo-bar',
+          slug,
           roleIds: [Number.NaN],
           email: faker.internet.email(),
           name: faker.person.firstName(),
@@ -225,8 +231,9 @@ test('Throw on adding existing member', async () => {
   ).unwrap();
 
   const user = (await getUserById({ id: userId }, context)).unwrap();
-
-  const roles = await getRoles({ slug }, { ...context, user: Some(user) });
+  const roles = (
+    await getRoles({ slug }, { ...context, user: Some(user) })
+  ).unwrap();
 
   expect(
     (

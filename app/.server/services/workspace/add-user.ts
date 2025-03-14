@@ -5,6 +5,7 @@ import type { Context } from '~/.server/context';
 import { db } from '../../db';
 import { userWorkspaceRoles, userWorkspaces, users } from '../../db/schema';
 import { ApiError, InputError, PermissionsError } from '../../errors';
+import { getPermissions } from '../security';
 import { getUserByEmail } from '../user';
 import { getWorkspaceBySlug } from './get-workspace-by-slug';
 import { sendInviteEmail } from './send-invite-email';
@@ -25,8 +26,9 @@ export async function addUser(
   const name = request.name?.toString().trim();
   const email = request.email?.toString().trim().toLowerCase();
 
-  const { config, permissions } = context;
+  const { config } = context;
 
+  const permissions = await getPermissions({ slug }, context);
   if (!permissions.users.create) {
     return Err(new PermissionsError('You do not have permission to add users'));
   }
@@ -47,6 +49,10 @@ export async function addUser(
 
   if (!email) {
     return Err(new InputError('Email is required'));
+  }
+
+  if (!roleIds.length) {
+    return Err(new InputError('You must select at least one role'));
   }
 
   for (const roleId of roleIds) {
