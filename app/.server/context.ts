@@ -4,7 +4,7 @@ import config from './config';
 import type { TransactionType } from './db';
 import type { users } from './db/schema';
 import { type PreferencesData, getPreferences } from './preferences';
-import { getUserById } from './services/user';
+import { getUserForAccessToken } from './services/user';
 import { type SessionData, type SessionFlashData, getSession } from './session';
 
 type User = typeof users.$inferSelect;
@@ -21,6 +21,7 @@ export async function getContext(request: Request): Promise<Context> {
   const cookie = request.headers.get('Cookie');
   const session = await getSession(cookie);
   const userId = session.get('userId');
+  const token = session.get('accessToken');
 
   const context = {
     session,
@@ -30,8 +31,8 @@ export async function getContext(request: Request): Promise<Context> {
     user: None,
   };
 
-  if (userId) {
-    const user = await getUserById({ id: userId }, context);
+  if (userId && token) {
+    const user = await getUserForAccessToken({ token }, context);
 
     return {
       ...context,

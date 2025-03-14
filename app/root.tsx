@@ -36,7 +36,7 @@ const auth: Route.unstable_MiddlewareFunction = async (
 ) => {
   const url = new URL(request.url);
   const ctx = await getContext(request);
-  if (isAuthRequired(url) && !ctx.session.get('userId')) {
+  if (isAuthRequired(url) && ctx.user.isNone()) {
     if (url.pathname === '/') {
       throw await loginRedirect(ctx.session, request.url, '');
     }

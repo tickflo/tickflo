@@ -42,7 +42,7 @@ export default function workspaceRoles({ loaderData }: Route.ComponentProps) {
           </label>
         </div>
         <div>
-          <button className="btn btn-success" type="button">
+          <button className="btn btn-primary btn-sm" type="button">
             <FaPlus /> Add Role
           </button>
         </div>
