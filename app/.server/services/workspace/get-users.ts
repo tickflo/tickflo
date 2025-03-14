@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm';
+import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import {
@@ -7,6 +8,7 @@ import {
   users,
   workspaces,
 } from '~/.server/db/schema';
+import { type ApiError, PermissionsError } from '~/.server/errors';
 
 type User = {
   id: number;
@@ -19,10 +21,16 @@ type User = {
 export async function getUsers(
   { slug }: { slug: string },
   context: Context,
-): Promise<User[]> {
-  const { tx } = context;
+): Promise<Result<User[], ApiError>> {
+  const { tx, permissions } = context;
 
-  return (tx || db)
+  if (!permissions.users.read) {
+    return Err(
+      new PermissionsError('You do not have permission to view users'),
+    );
+  }
+
+  const rows = await (tx || db)
     .select({
       id: users.id,
       name: users.name,
@@ -40,4 +48,6 @@ export async function getUsers(
       ),
     )
     .innerJoin(roles, eq(roles.id, userWorkspaceRoles.roleId));
+
+  return Ok(rows);
 }

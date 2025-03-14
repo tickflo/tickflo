@@ -4,7 +4,7 @@ import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '../../db';
 import { roles, userWorkspaceRoles, users } from '../../db/schema';
-import { ApiError, InputError } from '../../errors';
+import { ApiError, InputError, PermissionsError } from '../../errors';
 import { getUserByEmail } from '../user';
 import { getWorkspaceBySlug } from './get-workspace-by-slug';
 import { sendInviteEmail } from './send-invite-email';
@@ -25,7 +25,11 @@ export async function addUser(
   const name = request.name?.toString().trim();
   const email = request.email?.toString().trim().toLowerCase();
 
-  const { config } = context;
+  const { config, permissions } = context;
+
+  if (!permissions.users.create) {
+    return Err(new PermissionsError('You do not have permission to add users'));
+  }
 
   const user = context.user.unwrap();
 

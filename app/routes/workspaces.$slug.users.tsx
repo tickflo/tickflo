@@ -1,6 +1,7 @@
 import { FaEnvelope, FaPlus, FaSearch, FaTrash, FaUsers } from 'react-icons/fa';
 import { FaBoltLightning, FaPencil, FaPerson, FaShield } from 'react-icons/fa6';
 import { Link, Outlet, data, href } from 'react-router';
+import { errorRedirect } from '~/.server/helpers';
 import { getUsers } from '~/.server/services/workspace';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces.$slug.users';
@@ -9,8 +10,11 @@ export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
 
   const users = await getUsers({ slug: params.slug }, ctx);
+  if (users.isErr()) {
+    return errorRedirect(ctx.session, users.error.message, '..');
+  }
 
-  return data({ users });
+  return data({ users: users.value });
 }
 
 export default function workspaceUsers({

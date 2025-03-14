@@ -4,31 +4,24 @@ import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { users } from '~/.server/db/schema';
 import { InputError } from '~/.server/errors';
-import { getUserByEmail } from '../user';
 
 type Request = {
-  email: string | null | undefined;
   code: string | null | undefined;
 };
 
 export async function confirmEmail(
-  { email, code }: Request,
+  { code }: Request,
   context: Context,
 ): Promise<Result<void, InputError>> {
-  if (!email || !code) {
-    return Err(
-      new InputError('Email address and confirmation code are required'),
-    );
+  if (!code) {
+    return Err(new InputError('Confirmation code is required'));
   }
 
   const { tx } = context;
 
-  const user = await getUserByEmail({ email }, context);
-  if (user.isNone()) {
-    return Err(new InputError('User not found'));
-  }
+  const user = context.user.unwrap();
 
-  if (user.value.emailConfirmed || user.value.emailConfirmationCode !== code) {
+  if (user.emailConfirmed || user.emailConfirmationCode !== code) {
     return Err(new InputError('Invalid email or confirmation code'));
   }
 
@@ -38,7 +31,7 @@ export async function confirmEmail(
       emailConfirmed: true,
       emailConfirmationCode: null,
     })
-    .where(eq(users.email, email.toLowerCase()));
+    .where(eq(users.id, user.id));
 
   return Ok.EMPTY;
 }

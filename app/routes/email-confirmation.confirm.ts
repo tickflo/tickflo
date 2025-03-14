@@ -7,12 +7,11 @@ import type { Route } from './+types/email-confirmation.confirm';
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
 
-  const email = url.searchParams.get('email');
   const code = url.searchParams.get('code');
   const context = await getContext(request);
   const { session } = context;
 
-  await confirmEmail({ email, code }, context);
+  await confirmEmail({ code }, context);
   session.flash('message', 'Email address confirmed!');
 
   return redirect('/', {

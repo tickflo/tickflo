@@ -1,6 +1,5 @@
 import { FaCheck, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
-import { AuthError } from '~/.server/errors';
 import { errorRedirect } from '~/.server/helpers';
 import { getUserById } from '~/.server/services/user';
 import { removeUser } from '~/.server/services/workspace';
@@ -25,18 +24,10 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 
 export async function action({ context, params }: Route.ActionArgs) {
   const ctx = context.get(appContext);
-  const { user } = ctx;
 
-  if (user.isNone()) {
-    throw new AuthError('User not found');
-  }
+  const userId = Number.parseInt(params.id || '', 10);
 
-  const removeUserId = Number.parseInt(params.id || '', 10);
-
-  const result = await removeUser(
-    { userId: user.value.id, slug: params.slug, removeUserId },
-    ctx,
-  );
+  const result = await removeUser({ userId, slug: params.slug }, ctx);
   if (result.isErr()) {
     return data({ error: result.error.message });
   }

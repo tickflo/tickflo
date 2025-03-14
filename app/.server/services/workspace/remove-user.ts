@@ -4,12 +4,10 @@ import type { Context } from '~/.server/context';
 import { emailTemplates } from '~/.server/data';
 import { db } from '~/.server/db';
 import { userWorkspaceRoles, users } from '~/.server/db/schema';
-import { type ApiError, InputError } from '~/.server/errors';
+import { type ApiError, InputError, PermissionsError } from '~/.server/errors';
 import { getEmailTemplateId, sendEmail } from '../email';
 import { getUserCount } from './get-user-count';
 import { getWorkspaceBySlug } from './get-workspace-by-slug';
-
-// TODO: permissions
 
 type Request = {
   userId: number;
@@ -24,7 +22,13 @@ export async function removeUser(
     return Err(new InputError('Invalid user id'));
   }
 
-  const { tx } = context;
+  const { tx, permissions } = context;
+
+  if (!permissions.users.delete) {
+    return Err(
+      new PermissionsError('You do not have permission to remove users'),
+    );
+  }
 
   const workspace = await getWorkspaceBySlug({ slug }, context);
 
