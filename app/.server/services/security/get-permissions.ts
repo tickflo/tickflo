@@ -46,7 +46,7 @@ export async function getPermissions(
       ),
     );
 
-  const perms = defaultUserPermissions;
+  const perms = defaultUserPermissions();
 
   for (const permission of results) {
     // @ts-ignore

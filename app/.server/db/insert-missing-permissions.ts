@@ -4,7 +4,8 @@ import { defaultUserPermissions } from '../permissions';
 import { permissions } from './schema';
 
 export async function insertMissingPermissions() {
-  for (const resource in defaultUserPermissions) {
+  const perms = defaultUserPermissions();
+  for (const resource in perms) {
     // biome-ignore lint/suspicious/noPrototypeBuiltins: <explanation>
     if (defaultUserPermissions.hasOwnProperty(resource)) {
       // @ts-ignore

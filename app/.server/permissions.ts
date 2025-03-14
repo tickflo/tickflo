@@ -17,12 +17,23 @@ export interface Permissions {
   roles: Roles;
 }
 
-export const defaultAdminPermissions: Permissions = {
-  users: { create: true, read: true, update: true, delete: true },
-  roles: { create: true, read: true, update: true, delete: true },
-};
+export type Action = 'create' | 'read' | 'update' | 'delete';
+export function isAction(arg: string): arg is Action {
+  return (
+    arg === 'create' || arg === 'read' || arg === 'update' || arg === 'delete'
+  );
+}
 
-export const defaultUserPermissions: Permissions = {
-  users: { create: false, read: false, update: false, delete: false },
-  roles: { create: false, read: false, update: false, delete: false },
-};
+export function defaultAdminPermissions(): Permissions {
+  return {
+    users: { create: true, read: true, update: true, delete: true },
+    roles: { create: true, read: true, update: true, delete: true },
+  };
+}
+
+export function defaultUserPermissions(): Permissions {
+  return {
+    users: { create: false, read: false, update: false, delete: false },
+    roles: { create: false, read: false, update: false, delete: false },
+  };
+}

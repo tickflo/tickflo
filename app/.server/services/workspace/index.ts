@@ -1,3 +1,4 @@
+export * from './add-role';
 export * from './accept-workspace-invite';
 export * from './create-workspace';
 export * from './decline-workspace-invite';
@@ -9,3 +10,4 @@ export * from './get-user-count';
 export * from './remove-user';
 export * from './add-user';
 export * from './get-roles';
+export * from './get-role-by-name';
