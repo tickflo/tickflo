@@ -2,7 +2,6 @@ import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
-import { loginRedirect } from '~/.server/helpers';
 import { db } from '../../db';
 import { roles, userWorkspaceRoles, users } from '../../db/schema';
 import { ApiError, InputError } from '../../errors';
@@ -26,11 +25,9 @@ export async function addUser(
   const name = request.name?.toString().trim();
   const email = request.email?.toString().trim().toLowerCase();
 
-  const { config, user, session } = context;
+  const { config } = context;
 
-  if (user.isNone()) {
-    throw loginRedirect(session);
-  }
+  const user = context.user.unwrap();
 
   if (
     !name ||
@@ -88,7 +85,7 @@ export async function addUser(
         userId: existing.value.id,
         workspaceId: workspace.value.id,
         roleId: role.id,
-        createdBy: user.value.id,
+        createdBy: user.id,
       });
 
       const result = await sendInviteEmail(
@@ -112,7 +109,7 @@ export async function addUser(
         name,
         email,
         emailConfirmationCode,
-        createdBy: user.value.id,
+        createdBy: user.id,
       })
       .returning({ id: users.id });
 
@@ -126,7 +123,7 @@ export async function addUser(
       userId: newUser.id,
       workspaceId: workspace.value.id,
       roleId: role.id,
-      createdBy: user.value.id,
+      createdBy: user.id,
     });
 
     const result = await sendInviteEmail(

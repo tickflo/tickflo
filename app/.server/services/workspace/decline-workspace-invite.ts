@@ -4,7 +4,6 @@ import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { userWorkspaceRoles } from '~/.server/db/schema';
 import { type ApiError, InputError } from '~/.server/errors';
-import { loginRedirect } from '~/.server/helpers';
 
 type Request = {
   workspaceId: number;
@@ -14,11 +13,9 @@ export async function declineWorkspaceInvite(
   { workspaceId }: Request,
   context: Context,
 ): Promise<Result<void, ApiError>> {
-  const { user, session, tx } = context;
+  const { tx } = context;
 
-  if (user.isNone()) {
-    throw loginRedirect(session);
-  }
+  const user = context.user.unwrap();
 
   if (Number.isNaN(workspaceId)) {
     return Err(new InputError(`Invalid workspaceId ${workspaceId}`));
@@ -29,7 +26,7 @@ export async function declineWorkspaceInvite(
       accepted: true,
     },
     where: and(
-      eq(userWorkspaceRoles.userId, user.value.id),
+      eq(userWorkspaceRoles.userId, user.id),
       eq(userWorkspaceRoles.workspaceId, workspaceId),
     ),
   });
@@ -48,7 +45,7 @@ export async function declineWorkspaceInvite(
     .delete(userWorkspaceRoles)
     .where(
       and(
-        eq(userWorkspaceRoles.userId, userId),
+        eq(userWorkspaceRoles.userId, user.id),
         eq(userWorkspaceRoles.workspaceId, workspaceId),
       ),
     );

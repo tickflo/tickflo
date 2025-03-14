@@ -3,7 +3,6 @@ import { None, type Option, Some } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { userWorkspaceRoles, workspaces } from '~/.server/db/schema';
-import { loginRedirect } from '~/.server/helpers';
 
 type Workspace = typeof workspaces.$inferSelect;
 
@@ -15,11 +14,8 @@ export async function getWorkspaceBySlug(
   { slug }: Request,
   context: Context,
 ): Promise<Option<Workspace>> {
-  const { user, session, tx } = context;
-
-  if (user.isNone()) {
-    throw loginRedirect(session);
-  }
+  const { tx } = context;
+  const user = context.user.unwrap();
 
   const rows = await (tx || db)
     .select()
@@ -31,7 +27,7 @@ export async function getWorkspaceBySlug(
         eq(workspaces.slug, slug),
       ),
     )
-    .where(eq(userWorkspaceRoles.userId, user.value.id))
+    .where(eq(userWorkspaceRoles.userId, user.id))
     .limit(1);
 
   if (!rows || !rows.length) {

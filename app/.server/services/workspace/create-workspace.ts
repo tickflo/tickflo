@@ -8,7 +8,6 @@ import {
   userWorkspaceRoles,
   workspaces,
 } from '~/.server/db/schema';
-import { loginRedirect } from '~/.server/helpers';
 import {
   defaultAdminPermissions,
   defaultUserPermissions,
@@ -29,11 +28,9 @@ export async function createWorkspace(
   { name }: Request,
   context: Context,
 ): Promise<Result<Response, ApiError>> {
-  const { tx, config, user, session } = context;
+  const { tx, config } = context;
 
-  if (user.isNone()) {
-    throw loginRedirect(session);
-  }
+  const user = context.user.unwrap();
 
   if (
     !name ||
@@ -51,7 +48,7 @@ export async function createWorkspace(
     .values({
       name,
       slug,
-      createdBy: user.value.id,
+      createdBy: user.id,
     })
     .returning({
       id: workspaces.id,
@@ -69,12 +66,12 @@ export async function createWorkspace(
       {
         workspaceId: workspace.id,
         role: 'Administrator',
-        createdBy: user.value.id,
+        createdBy: user.id,
       },
       {
         workspaceId: workspace.id,
         role: 'Technician',
-        createdBy: user.value.id,
+        createdBy: user.id,
       },
     ])
     .returning({
@@ -107,11 +104,11 @@ export async function createWorkspace(
   );
 
   await (tx || db).insert(userWorkspaceRoles).values({
-    userId: user.value.id,
+    userId: user.id,
     workspaceId: workspace.id,
     accepted: true,
     roleId: adminRole.id,
-    createdBy: user.value.id,
+    createdBy: user.id,
   });
 
   await (tx || db).insert(emailTemplates).values(
@@ -120,7 +117,7 @@ export async function createWorkspace(
       templateTypeId: t.typeId,
       subject: t.subject,
       body: t.body,
-      createdBy: user.value.id,
+      createdBy: user.id,
     })),
   );
 

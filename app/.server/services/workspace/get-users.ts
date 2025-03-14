@@ -7,8 +7,6 @@ import {
   users,
   workspaces,
 } from '~/.server/db/schema';
-import { loginRedirect } from '~/.server/helpers';
-import { getPermissions } from '../security';
 
 type User = {
   id: number;
@@ -22,13 +20,7 @@ export async function getUsers(
   { slug }: { slug: string },
   context: Context,
 ): Promise<User[]> {
-  const { tx, user, session } = context;
-
-  if (user.isNone()) {
-    throw loginRedirect(session);
-  }
-
-  const _permissions = getPermissions(context);
+  const { tx } = context;
 
   return (tx || db)
     .select({

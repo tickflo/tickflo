@@ -3,18 +3,14 @@ import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { rolePermissions } from '~/.server/db/schema';
 import { ApiError } from '~/.server/errors';
-import { loginRedirect } from '~/.server/helpers';
 import type { Permissions } from '~/.server/permissions';
 
 export async function updatePermissionsForRole(
   { roleId, permissions }: { roleId: number; permissions: Permissions },
   context: Context,
 ) {
-  const { tx, user, session } = context;
-
-  if (user.isNone()) {
-    throw loginRedirect(session);
-  }
+  const { tx } = context;
+  const user = context.user.unwrap();
 
   const permissionIds = await (tx || db).query.permissions.findMany();
 
@@ -66,7 +62,7 @@ export async function updatePermissionsForRole(
       createIds.map((id) => ({
         roleId,
         permissionId: id,
-        createdBy: user.value.id,
+        createdBy: user.id,
       })),
     );
   }

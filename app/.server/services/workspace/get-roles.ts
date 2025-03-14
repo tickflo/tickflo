@@ -1,7 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
-import { loginRedirect } from '~/.server/helpers';
 import { roles, type roles as rolesType, workspaces } from '../../db/schema';
 
 type Role = typeof rolesType.$inferSelect;
@@ -10,11 +9,7 @@ export async function getRoles(
   { slug }: { slug: string },
   context: Context,
 ): Promise<Role[]> {
-  const { user, session, tx } = context;
-
-  if (user.isNone()) {
-    throw loginRedirect(session);
-  }
+  const { tx } = context;
 
   return (tx || db)
     .select({

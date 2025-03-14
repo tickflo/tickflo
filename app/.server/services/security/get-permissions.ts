@@ -7,18 +7,14 @@ import {
   roles,
   userWorkspaceRoles,
 } from '~/.server/db/schema';
-import { loginRedirect } from '~/.server/helpers';
 import {
   type Permissions,
   defaultUserPermissions,
 } from '~/.server/permissions';
 
 export async function getPermissions(context: Context): Promise<Permissions> {
-  const { user, session, tx } = context;
-
-  if (user.isNone()) {
-    throw loginRedirect(session);
-  }
+  const { tx } = context;
+  const user = context.user.unwrap();
 
   const results = await (tx || db)
     .selectDistinct({
@@ -34,7 +30,7 @@ export async function getPermissions(context: Context): Promise<Permissions> {
     .innerJoin(
       userWorkspaceRoles,
       and(
-        eq(userWorkspaceRoles.userId, user.value.id),
+        eq(userWorkspaceRoles.userId, user.id),
         eq(userWorkspaceRoles.roleId, roles.id),
       ),
     );
