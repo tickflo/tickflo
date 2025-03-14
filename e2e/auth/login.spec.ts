@@ -121,7 +121,9 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
 
   const slug = slugify(workspaceNames[1]);
 
-  const roles = await getRoles({ slug }, { ...context, user: Some(user) });
+  const roles = (
+    await getRoles({ slug }, { ...context, user: Some(user) })
+  ).unwrap();
 
   (
     await addUser(
@@ -167,7 +169,9 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
 
   const user = (await getUserById({ id: userId }, context)).unwrap();
 
-  const roles = await getRoles({ slug }, { ...context, user: Some(user) });
+  const roles = (
+    await getRoles({ slug }, { ...context, user: Some(user) })
+  ).unwrap();
 
   (
     await addUser(

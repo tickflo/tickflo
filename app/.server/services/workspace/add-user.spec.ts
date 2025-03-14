@@ -263,7 +263,9 @@ test('Add new user', async () => {
 
   const user = (await getUserById({ id: userId }, context)).unwrap();
 
-  const roles = await getRoles({ slug }, { ...context, user: Some(user) });
+  const roles = (
+    await getRoles({ slug }, { ...context, user: Some(user) })
+  ).unwrap();
 
   const name = faker.person.firstName();
   const email = faker.internet.email();

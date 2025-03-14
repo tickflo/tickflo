@@ -1,6 +1,7 @@
 import { FaPlus, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
 import { AuthError } from '~/.server/errors';
+import { errorRedirect } from '~/.server/helpers';
 import { addUser, getRoles } from '~/.server/services/workspace';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
@@ -9,16 +10,19 @@ import type { Route } from './+types/workspaces.$slug.users.add';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
-  const { user } = ctx;
+  const { user, session } = ctx;
 
   if (user.isNone()) {
     throw new AuthError('User not found');
   }
 
   const roles = await getRoles({ slug: params.slug }, ctx);
+  if (roles.isErr()) {
+    return errorRedirect(session, roles.error.message, '..');
+  }
 
   return data({
-    roles,
+    roles: roles.value,
   });
 }
 
