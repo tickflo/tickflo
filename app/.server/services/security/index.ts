@@ -7,3 +7,4 @@ export * from './update-permissions-for-role';
 export * from './get-permissions-for-role-id';
 export * from './update-role';
 export * from './get-role-ids-for-user-id';
+export * from './remove-role';

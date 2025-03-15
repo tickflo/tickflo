@@ -1,8 +1,7 @@
 import { FaCheck, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
 import { errorRedirect } from '~/.server/helpers';
-import { getRoleById } from '~/.server/services/security';
-import { removeUser } from '~/.server/services/user';
+import { getRoleById, removeRole } from '~/.server/services/security';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
 import type { Route } from './+types/workspaces.$slug.roles.$id.remove';
@@ -25,9 +24,9 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 export async function action({ context, params }: Route.ActionArgs) {
   const ctx = context.get(appContext);
 
-  const userId = Number.parseInt(params.id || '', 10);
+  const roleId = Number.parseInt(params.id || '', 10);
 
-  const result = await removeUser({ userId, slug: params.slug }, ctx);
+  const result = await removeRole({ roleId, slug: params.slug }, ctx);
   if (result.isErr()) {
     return data({ error: result.error.message });
   }
