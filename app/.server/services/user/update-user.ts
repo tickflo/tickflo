@@ -5,8 +5,8 @@ import { db } from '~/.server/db';
 import { userWorkspaceRoles, users } from '~/.server/db/schema';
 import { type ApiError, InputError, PermissionsError } from '~/.server/errors';
 import { getPermissions } from '../security';
-import { getRoleIdsForUserId } from './get-role-ids-for-user-id';
-import { getWorkspaceBySlug } from './get-workspace-by-slug';
+import { getRoleIdsForUserId } from '../security';
+import { getWorkspaceBySlug } from '../workspace';
 
 export async function updateUser(
   {

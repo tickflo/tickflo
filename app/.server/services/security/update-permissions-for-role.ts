@@ -5,7 +5,7 @@ import { db } from '~/.server/db';
 import { rolePermissions } from '~/.server/db/schema';
 import { ApiError, PermissionsError } from '~/.server/errors';
 import type { Permissions } from '~/.server/permissions';
-import { getRoleById } from '../workspace';
+import { getRoleById } from '../security';
 import { getPermissions } from './get-permissions';
 
 export async function updatePermissionsForRole(

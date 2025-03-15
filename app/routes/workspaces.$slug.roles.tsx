@@ -3,7 +3,7 @@ import { FaBoltLightning, FaPencil, FaShield } from 'react-icons/fa6';
 import { Link, Outlet, data, href } from 'react-router';
 import { AuthError } from '~/.server/errors';
 import { errorRedirect } from '~/.server/helpers';
-import { getRoles } from '~/.server/services/workspace';
+import { getRoles } from '~/.server/services/security';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces.$slug.roles';
 

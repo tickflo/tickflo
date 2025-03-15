@@ -5,8 +5,8 @@ import { roles } from '~/.server/db/schema';
 import { ApiError, InputError, PermissionsError } from '~/.server/errors';
 import type { Permissions } from '~/.server/permissions';
 import { getPermissions, updatePermissionsForRole } from '../security';
+import { getWorkspaceBySlug } from '../workspace';
 import { getRoleByName } from './get-role-by-name';
-import { getWorkspaceBySlug } from './get-workspace-by-slug';
 
 export async function addRole(
   {

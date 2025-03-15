@@ -5,8 +5,12 @@ import { db } from '~/.server/db';
 import { roles } from '~/.server/db/schema';
 import { ApiError, InputError, PermissionsError } from '~/.server/errors';
 import type { Permissions } from '~/.server/permissions';
-import { getPermissions, updatePermissionsForRole } from '../security';
-import { getRoleById, getWorkspaceBySlug } from '../workspace';
+import {
+  getPermissions,
+  getRoleById,
+  updatePermissionsForRole,
+} from '../security';
+import { getWorkspaceBySlug } from '../workspace';
 
 export async function updateRole(
   {

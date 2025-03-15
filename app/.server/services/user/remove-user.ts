@@ -7,9 +7,9 @@ import { userWorkspaceRoles, userWorkspaces, users } from '~/.server/db/schema';
 import { ApiError, InputError, PermissionsError } from '~/.server/errors';
 import { getEmailTemplateId, sendEmail } from '../email';
 import { getPermissions } from '../security';
+import { getWorkspaceBySlug } from '../workspace';
 import { getUserCount } from './get-user-count';
 import { getUsersCountByRole } from './get-users-count-by-role';
-import { getWorkspaceBySlug } from './get-workspace-by-slug';
 
 type Request = {
   userId: number;

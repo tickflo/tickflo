@@ -2,7 +2,7 @@ import { FaEnvelope, FaPlus, FaSearch, FaTrash, FaUsers } from 'react-icons/fa';
 import { FaBoltLightning, FaPencil, FaPerson, FaShield } from 'react-icons/fa6';
 import { Link, Outlet, data, href } from 'react-router';
 import { errorRedirect } from '~/.server/helpers';
-import { getUsers } from '~/.server/services/workspace';
+import { getUsers } from '~/.server/services/user';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces.$slug.users';
 

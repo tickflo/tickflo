@@ -9,7 +9,7 @@ import {
   users,
   workspaces,
 } from '../../db/schema';
-import { getPermissions } from '../security';
+import { getPermissions } from './get-permissions';
 
 export async function getRoleIdsForUserId(
   { id, slug }: { id: number; slug: string },
