@@ -1,5 +1,6 @@
 import { reactRouter } from '@react-router/dev/vite';
 import tailwindcss from '@tailwindcss/vite';
+import { reactRouterDevTools } from 'react-router-devtools';
 import { defineConfig } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults } from 'vitest/config';
@@ -14,6 +15,7 @@ export default defineConfig(({ isSsrBuild }) => ({
   },
   plugins: [
     tailwindcss(),
+    process.env.NODE_ENV === 'development' ? reactRouterDevTools() : null,
     process.env.NODE_ENV === 'test' ? null : reactRouter(),
     tsconfigPaths(),
   ],
