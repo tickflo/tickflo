@@ -8,7 +8,7 @@ import { slugify } from '~/utils/slugify';
 import { db } from '../../db';
 import { emailTemplates } from '../../db/schema';
 import { signup } from '../auth';
-import { getUserById } from '../user';
+import { getUserForAccessToken } from '../user';
 import { getWorkspaceBySlug } from '../workspace';
 import { getEmailTemplateId } from './get-email-template-id';
 
@@ -61,7 +61,7 @@ test('Return None for missing template', async () => {
   const workspaceName = faker.company.name();
   const slug = slugify(workspaceName);
 
-  const { userId } = (
+  const { token } = (
     await signup(
       {
         name: faker.person.firstName(),
@@ -74,7 +74,7 @@ test('Return None for missing template', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
 
   const workspace = (
     await getWorkspaceBySlug({ slug }, { ...context, user: Some(user) })
