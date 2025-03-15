@@ -3,7 +3,8 @@ import { FaBoltLightning, FaPencil, FaShield } from 'react-icons/fa6';
 import { Link, Outlet, data, href } from 'react-router';
 import { AuthError } from '~/.server/errors';
 import { errorRedirect } from '~/.server/helpers';
-import { getRoles } from '~/.server/services/workspace';
+import { getRoles } from '~/.server/services/security';
+import { getUsersCountByRole } from '~/.server/services/user';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces.$slug.roles';
 
@@ -20,14 +21,16 @@ export async function loader({ context, params }: Route.LoaderArgs) {
     return errorRedirect(session, roles.error.message, '..');
   }
 
-  return data({ roles: roles.value });
+  const roleGroups = await getUsersCountByRole({ slug: params.slug }, ctx);
+
+  return data({ roles: roles.value, roleGroups });
 }
 
 export default function workspaceRoles({
   loaderData,
   params,
 }: Route.ComponentProps) {
-  const { roles } = loaderData;
+  const { roles, roleGroups } = loaderData;
 
   return (
     <>
@@ -99,7 +102,9 @@ export default function workspaceRoles({
                   </div>
                 </td>
                 <td>{role.name}</td>
-                <td>...</td>
+                <td>
+                  {roleGroups.find((g) => g.name === role.name)?.count || '-'}
+                </td>
               </tr>
             ))}
           </tbody>

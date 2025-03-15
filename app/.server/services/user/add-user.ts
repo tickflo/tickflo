@@ -7,7 +7,7 @@ import { userWorkspaceRoles, userWorkspaces, users } from '../../db/schema';
 import { ApiError, InputError, PermissionsError } from '../../errors';
 import { getPermissions } from '../security';
 import { getUserByEmail } from '../user';
-import { getWorkspaceBySlug } from './get-workspace-by-slug';
+import { getWorkspaceBySlug } from '../workspace';
 import { sendInviteEmail } from './send-invite-email';
 
 export async function addUser(

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { FaPlus, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
 import { defaultUserPermissions, isAction } from '~/.server/permissions';
-import { addRole } from '~/.server/services/workspace';
+import { addRole } from '~/.server/services/security';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
 import config from '~/config';

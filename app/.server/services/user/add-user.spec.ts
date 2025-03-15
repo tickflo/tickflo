@@ -9,9 +9,9 @@ import { slugify } from '~/utils/slugify';
 import { db } from '../../db';
 import { emails } from '../../db/schema';
 import { signup } from '../auth';
+import { getRoles } from '../security';
 import { getUserByEmail, getUserForAccessToken } from '../user';
 import { addUser } from './add-user';
-import { getRoles } from './get-roles';
 
 test('Throws on invalid name', async () => {
   const context = await getTestContext();

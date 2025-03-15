@@ -1,8 +1,7 @@
 import { FaCheck, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
 import { errorRedirect } from '~/.server/helpers';
-import { getUserById } from '~/.server/services/user';
-import { removeUser } from '~/.server/services/workspace';
+import { getUserById, removeUser } from '~/.server/services/user';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
 import type { Route } from './+types/workspaces.$slug.users.$id.remove';

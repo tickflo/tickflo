@@ -2,12 +2,8 @@ import { useCallback, useState } from 'react';
 import { FaCheck, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
 import { errorRedirect } from '~/.server/helpers';
-import { getUserById } from '~/.server/services/user';
-import {
-  getRoleIdsForUserId,
-  getRoles,
-  updateUser,
-} from '~/.server/services/workspace';
+import { getRoleIdsForUserId, getRoles } from '~/.server/services/security';
+import { getUserById, updateUser } from '~/.server/services/user';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
 import type { Route } from './+types/workspaces.$slug.users.$id.edit';

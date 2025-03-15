@@ -4,7 +4,7 @@ import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { type ApiError, PermissionsError } from '~/.server/errors';
 import { roles, type roles as rolesType, workspaces } from '../../db/schema';
-import { getPermissions } from '../security';
+import { getPermissions } from './get-permissions';
 
 type Role = typeof rolesType.$inferSelect;
 

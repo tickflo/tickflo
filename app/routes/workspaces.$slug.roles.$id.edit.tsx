@@ -7,7 +7,7 @@ import {
   getPermissionsForRoleId,
   updateRole,
 } from '~/.server/services/security';
-import { getRoleById } from '~/.server/services/workspace';
+import { getRoleById } from '~/.server/services/security';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
 import config from '~/config';

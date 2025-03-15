@@ -3,13 +3,10 @@ import { expect, test } from '@playwright/test';
 import { Some } from 'ts-results-es';
 import { getTestContext } from '~/.server/context';
 import { signup } from '~/.server/services/auth';
+import { getRoles } from '~/.server/services/security';
 import { getUserForAccessToken } from '~/.server/services/user';
-import {
-  addUser,
-  createWorkspace,
-  getRoles,
-  removeUser,
-} from '~/.server/services/workspace';
+import { addUser, removeUser } from '~/.server/services/user';
+import { createWorkspace } from '~/.server/services/workspace';
 import { slugify } from '~/utils/slugify';
 
 const PASSWORD = 'password';
