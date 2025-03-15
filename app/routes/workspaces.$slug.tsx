@@ -1,4 +1,16 @@
-import { FaLock, FaUsers } from 'react-icons/fa';
+import {
+  FaBox,
+  FaChartLine,
+  FaCheck,
+  FaClipboardCheck,
+  FaHome,
+  FaInbox,
+  FaLock,
+  FaUserCircle,
+  FaUsers,
+  FaWarehouse,
+  FaWrench,
+} from 'react-icons/fa';
 import { FaShield } from 'react-icons/fa6';
 import { Link, NavLink, Outlet, data } from 'react-router';
 import { errorRedirect } from '~/.server/helpers';
@@ -51,11 +63,90 @@ export default function workspaces({ loaderData }: Route.ComponentProps) {
         </Link>
 
         <ul className="menu w-56 rounded-box bg-base-200">
+          <li>
+            <NavLink
+              to={`/workspaces/${slug}`}
+              className={({ isActive }) => (isActive ? 'menu-active' : '')}
+            >
+              <FaHome /> Dashboard
+            </NavLink>
+          </li>
+
+          <li>
+            <NavLink
+              to={`/workspaces/${slug}/contacts`}
+              className={({ isActive }) => (isActive ? 'menu-active' : '')}
+            >
+              <FaUsers /> Contacts
+            </NavLink>
+          </li>
+          <li>
+            <details open>
+              <summary>
+                <FaClipboardCheck /> Tickets
+              </summary>
+              <ul>
+                <li>
+                  <Link to={`/workspaces/${slug}/tickets`}>
+                    <FaInbox /> Inbox
+                    <span className="badge badge-xs badge-primary">10</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to={`/workspaces/${slug}/tickets`}>
+                    <FaCheck /> Closed
+                  </Link>
+                </li>
+                <li>
+                  <Link to={`/workspaces/${slug}/tickets`}>
+                    <FaUserCircle />
+                    Richard
+                    <span className="badge badge-xs badge-primary">1</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to={`/workspaces/${slug}/tickets`}>
+                    <FaUserCircle />
+                    Ryan
+                    <span className="badge badge-xs badge-primary">2</span>
+                  </Link>
+                </li>
+              </ul>
+            </details>
+          </li>
+
+          <li>
+            <NavLink
+              to={`/workspaces/${slug}/reports`}
+              className={({ isActive }) => (isActive ? 'menu-active' : '')}
+            >
+              <FaChartLine /> Reports
+            </NavLink>
+          </li>
+
+          <li>
+            <NavLink
+              to={`/workspaces/${slug}/locations`}
+              className={({ isActive }) => (isActive ? 'menu-active' : '')}
+            >
+              <FaWarehouse /> Locations
+            </NavLink>
+          </li>
+
+          <li>
+            <NavLink
+              to={`/workspaces/${slug}/inventory`}
+              className={({ isActive }) => (isActive ? 'menu-active' : '')}
+            >
+              <FaBox /> Inventory
+            </NavLink>
+          </li>
+
           {(permissions.users.read || permissions.roles.read) && (
             <li>
               <details open>
                 <summary>
-                  <FaLock /> Authorization
+                  <FaLock /> Security
                 </summary>
                 <ul>
                   {permissions.users.read && (
@@ -86,6 +177,14 @@ export default function workspaces({ loaderData }: Route.ComponentProps) {
               </details>
             </li>
           )}
+          <li>
+            <NavLink
+              to={`/workspaces/${slug}/settings`}
+              className={({ isActive }) => (isActive ? 'menu-active' : '')}
+            >
+              <FaWrench /> Settings
+            </NavLink>
+          </li>
         </ul>
       </aside>
       <div className="flex-1 overflow-x-auto p-2">

@@ -143,7 +143,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <li>
                 <Link to="/notifications">
                   <FaBell />
-                  Inbox
                   <span className="badge badge-xs badge-primary">99+</span>
                 </Link>
               </li>
