@@ -14,7 +14,6 @@ import {
 import { useEffect, useState } from 'react';
 import {
   FaBell,
-  FaBriefcase,
   FaEnvelope,
   FaMoon,
   FaSignOutAlt,
@@ -173,7 +172,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         </li>
                         <li>
                           <Link to="/sys/workspaces">
-                            <FaBriefcase /> Workspaces
+                            <FaPeopleGroup /> Workspaces
                           </Link>
                         </li>
                         <li>

@@ -42,7 +42,7 @@ export default function workspaceRoles({
     <>
       <div>
         <h1 className="mb-2 text-2xl">
-          <FaShield className="inline" /> Roles
+          <FaShield className="inline pb-1 pl-1" /> Roles
         </h1>
 
         <hr className="mb-2" />

@@ -15,6 +15,7 @@ import { FaShield } from 'react-icons/fa6';
 import { Link, NavLink, Outlet, data } from 'react-router';
 import { errorRedirect } from '~/.server/helpers';
 import { getPermissions } from '~/.server/services/security';
+import { getUsers } from '~/.server/services/user';
 import { getWorkspaceBySlug } from '~/.server/services/workspace';
 import { commitSession } from '~/.server/session';
 import { appContext } from '~/app-context';
@@ -25,7 +26,6 @@ export async function loader({ context, params }: Route.LoaderArgs) {
   const { session } = ctx;
 
   const workspace = await getWorkspaceBySlug({ slug: params.slug }, ctx);
-  const permissions = await getPermissions({ slug: params.slug }, ctx);
 
   if (workspace.isNone()) {
     return errorRedirect(
@@ -35,6 +35,13 @@ export async function loader({ context, params }: Route.LoaderArgs) {
     );
   }
 
+  const users = await getUsers({ slug: params.slug }, ctx);
+  if (users.isErr()) {
+    return errorRedirect(session, users.error.message, '/workspaces');
+  }
+
+  const permissions = await getPermissions({ slug: params.slug }, ctx);
+
   return data(
     {
       workspace: {
@@ -42,6 +49,11 @@ export async function loader({ context, params }: Route.LoaderArgs) {
         name: workspace.value.name,
       },
       permissions,
+      users: users.value.map((u) => ({
+        id: u.id,
+        name: u.name,
+        tickets: 0,
+      })),
     },
     {
       headers: {
@@ -52,7 +64,7 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 }
 
 export default function workspaces({ loaderData }: Route.ComponentProps) {
-  const { workspace, permissions } = loaderData;
+  const { workspace, permissions, users } = loaderData;
   const { slug } = workspace;
 
   return (
@@ -65,6 +77,7 @@ export default function workspaces({ loaderData }: Route.ComponentProps) {
         <ul className="menu w-56 rounded-box bg-base-200">
           <li>
             <NavLink
+              end
               to={`/workspaces/${slug}`}
               className={({ isActive }) => (isActive ? 'menu-active' : '')}
             >
@@ -97,20 +110,19 @@ export default function workspaces({ loaderData }: Route.ComponentProps) {
                     <FaCheck /> Closed
                   </Link>
                 </li>
-                <li>
-                  <Link to={`/workspaces/${slug}/tickets`}>
-                    <FaUserCircle />
-                    Richard
-                    <span className="badge badge-xs badge-primary">1</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to={`/workspaces/${slug}/tickets`}>
-                    <FaUserCircle />
-                    Ryan
-                    <span className="badge badge-xs badge-primary">2</span>
-                  </Link>
-                </li>
+                {users.map((user) => (
+                  <li key={user.id}>
+                    <Link to={`/workspaces/${slug}/tickets`}>
+                      <FaUserCircle />
+                      {user.name}
+                      {!!user.tickets && (
+                        <span className="badge badge-xs badge-primary">
+                          {user.tickets}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </details>
           </li>

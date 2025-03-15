@@ -27,7 +27,7 @@ export default function workspaceUsers({
     <>
       <div>
         <h1 className="mb-2 text-2xl">
-          <FaUsers className="inline" /> Users
+          <FaUsers className="inline pb-1 pl-1" /> Users
         </h1>
 
         <hr className="mb-2" />
