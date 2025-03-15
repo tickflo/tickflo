@@ -27,16 +27,16 @@ export const links: Route.LinksFunction = () => [
 ];
 
 function isAuthRequired(url: URL): boolean {
-  return !['/login', '/signup'].includes(url.pathname);
+  return !['/login', '/signup', '/api/system/reset-db'].includes(url.pathname);
 }
 
-const auth: Route.unstable_ClientMiddlewareFunction = async (
+const auth: Route.unstable_MiddlewareFunction = async (
   { context, request },
   next,
 ) => {
   const url = new URL(request.url);
   const ctx = await getContext(request);
-  if (isAuthRequired(url) && !ctx.session.get('userId')) {
+  if (isAuthRequired(url) && ctx.user.isNone()) {
     if (url.pathname === '/') {
       throw await loginRedirect(ctx.session, request.url, '');
     }

@@ -1,25 +1,20 @@
 import { FaEnvelope, FaPlus, FaSearch, FaTrash, FaUsers } from 'react-icons/fa';
 import { FaBoltLightning, FaPencil, FaPerson, FaShield } from 'react-icons/fa6';
 import { Link, Outlet, data, href } from 'react-router';
-import { AuthError } from '~/.server/errors';
+import { errorRedirect } from '~/.server/helpers';
 import { getUsers } from '~/.server/services/workspace';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces.$slug.users';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
-  const { user } = ctx;
 
-  if (user.isNone()) {
-    throw new AuthError('User not found');
+  const users = await getUsers({ slug: params.slug }, ctx);
+  if (users.isErr()) {
+    return errorRedirect(ctx.session, users.error.message, '..');
   }
 
-  const users = await getUsers(
-    { userId: user.unwrap().id, slug: params.slug },
-    ctx,
-  );
-
-  return data({ users });
+  return data({ users: users.value });
 }
 
 export default function workspaceUsers({
@@ -54,7 +49,7 @@ export default function workspaceUsers({
         <table className="table-zebra table">
           <thead>
             <tr>
-              <th> </th>
+              <th />
               <th>
                 <FaPerson className="inline pb-1" /> Name
               </th>
@@ -62,7 +57,7 @@ export default function workspaceUsers({
                 <FaEnvelope className="inline pb-1" /> Email
               </th>
               <th>
-                <FaShield className="inline pb-1" /> Role
+                <FaShield className="inline pb-1" /> Roles
               </th>
             </tr>
           </thead>
@@ -77,7 +72,12 @@ export default function workspaceUsers({
                     </div>
                     <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
                       <li>
-                        <Link to="./edit">
+                        <Link
+                          to={href('/workspaces/:slug/users/:id/edit', {
+                            slug: params.slug,
+                            id: user.id.toString(),
+                          })}
+                        >
                           <FaPencil /> Edit
                         </Link>
                       </li>
@@ -102,7 +102,7 @@ export default function workspaceUsers({
                     </ul>
                   </div>
                 </td>
-                <td>{user.name}</td>
+                <td> {user.name} </td>
                 <td>
                   {user.email}
                   {!user.inviteAccepted && (
@@ -111,7 +111,13 @@ export default function workspaceUsers({
                     </div>
                   )}
                 </td>
-                <td>{user.role}</td>
+                <td className="flex max-w-md flex-wrap gap-2">
+                  {user.roles.map((role) => (
+                    <div className="badge badge-soft" key={role}>
+                      {role}
+                    </div>
+                  ))}
+                </td>
               </tr>
             ))}
           </tbody>

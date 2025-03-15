@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
-import { userWorkspaceRoles, type workspaces } from '~/.server/db/schema';
+import { userWorkspaces, type workspaces } from '~/.server/db/schema';
 
 type WorkspaceType = typeof workspaces.$inferSelect;
 
@@ -9,17 +9,13 @@ interface Workspace extends WorkspaceType {
   accepted: boolean;
 }
 
-type Request = {
-  userId: number;
-};
-
-export async function getWorkspacesForUser(
-  { userId }: Request,
-  context: Context,
-): Promise<Workspace[]> {
+export async function getWorkspaces(context: Context): Promise<Workspace[]> {
   const { tx } = context;
-  const rows = await (tx || db).query.userWorkspaceRoles.findMany({
-    where: eq(userWorkspaceRoles.userId, userId),
+
+  const user = context.user.unwrap();
+
+  const rows = await (tx || db).query.userWorkspaces.findMany({
+    where: eq(userWorkspaces.userId, user.id),
     with: {
       workspace: true,
     },

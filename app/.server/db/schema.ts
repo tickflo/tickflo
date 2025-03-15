@@ -38,7 +38,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.updatedBy],
     references: [users.id],
   }),
-  workspaces: many(workspaces),
+  workspaces: many(userWorkspaces),
   roles: many(userWorkspaceRoles),
 }));
 
@@ -159,12 +159,48 @@ export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
   emailTemplates: many(emailTemplates),
 }));
 
+export const userWorkspaces = pgTable(
+  'user_workspaces',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    workspaceId: integer('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    accepted: boolean().notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: integer('created_by')
+      .notNull()
+      .references(() => users.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+      () => new Date(),
+    ),
+    updatedBy: integer('updated_by').references(() => users.id),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.workspaceId] })],
+);
+
+export const userWorkspacesRelations = relations(userWorkspaces, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [userWorkspaces.workspaceId],
+    references: [workspaces.id],
+  }),
+  user: one(users, {
+    fields: [userWorkspaces.userId],
+    references: [users.id],
+  }),
+}));
+
 export const roles = pgTable('roles', {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   workspaceId: integer('workspace_id')
     .notNull()
     .references(() => workspaces.id),
-  role: varchar({ length: config.ROLE.MAX_NAME_LENGTH }).notNull(),
+  name: varchar({ length: config.ROLE.MAX_NAME_LENGTH }).notNull(),
+  admin: boolean().notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -176,6 +212,10 @@ export const roles = pgTable('roles', {
   ),
   updatedBy: integer('updated_by').references(() => users.id),
 });
+
+export const rolesRelations = relations(roles, ({ many }) => ({
+  permissions: many(rolePermissions),
+}));
 
 export const userWorkspaceRoles = pgTable(
   'user_workspace_roles',
@@ -189,7 +229,6 @@ export const userWorkspaceRoles = pgTable(
     roleId: integer('role_id')
       .notNull()
       .references(() => roles.id),
-    accepted: boolean().notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -197,12 +236,18 @@ export const userWorkspaceRoles = pgTable(
       .notNull()
       .references(() => users.id),
   },
-  (table) => [primaryKey({ columns: [table.userId, table.workspaceId] })],
+  (table) => [
+    primaryKey({ columns: [table.userId, table.workspaceId, table.roleId] }),
+  ],
 );
 
 export const userWorkspaceRolesRelations = relations(
   userWorkspaceRoles,
   ({ one }) => ({
+    role: one(roles, {
+      fields: [userWorkspaceRoles.roleId],
+      references: [roles.id],
+    }),
     user: one(users, {
       fields: [userWorkspaceRoles.userId],
       references: [users.id],
@@ -211,5 +256,43 @@ export const userWorkspaceRolesRelations = relations(
       fields: [userWorkspaceRoles.workspaceId],
       references: [workspaces.id],
     }),
+  }),
+);
+
+export const permissions = pgTable(
+  'permissions',
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    resource: text().notNull(),
+    action: text().notNull(),
+  },
+  (table) => [unique().on(table.action, table.resource)],
+);
+
+export const rolePermissions = pgTable(
+  'role_permissions',
+  {
+    roleId: integer('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    permissionId: integer('permission_id')
+      .notNull()
+      .references(() => permissions.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: integer('created_by').references(() => users.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+      () => new Date(),
+    ),
+    updatedBy: integer('updated_by').references(() => users.id),
+  },
+  (table) => [primaryKey({ columns: [table.roleId, table.permissionId] })],
+);
+
+export const rolePermissionsRelations = relations(
+  rolePermissions,
+  ({ many }) => ({
+    permissions: many(permissions),
   }),
 );

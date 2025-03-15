@@ -1,6 +1,5 @@
 import { FaCheck, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
-import { AuthError } from '~/.server/errors';
 import { errorRedirect } from '~/.server/helpers';
 import { getUserById } from '~/.server/services/user';
 import { removeUser } from '~/.server/services/workspace';
@@ -13,9 +12,12 @@ export async function loader({ context, params }: Route.LoaderArgs) {
   const { session } = ctx;
 
   const removeUserId = Number.parseInt(params.id || '', 10);
-  const removeUser = await getUserById({ id: removeUserId }, ctx);
-  if (removeUser.isNone()) {
-    return errorRedirect(session, 'User not found', '..');
+  const removeUser = await getUserById(
+    { id: removeUserId, slug: params.slug },
+    ctx,
+  );
+  if (removeUser.isErr()) {
+    return errorRedirect(session, removeUser.error.message, '..');
   }
 
   return data({
@@ -25,18 +27,10 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 
 export async function action({ context, params }: Route.ActionArgs) {
   const ctx = context.get(appContext);
-  const { user } = ctx;
 
-  if (user.isNone()) {
-    throw new AuthError('User not found');
-  }
+  const userId = Number.parseInt(params.id || '', 10);
 
-  const removeUserId = Number.parseInt(params.id || '', 10);
-
-  const result = await removeUser(
-    { userId: user.value.id, slug: params.slug, removeUserId },
-    ctx,
-  );
+  const result = await removeUser({ userId, slug: params.slug }, ctx);
   if (result.isErr()) {
     return data({ error: result.error.message });
   }
@@ -57,7 +51,7 @@ export default function workspaceRemoveUser({
         <h3 className="font-bold text-lg"> Remove User </h3>
         <Form id="form-submit" method="post">
           <p>
-            {removeUser.name} will be removed from your workspace.All tickets
+            {removeUser.name} will be removed from your workspace. All tickets
             assigned to them will be unassigned.
           </p>
           {errorMessage && <ErrorAlert message={errorMessage} />}

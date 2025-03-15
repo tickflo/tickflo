@@ -1,9 +1,9 @@
-import { ApiError } from './ApiError';
+import { ApiError } from './api-error';
 
 export class AuthError extends ApiError {
   constructor(msg = 'Invalid username or password, please try again') {
     super(msg);
-    this.code = 403;
+    this.code = 401;
     Object.setPrototypeOf(this, AuthError.prototype);
   }
 }

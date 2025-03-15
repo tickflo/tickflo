@@ -1,4 +1,4 @@
-import { ApiError } from './ApiError';
+import { ApiError } from './api-error';
 
 export class InputError extends ApiError {
   constructor(msg: string) {

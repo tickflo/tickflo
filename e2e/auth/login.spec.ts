@@ -1,7 +1,9 @@
 import { faker } from '@faker-js/faker';
 import { expect, test } from '@playwright/test';
+import { Some } from 'ts-results-es';
 import { getTestContext } from '~/.server/context';
 import { signup } from '~/.server/services/auth';
+import { getUserForAccessToken } from '~/.server/services/user';
 import {
   addUser,
   createWorkspace,
@@ -54,7 +56,7 @@ test('Redirects to workspace picker for more than one workspace', async ({
   const email = faker.internet.email();
   const context = await getTestContext();
   const workspaceNames = [faker.company.name(), faker.company.name()];
-  const { userId } = (
+  const { token } = (
     await signup(
       {
         name: faker.person.firstName(),
@@ -67,8 +69,13 @@ test('Redirects to workspace picker for more than one workspace', async ({
     )
   ).unwrap();
 
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
+
   (
-    await createWorkspace({ userId, name: workspaceNames[1] }, context)
+    await createWorkspace(
+      { name: workspaceNames[1] },
+      { ...context, user: Some(user) },
+    )
   ).unwrap();
 
   await page.getByLabel('Email').fill(email);
@@ -100,7 +107,7 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
     )
   ).unwrap();
 
-  const { userId } = (
+  const { token } = (
     await signup(
       {
         name: faker.person.firstName(),
@@ -114,19 +121,21 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
   ).unwrap();
 
   const slug = slugify(workspaceNames[1]);
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
 
-  const roles = await getRoles({ slug, userId }, context);
+  const roles = (
+    await getRoles({ slug }, { ...context, user: Some(user) })
+  ).unwrap();
 
   (
     await addUser(
       {
-        userId,
         slug,
         email,
         name: faker.person.firstName(),
-        roleId: roles[0].id,
+        roleIds: [roles[0].id],
       },
-      context,
+      { ...context, user: Some(user) },
     )
   ).unwrap();
 
@@ -147,7 +156,7 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
   const workspaceName = faker.company.name();
   const slug = slugify(workspaceName);
 
-  const { userId } = (
+  const { token } = (
     await signup(
       {
         name: faker.person.firstName(),
@@ -160,18 +169,21 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
     )
   ).unwrap();
 
-  const roles = await getRoles({ slug, userId }, context);
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
+
+  const roles = (
+    await getRoles({ slug }, { ...context, user: Some(user) })
+  ).unwrap();
 
   (
     await addUser(
       {
-        userId,
         slug,
         email,
         name: faker.person.firstName(),
-        roleId: roles[0].id,
+        roleIds: [roles[0].id],
       },
-      context,
+      { ...context, user: Some(user) },
     )
   ).unwrap();
 
@@ -188,7 +200,12 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
     )
   ).unwrap();
 
-  (await removeUser({ userId, slug, removeUserId }, context)).unwrap();
+  (
+    await removeUser(
+      { userId: removeUserId, slug },
+      { ...context, user: Some(user) },
+    )
+  ).unwrap();
 
   await page.getByLabel('Email').fill(email);
   await page.locator('input[name="password"]').fill(PASSWORD);

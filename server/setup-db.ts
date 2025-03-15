@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import config from '~/.server/config';
 import { db } from '~/.server/db';
 import { insertMissingEmailTemplates } from '~/.server/db/insert-missing-email-templates';
+import { insertMissingPermissions } from '~/.server/db/insert-missing-permissions';
 import { applyMigrations } from '~/.server/db/migrate';
 import { seed } from '~/.server/db/seed';
 
@@ -24,6 +25,8 @@ export async function setupDb() {
   await seed();
 
   await insertMissingEmailTemplates();
+
+  await insertMissingPermissions();
 
   console.log('Database seeded!');
 }

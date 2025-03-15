@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import { expect, test } from '@playwright/test';
 import { getTestContext } from '~/.server/context';
 import { signup } from '~/.server/services/auth';
-import { getUserById } from '~/.server/services/user';
+import { getUserForAccessToken } from '~/.server/services/user';
 
 const password = 'password';
 
@@ -119,7 +119,7 @@ test('Not show after resending', async ({ page }) => {
 test('Not show after confirming', async ({ page }) => {
   const email = faker.internet.email();
   const context = await getTestContext();
-  const { userId } = (
+  const { token } = (
     await signup(
       {
         email,
@@ -132,7 +132,7 @@ test('Not show after confirming', async ({ page }) => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
 
   await page.goto(
     `./email-confirmation/confirm?email=${encodeURIComponent(email)}&code=${encodeURIComponent(user.emailConfirmationCode ?? '')}`,

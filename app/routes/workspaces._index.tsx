@@ -6,7 +6,7 @@ import { errorRedirect } from '~/.server/helpers';
 import {
   acceptWorkspaceInvite,
   declineWorkspaceInvite,
-  getWorkspacesForUser,
+  getWorkspaces,
 } from '~/.server/services/workspace';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces._index';
@@ -19,7 +19,7 @@ export async function loader({ context }: Route.LoaderArgs) {
     throw new AuthError('User not found');
   }
 
-  const workspaces = await getWorkspacesForUser({ userId: user.value.id }, ctx);
+  const workspaces = await getWorkspaces(ctx);
   if (!workspaces.length) {
     return redirect('/workspaces/new');
   }
@@ -49,16 +49,10 @@ export async function action({ context, request }: Route.ActionArgs) {
   let result: Result<void, ApiError>;
   switch (action) {
     case 'decline':
-      result = await declineWorkspaceInvite(
-        { userId: user.value.id, workspaceId },
-        ctx,
-      );
+      result = await declineWorkspaceInvite({ workspaceId }, ctx);
       break;
     case 'accept':
-      result = await acceptWorkspaceInvite(
-        { userId: user.value.id, workspaceId },
-        ctx,
-      );
+      result = await acceptWorkspaceInvite({ workspaceId }, ctx);
       break;
     default:
       return errorRedirect(session, `Unknown action: ${action}`, '.');

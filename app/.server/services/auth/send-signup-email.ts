@@ -17,9 +17,7 @@ export async function sendSignupEmail({ to, code }: Request, context: Context) {
       vars: {
         confirmation_link: `${
           config.BASE_URL
-        }/email-confirmation/confirm?email=${encodeURIComponent(
-          to,
-        )}&code=${encodeURIComponent(code)}`,
+        }/email-confirmation/confirm?code=${encodeURIComponent(code)}`,
       },
     },
     context,

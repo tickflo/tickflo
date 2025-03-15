@@ -2,55 +2,51 @@ import { and, eq } from 'drizzle-orm';
 import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
-import { userWorkspaceRoles } from '~/.server/db/schema';
+import { userWorkspaces } from '~/.server/db/schema';
 import { type ApiError, InputError } from '~/.server/errors';
 
 type Request = {
-  userId: number;
   workspaceId: number;
 };
 
 export async function acceptWorkspaceInvite(
-  { userId, workspaceId }: Request,
+  { workspaceId }: Request,
   context: Context,
 ): Promise<Result<void, ApiError>> {
-  if (Number.isNaN(userId)) {
-    return Err(new InputError(`Invalid userId ${userId}`));
-  }
-
   if (Number.isNaN(workspaceId)) {
     return Err(new InputError(`Invalid workspaceId ${workspaceId}`));
   }
 
   const { tx } = context;
+  const user = context.user.unwrap();
 
-  const role = await (tx || db).query.userWorkspaceRoles.findFirst({
+  const workspace = await (tx || db).query.userWorkspaces.findFirst({
     columns: {
       accepted: true,
     },
     where: and(
-      eq(userWorkspaceRoles.userId, userId),
-      eq(userWorkspaceRoles.workspaceId, workspaceId),
+      eq(userWorkspaces.userId, user.id),
+      eq(userWorkspaces.workspaceId, workspaceId),
     ),
   });
 
-  if (!role) {
+  if (!workspace) {
     return Err(
       new InputError('Could not find pending invite for that workspace'),
     );
   }
 
-  if (role.accepted) {
+  if (workspace.accepted) {
     return Err(new InputError('Invite already accepted'));
   }
 
   await db
-    .update(userWorkspaceRoles)
+    .update(userWorkspaces)
     .set({ accepted: true })
     .where(
       and(
-        eq(userWorkspaceRoles.userId, userId),
-        eq(userWorkspaceRoles.workspaceId, workspaceId),
+        eq(userWorkspaces.userId, user.id),
+        eq(userWorkspaces.workspaceId, workspaceId),
       ),
     );
 

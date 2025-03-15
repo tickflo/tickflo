@@ -1,6 +1,7 @@
 import { FaPlus, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
 import { AuthError } from '~/.server/errors';
+import { errorRedirect } from '~/.server/helpers';
 import { addUser, getRoles } from '~/.server/services/workspace';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
@@ -9,19 +10,19 @@ import type { Route } from './+types/workspaces.$slug.users.add';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
-  const { user } = ctx;
+  const { user, session } = ctx;
 
   if (user.isNone()) {
     throw new AuthError('User not found');
   }
 
-  const roles = await getRoles(
-    { userId: user.value.id, slug: params.slug },
-    ctx,
-  );
+  const roles = await getRoles({ slug: params.slug }, ctx);
+  if (roles.isErr()) {
+    return errorRedirect(session, roles.error.message, '..');
+  }
 
   return data({
-    roles,
+    roles: roles.value,
   });
 }
 
@@ -36,12 +37,15 @@ export async function action({ context, request, params }: Route.ActionArgs) {
   const formData = await request.formData();
   const name = formData.get('name')?.toString();
   const email = formData.get('email')?.toString();
-  const roleId = Number.parseInt(formData.get('role')?.toString() || '', 10);
+  const roleIds = formData
+    .getAll('roles')
+    .map((v) => Number.parseInt(v.toString(), 10));
 
   const result = await addUser(
-    { userId: user.value.id, slug: params.slug, name, email, roleId },
+    { slug: params.slug, name, email, roleIds },
     ctx,
   );
+
   if (result.isErr()) {
     return data({ error: result.error.message });
   }
@@ -86,16 +90,21 @@ export default function workspaceAddUser({
               placeholder="Email"
               required
             />
-            <label htmlFor="role" className="fieldset-label">
-              Role
+            <label htmlFor="roles" className="fieldset-label">
+              Roles
             </label>
-            <select id="role" name="role" className="select w-full">
+            <div className="flex max-w-full flex-wrap gap-3">
               {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.role}
-                </option>
+                <input
+                  type="checkbox"
+                  className="btn"
+                  key={r.id}
+                  aria-label={r.name}
+                  value={r.id}
+                  name="roles"
+                />
               ))}
-            </select>
+            </div>
             {errorMessage && <ErrorAlert message={errorMessage} />}
           </fieldset>
           <div className="modal-action">

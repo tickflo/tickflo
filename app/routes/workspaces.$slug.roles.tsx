@@ -1,77 +1,111 @@
-import { FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
-import { FaPencil, FaShield } from 'react-icons/fa6';
-import { data } from 'react-router';
+import { FaPlus, FaSearch, FaTrash, FaUsers } from 'react-icons/fa';
+import { FaBoltLightning, FaPencil, FaShield } from 'react-icons/fa6';
+import { Link, Outlet, data, href } from 'react-router';
 import { AuthError } from '~/.server/errors';
+import { errorRedirect } from '~/.server/helpers';
 import { getRoles } from '~/.server/services/workspace';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces.$slug.roles';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
-  const { user } = ctx;
+  const { user, session } = ctx;
 
   if (user.isNone()) {
     throw new AuthError('User not found');
   }
 
-  const roles = await getRoles(
-    { userId: user.value.id, slug: params.slug },
-    ctx,
-  );
+  const roles = await getRoles({ slug: params.slug }, ctx);
+  if (roles.isErr()) {
+    return errorRedirect(session, roles.error.message, '..');
+  }
 
-  return data({ roles });
+  return data({ roles: roles.value });
 }
 
-export default function workspaceRoles({ loaderData }: Route.ComponentProps) {
+export default function workspaceRoles({
+  loaderData,
+  params,
+}: Route.ComponentProps) {
   const { roles } = loaderData;
 
   return (
-    <div>
-      <h1 className="mb-2 text-2xl">
-        <FaShield className="inline" /> Roles
-      </h1>
+    <>
+      <div>
+        <h1 className="mb-2 text-2xl">
+          <FaShield className="inline" /> Roles
+        </h1>
 
-      <hr className="mb-2" />
+        <hr className="mb-2" />
 
-      <div className="flex w-full items-center justify-between">
-        <div>
-          <label className="input input-bordered flex items-center gap-2">
-            <input type="text" className="grow" placeholder="Search" />
-            <FaSearch />
-          </label>
+        <div className="flex w-full items-center justify-between">
+          <div>
+            <label className="input input-bordered flex items-center gap-2">
+              <input type="text" className="grow" placeholder="Search" />
+              <FaSearch />
+            </label>
+          </div>
+          <div>
+            <Link to="./add" className="btn btn-primary btn-sm">
+              <FaPlus /> Add Role
+            </Link>
+          </div>
         </div>
-        <div>
-          <button className="btn btn-success" type="button">
-            <FaPlus /> Add Role
-          </button>
-        </div>
-      </div>
 
-      <table className="table-zebra table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Permissions</th>
-            <th> </th>
-          </tr>
-        </thead>
-        <tbody>
-          {roles.map((role) => (
-            <tr key={role.role}>
-              <td>{role.role}</td>
-              <td>...</td>
-              <td className="flex justify-end gap-2">
-                <button className="btn btn-primary btn-outline" type="button">
-                  <FaPencil /> Edit
-                </button>
-                <button className="btn btn-error btn-outline" type="button">
-                  <FaTrash /> Delete
-                </button>
-              </td>
+        <table className="table-zebra table">
+          <thead>
+            <tr>
+              <th />
+              <th>
+                <FaShield className="inline pb-1" /> Name
+              </th>
+              <th>
+                <FaUsers className="inline pb-1" /> Users
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {roles.map((role) => (
+              <tr key={role.name}>
+                <td>
+                  <div className="dropdown">
+                    {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
+                    <div tabIndex={0} role="button" className="btn btn-sm">
+                      <FaBoltLightning /> Actions
+                    </div>
+                    <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
+                      <li>
+                        <Link
+                          to={href('/workspaces/:slug/roles/:id/edit', {
+                            slug: params.slug,
+                            id: role.id.toString(),
+                          })}
+                        >
+                          <FaPencil /> Edit
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to={href('/workspaces/:slug/roles/:id/remove', {
+                            slug: params.slug,
+                            id: role.id.toString(),
+                          })}
+                          className="text-error"
+                        >
+                          <FaTrash /> Remove
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
+                </td>
+                <td>{role.name}</td>
+                <td>...</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Outlet />
+    </>
   );
 }

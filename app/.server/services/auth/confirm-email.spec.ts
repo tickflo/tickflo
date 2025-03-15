@@ -1,37 +1,19 @@
 import { faker } from '@faker-js/faker';
+import { Some } from 'ts-results-es';
 import { expect, test } from 'vitest';
 import { getTestContext } from '~/.server/context';
 import { InputError } from '~/.server/errors';
-import { getUserByEmail } from '../user';
+import { getUserForAccessToken } from '../user';
 import { confirmEmail } from './confirm-email';
 import { signup } from './signup';
 
 const PASSWORD = 'password';
 
-test('Throw on missing email', async () => {
-  const context = await getTestContext();
-  const result = await confirmEmail({ email: '', code: 'code' }, context);
-  expect(result.isErr()).toBe(true);
-});
-
 test('Throw on missing code', async () => {
   const context = await getTestContext();
   const result = await confirmEmail(
     {
-      email: faker.internet.email(),
       code: '',
-    },
-    context,
-  );
-  expect(result.isErr()).toBe(true);
-});
-
-test('Throw on invalid email', async () => {
-  const context = await getTestContext();
-  const result = await confirmEmail(
-    {
-      email: faker.internet.email(),
-      code: 'asdf',
     },
     context,
   );
@@ -42,18 +24,26 @@ test('Throw on invalid code', async () => {
   const context = await getTestContext();
   const email = faker.internet.email().toLowerCase();
 
-  await signup(
-    {
-      name: faker.person.firstName(),
-      workspaceName: faker.company.name(),
-      email,
-      password: PASSWORD,
-      confirmPassword: PASSWORD,
-    },
-    context,
+  const { token } = (
+    await signup(
+      {
+        name: faker.person.firstName(),
+        workspaceName: faker.company.name(),
+        email,
+        password: PASSWORD,
+        confirmPassword: PASSWORD,
+      },
+      context,
+    )
+  ).unwrap();
+
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
+
+  const result = await confirmEmail(
+    { code: 'invalid' },
+    { ...context, user: Some(user) },
   );
 
-  const result = await confirmEmail({ email, code: 'invalid' }, context);
   expect(result.isErr()).toBe(true);
 });
 
@@ -61,30 +51,31 @@ test('Mark user confirmed with correct code', async () => {
   const context = await getTestContext();
   const email = faker.internet.email().toLowerCase();
 
-  await signup(
-    {
-      name: faker.person.firstName(),
-      workspaceName: faker.company.name(),
-      email,
-      password: PASSWORD,
-      confirmPassword: PASSWORD,
-    },
-    context,
-  );
-
-  let user = (await getUserByEmail({ email }, context)).unwrap();
-
-  (
-    await confirmEmail(
+  const { token } = (
+    await signup(
       {
+        name: faker.person.firstName(),
+        workspaceName: faker.company.name(),
         email,
-        code: user.emailConfirmationCode,
+        password: PASSWORD,
+        confirmPassword: PASSWORD,
       },
       context,
     )
   ).unwrap();
 
-  user = (await getUserByEmail({ email }, context)).unwrap();
+  let user = (await getUserForAccessToken({ token }, context)).unwrap();
+
+  (
+    await confirmEmail(
+      {
+        code: user.emailConfirmationCode,
+      },
+      { ...context, user: Some(user) },
+    )
+  ).unwrap();
+
+  user = (await getUserForAccessToken({ token }, context)).unwrap();
 
   expect(user.emailConfirmed).toBe(true);
   expect(user.emailConfirmationCode).toBeNull();
@@ -94,36 +85,38 @@ test('Throw on already confirmed', async () => {
   const context = await getTestContext();
   const email = faker.internet.email();
 
-  await signup(
-    {
-      name: faker.person.firstName(),
-      workspaceName: faker.company.name(),
-      email,
-      password: PASSWORD,
-      confirmPassword: PASSWORD,
-    },
-    context,
-  );
-
-  const user = (await getUserByEmail({ email }, context)).unwrap();
-
-  (
-    await confirmEmail(
+  const { token } = (
+    await signup(
       {
+        name: faker.person.firstName(),
+        workspaceName: faker.company.name(),
         email,
-        code: user.emailConfirmationCode,
+        password: PASSWORD,
+        confirmPassword: PASSWORD,
       },
       context,
     )
   ).unwrap();
 
+  let user = (await getUserForAccessToken({ token }, context)).unwrap();
+
+  (
+    await confirmEmail(
+      {
+        code: user.emailConfirmationCode,
+      },
+      { ...context, user: Some(user) },
+    )
+  ).unwrap();
+
+  user = (await getUserForAccessToken({ token }, context)).unwrap();
+
   const error = (
     await confirmEmail(
       {
-        email,
         code: user.emailConfirmationCode,
       },
-      context,
+      { ...context, user: Some(user) },
     )
   ).unwrapErr();
 

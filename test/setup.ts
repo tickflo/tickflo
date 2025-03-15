@@ -1,7 +1,5 @@
+import { setupDb } from 'server/setup-db';
 import { beforeAll, vi } from 'vitest';
-
-import { applyMigrations } from '~/.server/db/migrate';
-import { seed } from '~/.server/db/seed';
 
 // Replace the database with a new in-memory database
 vi.mock('~/.server/db', async () => {
@@ -19,6 +17,5 @@ vi.mock('~/.server/db', async () => {
 });
 
 beforeAll(async () => {
-  await applyMigrations();
-  await seed();
+  await setupDb();
 });

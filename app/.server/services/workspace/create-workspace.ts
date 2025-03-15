@@ -6,13 +6,18 @@ import {
   emailTemplates,
   roles,
   userWorkspaceRoles,
+  userWorkspaces,
   workspaces,
 } from '~/.server/db/schema';
+import {
+  defaultAdminPermissions,
+  defaultUserPermissions,
+} from '~/.server/permissions';
 import { slugify } from '~/utils/slugify';
 import { type ApiError, InputError } from '../../errors';
+import { updatePermissionsForRole } from '../security';
 
 type Request = {
-  userId: number;
   name: string | undefined;
 };
 
@@ -21,10 +26,12 @@ type Response = {
 };
 
 export async function createWorkspace(
-  { userId, name }: Request,
+  { name }: Request,
   context: Context,
 ): Promise<Result<Response, ApiError>> {
   const { tx, config } = context;
+
+  const user = context.user.unwrap();
 
   if (
     !name ||
@@ -42,7 +49,7 @@ export async function createWorkspace(
     .values({
       name,
       slug,
-      createdBy: userId,
+      createdBy: user.id,
     })
     .returning({
       id: workspaces.id,
@@ -57,29 +64,59 @@ export async function createWorkspace(
   const roleRows = await (tx || db)
     .insert(roles)
     .values([
-      { workspaceId: workspace.id, role: 'Administrator', createdBy: userId },
-      { workspaceId: workspace.id, role: 'Technician', createdBy: userId },
+      {
+        workspaceId: workspace.id,
+        name: 'Administrator',
+        admin: true,
+        createdBy: user.id,
+      },
+      {
+        workspaceId: workspace.id,
+        name: 'Technician',
+        createdBy: user.id,
+      },
     ])
     .returning({
       id: roles.id,
-      role: roles.role,
+      name: roles.name,
     });
 
   if (!roleRows || roleRows.length !== 2) {
     throw new Error('Failed to insert role records');
   }
 
-  const adminRole = roleRows.find((r) => r.role === 'Administrator');
+  const adminRole = roleRows.find((r) => r.name === 'Administrator');
   if (!adminRole) {
     throw new Error('Could not find Administrator role');
   }
 
-  await (tx || db).insert(userWorkspaceRoles).values({
-    userId,
-    workspaceId: workspace.id,
+  const technicianRole = roleRows.find((r) => r.name === 'Technician');
+  if (!technicianRole) {
+    throw new Error('Could not find Technicican role');
+  }
+
+  await updatePermissionsForRole(
+    { roleId: adminRole.id, permissions: defaultAdminPermissions(), slug },
+    context,
+  );
+
+  await updatePermissionsForRole(
+    { roleId: technicianRole.id, permissions: defaultUserPermissions(), slug },
+    context,
+  );
+
+  await (tx || db).insert(userWorkspaces).values({
     accepted: true,
+    userId: user.id,
+    workspaceId: workspace.id,
+    createdBy: user.id,
+  });
+
+  await (tx || db).insert(userWorkspaceRoles).values({
+    userId: user.id,
+    workspaceId: workspace.id,
     roleId: adminRole.id,
-    createdBy: userId,
+    createdBy: user.id,
   });
 
   await (tx || db).insert(emailTemplates).values(
@@ -88,7 +125,7 @@ export async function createWorkspace(
       templateTypeId: t.typeId,
       subject: t.subject,
       body: t.body,
-      createdBy: userId,
+      createdBy: user.id,
     })),
   );
 

@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { Err, Ok, type Result } from 'ts-results-es';
+import { Err, Ok, type Result, Some } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
-import { userWorkspaceRoles, users, workspaces } from '~/.server/db/schema';
+import { userWorkspaces, users, workspaces } from '~/.server/db/schema';
 import { ApiError, InputError } from '../../errors';
 import { createWorkspace } from '../workspace';
 import { createToken } from './create-token';
@@ -122,9 +122,7 @@ export async function signup(
         emailConfirmationCode,
         passwordHash: hash,
       })
-      .returning({
-        id: users.id,
-      });
+      .returning();
 
     if (!userRows || userRows.length === 0) {
       return Err(new ApiError('Failed to insert user record'));
@@ -134,18 +132,17 @@ export async function signup(
 
     await createWorkspace(
       {
-        userId: user.id,
         name: workspaceName,
       },
-      { ...context, tx },
+      { ...context, tx, user: Some(user) },
     );
 
     await sendSignupEmail(
       { to: email, code: emailConfirmationCode },
-      { ...context, tx },
+      { ...context, tx, user: Some(user) },
     );
 
-    const token = await createToken({ userId: user.id }, { ...context, tx });
+    const token = await createToken({ ...context, tx, user: Some(user) });
 
     return Ok({
       userId: user.id,
@@ -168,21 +165,28 @@ async function signupInvitee(
   const hash = await createHash(`${email}${password}`);
 
   return await db.transaction(async (tx) => {
-    await tx
+    const result = await tx
       .update(users)
       .set({
         name,
         passwordHash: hash,
         updatedBy: userId,
       })
-      .where(eq(users.id, userId));
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (result.length === 0) {
+      throw new ApiError('Failed to update user record');
+    }
+
+    const user = result[0];
 
     await tx
-      .update(userWorkspaceRoles)
+      .update(userWorkspaces)
       .set({ accepted: true })
-      .where(eq(userWorkspaceRoles.userId, userId));
+      .where(eq(userWorkspaces.userId, userId));
 
-    const token = await createToken({ userId }, { ...context, tx });
+    const token = await createToken({ ...context, tx, user: Some(user) });
 
     return Ok({
       userId,

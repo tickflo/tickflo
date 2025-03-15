@@ -23,6 +23,6 @@ test('Email is created with proper vars', async () => {
 
   expect(email?.templateId).toBe(emailTemplates.signup.typeId);
   expect(email?.vars).toStrictEqual({
-    confirmation_link: `${config.BASE_URL}/email-confirmation/confirm?email=${encodeURIComponent(to)}&code=${encodeURIComponent(code)}`,
+    confirmation_link: `${config.BASE_URL}/email-confirmation/confirm?code=${encodeURIComponent(code)}`,
   });
 });
