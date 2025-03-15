@@ -16,7 +16,7 @@ export default defineConfig(({ isSsrBuild }) => ({
   plugins: [
     tailwindcss(),
     process.env.NODE_ENV === 'development' ? reactRouterDevTools() : null,
-    process.env.NODE_ENV === 'test' ? null : reactRouter(),
+    reactRouter(),
     tsconfigPaths(),
   ],
   optimizeDeps: {
