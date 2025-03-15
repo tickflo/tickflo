@@ -74,7 +74,7 @@ test('Return None for missing template', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   const workspace = (
     await getWorkspaceBySlug({ slug }, { ...context, user: Some(user) })

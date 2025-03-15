@@ -199,7 +199,8 @@ export const roles = pgTable('roles', {
   workspaceId: integer('workspace_id')
     .notNull()
     .references(() => workspaces.id),
-  role: varchar({ length: config.ROLE.MAX_NAME_LENGTH }).notNull(),
+  name: varchar({ length: config.ROLE.MAX_NAME_LENGTH }).notNull(),
+  admin: boolean().notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

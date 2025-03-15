@@ -66,7 +66,7 @@ export default function workspaceRoles({
           </thead>
           <tbody>
             {roles.map((role) => (
-              <tr key={role.role}>
+              <tr key={role.name}>
                 <td>
                   <div className="dropdown">
                     {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
@@ -98,7 +98,7 @@ export default function workspaceRoles({
                     </ul>
                   </div>
                 </td>
-                <td>{role.role}</td>
+                <td>{role.name}</td>
                 <td>...</td>
               </tr>
             ))}

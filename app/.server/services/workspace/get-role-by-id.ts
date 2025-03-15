@@ -6,8 +6,8 @@ import { roles, workspaces } from '~/.server/db/schema';
 
 type Role = typeof roles.$inferSelect;
 
-export async function getRoleByName(
-  { slug, name }: { slug: string; name: string },
+export async function getRoleById(
+  { slug, id }: { slug: string; id: number },
   context: Context,
 ): Promise<Option<Role>> {
   const { tx } = context;
@@ -19,7 +19,7 @@ export async function getRoleByName(
       workspaces,
       and(eq(workspaces.id, roles.workspaceId), eq(workspaces.slug, slug)),
     )
-    .where(eq(roles.name, name));
+    .where(eq(roles.id, id));
 
   if (!result.length) {
     return None;

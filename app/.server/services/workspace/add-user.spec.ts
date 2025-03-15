@@ -32,7 +32,7 @@ test('Throws on invalid name', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   expect(
     (
@@ -94,7 +94,7 @@ test('Throws on invalid email', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
   expect(
     (
       await addUser(
@@ -127,7 +127,7 @@ test('Throws on invalid roleId', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
   expect(
     (
       await addUser(
@@ -161,7 +161,7 @@ test('Throws on non-existent role', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   expect(
     (
@@ -180,12 +180,15 @@ test('Throws on non-existent role', async () => {
 
 test('Throw on non-existent workspace', async () => {
   const context = await getTestContext();
+  const workspaceName = faker.company.name();
+  const slug = slugify(workspaceName);
+
   const { userId } = (
     await signup(
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
-        workspaceName: faker.company.name(),
+        workspaceName,
         password: 'password',
         confirmPassword: 'password',
       },
@@ -193,7 +196,7 @@ test('Throw on non-existent workspace', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   expect(
     (
@@ -230,7 +233,7 @@ test('Throw on adding existing member', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
   const roles = (
     await getRoles({ slug }, { ...context, user: Some(user) })
   ).unwrap();
@@ -268,7 +271,7 @@ test('Add new user', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   const roles = (
     await getRoles({ slug }, { ...context, user: Some(user) })

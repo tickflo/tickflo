@@ -3,6 +3,7 @@ import { Some } from 'ts-results-es';
 import { expect, test } from 'vitest';
 import { getTestContext } from '~/.server/context';
 import { InputError } from '~/.server/errors';
+import { slugify } from '~/utils/slugify';
 import { getUserById } from '../user';
 import { confirmEmail } from './confirm-email';
 import { signup } from './signup';
@@ -22,13 +23,15 @@ test('Throw on missing code', async () => {
 
 test('Throw on invalid code', async () => {
   const context = await getTestContext();
+  const workspaceName = faker.company.name();
+  const slug = slugify(workspaceName);
   const email = faker.internet.email().toLowerCase();
 
   const { userId } = (
     await signup(
       {
         name: faker.person.firstName(),
-        workspaceName: faker.company.name(),
+        workspaceName,
         email,
         password: PASSWORD,
         confirmPassword: PASSWORD,
@@ -37,7 +40,7 @@ test('Throw on invalid code', async () => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   const result = await confirmEmail(
     { code: 'invalid' },
@@ -50,6 +53,8 @@ test('Throw on invalid code', async () => {
 test('Mark user confirmed with correct code', async () => {
   const context = await getTestContext();
   const email = faker.internet.email().toLowerCase();
+  const workspaceName = faker.company.name();
+  const slug = slugify(workspaceName);
 
   const { userId } = (
     await signup(
@@ -64,7 +69,7 @@ test('Mark user confirmed with correct code', async () => {
     )
   ).unwrap();
 
-  let user = (await getUserById({ id: userId }, context)).unwrap();
+  let user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   (
     await confirmEmail(
@@ -75,7 +80,7 @@ test('Mark user confirmed with correct code', async () => {
     )
   ).unwrap();
 
-  user = (await getUserById({ id: userId }, context)).unwrap();
+  user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   expect(user.emailConfirmed).toBe(true);
   expect(user.emailConfirmationCode).toBeNull();
@@ -84,6 +89,8 @@ test('Mark user confirmed with correct code', async () => {
 test('Throw on already confirmed', async () => {
   const context = await getTestContext();
   const email = faker.internet.email();
+  const workspaceName = faker.company.name();
+  const slug = slugify(workspaceName);
 
   const { userId } = (
     await signup(
@@ -98,7 +105,7 @@ test('Throw on already confirmed', async () => {
     )
   ).unwrap();
 
-  let user = (await getUserById({ id: userId }, context)).unwrap();
+  let user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   (
     await confirmEmail(
@@ -109,7 +116,7 @@ test('Throw on already confirmed', async () => {
     )
   ).unwrap();
 
-  user = (await getUserById({ id: userId }, context)).unwrap();
+  user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   const error = (
     await confirmEmail(

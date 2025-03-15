@@ -38,7 +38,7 @@ export async function getUsers(
       id: users.id,
       name: users.name,
       email: users.email,
-      roles: sql<string>`STRING_AGG(roles.role, ', ')`,
+      roles: sql<string>`STRING_AGG(roles.name, ', ')`,
       inviteAccepted: userWorkspaces.accepted,
     })
     .from(users)

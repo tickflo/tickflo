@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { getTestContext } from '~/.server/context';
 import { signup } from '~/.server/services/auth';
 import { getUserById } from '~/.server/services/user';
+import { slugify } from '~/utils/slugify';
 
 const password = 'password';
 
@@ -118,6 +119,8 @@ test('Not show after resending', async ({ page }) => {
 
 test('Not show after confirming', async ({ page }) => {
   const email = faker.internet.email();
+  const workspaceName = faker.company.name();
+  const slug = slugify(workspaceName);
   const context = await getTestContext();
   const { userId } = (
     await signup(
@@ -126,13 +129,13 @@ test('Not show after confirming', async ({ page }) => {
         password,
         confirmPassword: password,
         name: faker.person.firstName(),
-        workspaceName: faker.company.name(),
+        workspaceName,
       },
       context,
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   await page.goto(
     `./email-confirmation/confirm?email=${encodeURIComponent(email)}&code=${encodeURIComponent(user.emailConfirmationCode ?? '')}`,

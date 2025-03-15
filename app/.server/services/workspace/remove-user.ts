@@ -4,10 +4,11 @@ import type { Context } from '~/.server/context';
 import { emailTemplates } from '~/.server/data';
 import { db } from '~/.server/db';
 import { userWorkspaceRoles, userWorkspaces, users } from '~/.server/db/schema';
-import { type ApiError, InputError, PermissionsError } from '~/.server/errors';
+import { ApiError, InputError, PermissionsError } from '~/.server/errors';
 import { getEmailTemplateId, sendEmail } from '../email';
 import { getPermissions } from '../security';
 import { getUserCount } from './get-user-count';
+import { getUsersCountByRole } from './get-users-count-by-role';
 import { getWorkspaceBySlug } from './get-workspace-by-slug';
 
 type Request = {
@@ -59,49 +60,71 @@ export async function removeUser(
 
   const removeUser = rows[0];
 
-  await db.transaction(async (tx) => {
-    await tx
-      .delete(userWorkspaceRoles)
-      .where(
-        and(
-          eq(userWorkspaceRoles.userId, userId),
-          eq(userWorkspaceRoles.workspaceId, workspace.value.id),
-        ),
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(userWorkspaceRoles)
+        .where(
+          and(
+            eq(userWorkspaceRoles.userId, userId),
+            eq(userWorkspaceRoles.workspaceId, workspace.value.id),
+          ),
+        );
+
+      const usersByRoles = await getUsersCountByRole(
+        { slug },
+        { ...context, tx },
       );
 
-    await tx
-      .delete(userWorkspaces)
-      .where(
-        and(
-          eq(userWorkspaces.userId, userId),
-          eq(userWorkspaces.workspaceId, workspace.value.id),
-        ),
+      const adminCount = usersByRoles
+        .filter((g) => g.admin)
+        .map((g) => g.count)
+        .reduce((acc, cur) => acc + cur, 0);
+
+      if (!adminCount) {
+        throw new InputError('Can not remove last admin of workspace');
+      }
+
+      await tx
+        .delete(userWorkspaces)
+        .where(
+          and(
+            eq(userWorkspaces.userId, userId),
+            eq(userWorkspaces.workspaceId, workspace.value.id),
+          ),
+        );
+
+      const templateId = await getEmailTemplateId(
+        {
+          slug,
+          typeId: emailTemplates.workspaceMemberRemoval.typeId,
+        },
+        { ...context, tx },
       );
 
-    const templateId = await getEmailTemplateId(
-      {
-        slug,
-        typeId: emailTemplates.workspaceMemberRemoval.typeId,
-      },
-      { ...context, tx },
-    );
+      if (templateId.isNone()) {
+        throw new InputError('Email template not found');
+      }
 
-    if (templateId.isNone()) {
-      return Err(new InputError('Email template not found'));
+      await sendEmail(
+        {
+          to: removeUser.email,
+          templateId: templateId.value,
+          vars: {
+            name: removeUser.name,
+            workspace_name: workspace.value.name,
+          },
+        },
+        { ...context, tx },
+      );
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return Err(err);
     }
 
-    await sendEmail(
-      {
-        to: removeUser.email,
-        templateId: templateId.value,
-        vars: {
-          name: removeUser.name,
-          workspace_name: workspace.value.name,
-        },
-      },
-      { ...context, tx },
-    );
-  });
+    throw err;
+  }
 
   return Ok.EMPTY;
 }

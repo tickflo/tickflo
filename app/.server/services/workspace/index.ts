@@ -11,3 +11,7 @@ export * from './remove-user';
 export * from './add-user';
 export * from './get-roles';
 export * from './get-role-by-name';
+export * from './get-role-by-id';
+export * from './get-users-count-by-role';
+export * from './update-user';
+export * from './get-role-ids-for-user-id';

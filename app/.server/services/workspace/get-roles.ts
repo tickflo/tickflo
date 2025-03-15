@@ -22,20 +22,12 @@ export async function getRoles(
   }
 
   const rows = await (tx || db)
-    .select({
-      id: roles.id,
-      workspaceId: roles.workspaceId,
-      role: roles.role,
-      createdAt: roles.createdAt,
-      createdBy: roles.createdBy,
-      updatedAt: roles.updatedAt,
-      updatedBy: roles.updatedBy,
-    })
+    .select()
     .from(roles)
     .innerJoin(
       workspaces,
       and(eq(workspaces.id, roles.workspaceId), eq(workspaces.slug, slug)),
     );
 
-  return Ok(rows);
+  return Ok(rows.map((r) => r.roles));
 }

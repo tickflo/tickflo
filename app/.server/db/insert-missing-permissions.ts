@@ -7,9 +7,9 @@ export async function insertMissingPermissions() {
   const perms = defaultUserPermissions();
   for (const resource in perms) {
     // biome-ignore lint/suspicious/noPrototypeBuiltins: <explanation>
-    if (defaultUserPermissions.hasOwnProperty(resource)) {
+    if (perms.hasOwnProperty(resource)) {
       // @ts-ignore
-      const actions = defaultUserPermissions[resource];
+      const actions = perms[resource];
       for (const action in actions) {
         const row = await db.query.permissions.findFirst({
           where: and(

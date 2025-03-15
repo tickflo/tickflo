@@ -94,7 +94,7 @@ export default function workspaceAddRole({ actionData }: Route.ComponentProps) {
               name="users"
               type="checkbox"
               aria-label="Remove"
-              value="remove"
+              value="delete"
               className="btn"
             />
           </fieldset>
@@ -125,7 +125,7 @@ export default function workspaceAddRole({ actionData }: Route.ComponentProps) {
               name="roles"
               type="checkbox"
               aria-label="Remove"
-              value="remove"
+              value="delete"
               className="btn"
             />
           </fieldset>

@@ -1,50 +1,57 @@
-import { FaPlus, FaUndo } from 'react-icons/fa';
+import { useCallback, useState } from 'react';
+import { FaCheck, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
-import { AuthError } from '~/.server/errors';
 import { errorRedirect } from '~/.server/helpers';
-import { addUser, getRoles } from '~/.server/services/workspace';
+import { getUserById } from '~/.server/services/user';
+import {
+  getRoleIdsForUserId,
+  getRoles,
+  updateUser,
+} from '~/.server/services/workspace';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
-import config from '~/config';
-import type { Route } from './+types/workspaces.$slug.users.add';
+import type { Route } from './+types/workspaces.$slug.users.$id.edit';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
-  const { user, session } = ctx;
-
-  if (user.isNone()) {
-    throw new AuthError('User not found');
-  }
+  const { session } = ctx;
 
   const roles = await getRoles({ slug: params.slug }, ctx);
   if (roles.isErr()) {
     return errorRedirect(session, roles.error.message, '..');
   }
 
+  const userId = Number.parseInt(params.id, 10);
+  const user = await getUserById({ id: userId, slug: params.slug }, ctx);
+  if (user.isErr()) {
+    return errorRedirect(session, user.error.message, '..');
+  }
+
+  const userRoles = await getRoleIdsForUserId(
+    { id: user.value.id, slug: params.slug },
+    ctx,
+  );
+
+  if (userRoles.isErr()) {
+    return errorRedirect(session, userRoles.error.message, '..');
+  }
+
   return data({
+    user: user.value,
+    userRoles: userRoles.value,
     roles: roles.value,
   });
 }
 
 export async function action({ context, request, params }: Route.ActionArgs) {
   const ctx = context.get(appContext);
-  const { user } = ctx;
-
-  if (user.isNone()) {
-    throw new AuthError('User not found');
-  }
-
   const formData = await request.formData();
-  const name = formData.get('name')?.toString();
-  const email = formData.get('email')?.toString();
+  const userId = Number.parseInt(params.id, 10);
   const roleIds = formData
     .getAll('roles')
     .map((v) => Number.parseInt(v.toString(), 10));
 
-  const result = await addUser(
-    { slug: params.slug, name, email, roleIds },
-    ctx,
-  );
+  const result = await updateUser({ slug: params.slug, userId, roleIds }, ctx);
 
   if (result.isErr()) {
     return data({ error: result.error.message });
@@ -53,43 +60,32 @@ export async function action({ context, request, params }: Route.ActionArgs) {
   return redirect('..');
 }
 
-export default function workspaceAddUser({
+export default function workspaceEditUser({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
-  const { roles } = loaderData;
+  const { user, roles, userRoles } = loaderData;
   const errorMessage = actionData?.error;
+
+  const [checkedRoles, setCheckedRoles] = useState(userRoles);
+
+  const onChange = useCallback(
+    (id: number, checked: boolean) => {
+      if (!checked) {
+        setCheckedRoles(checkedRoles.filter((r) => r !== id));
+      } else {
+        setCheckedRoles([...checkedRoles, id]);
+      }
+    },
+    [checkedRoles],
+  );
 
   return (
     <dialog className="modal" open={true}>
       <div className="modal-box">
-        <h3 className="font-bold text-lg"> Add User </h3>
+        <h3 className="font-bold text-lg"> Edit {user.name} </h3>
         <Form id="form-submit" method="post">
-          <input type="hidden" name="action" value="add-user" />
           <fieldset className="fieldset">
-            <label htmlFor="name" className="fieldset-label">
-              Name
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              className="input w-full"
-              placeholder="Name"
-              required
-              maxLength={config.USER.MAX_NAME_LENGTH}
-            />
-            <label htmlFor="email" className="fieldset-label">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              className="input w-full"
-              placeholder="Email"
-              required
-            />
             <label htmlFor="roles" className="fieldset-label">
               Roles
             </label>
@@ -102,6 +98,13 @@ export default function workspaceAddUser({
                   aria-label={r.name}
                   value={r.id}
                   name="roles"
+                  checked={checkedRoles.indexOf(r.id) > -1}
+                  onChange={(e) =>
+                    onChange(
+                      Number.parseInt(e.target.value, 10),
+                      e.target.checked,
+                    )
+                  }
                 />
               ))}
             </div>
@@ -113,8 +116,8 @@ export default function workspaceAddUser({
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              <FaPlus />
-              Add User
+              <FaCheck />
+              Save Changes
             </button>
           </div>
         </Form>

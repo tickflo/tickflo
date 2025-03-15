@@ -14,7 +14,13 @@ export async function getUserCount(
       count: count(),
     })
     .from(users)
-    .innerJoin(userWorkspaces, eq(userWorkspaces.userId, users.id))
+    .innerJoin(
+      userWorkspaces,
+      and(
+        eq(userWorkspaces.userId, users.id),
+        eq(userWorkspaces.accepted, true),
+      ),
+    )
     .innerJoin(
       workspaces,
       and(

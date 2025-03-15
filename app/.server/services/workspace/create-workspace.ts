@@ -66,30 +66,31 @@ export async function createWorkspace(
     .values([
       {
         workspaceId: workspace.id,
-        role: 'Administrator',
+        name: 'Administrator',
+        admin: true,
         createdBy: user.id,
       },
       {
         workspaceId: workspace.id,
-        role: 'Technician',
+        name: 'Technician',
         createdBy: user.id,
       },
     ])
     .returning({
       id: roles.id,
-      role: roles.role,
+      name: roles.name,
     });
 
   if (!roleRows || roleRows.length !== 2) {
     throw new Error('Failed to insert role records');
   }
 
-  const adminRole = roleRows.find((r) => r.role === 'Administrator');
+  const adminRole = roleRows.find((r) => r.name === 'Administrator');
   if (!adminRole) {
     throw new Error('Could not find Administrator role');
   }
 
-  const technicianRole = roleRows.find((r) => r.role === 'Technician');
+  const technicianRole = roleRows.find((r) => r.name === 'Technician');
   if (!technicianRole) {
     throw new Error('Could not find Technicican role');
   }
@@ -105,6 +106,7 @@ export async function createWorkspace(
   );
 
   await (tx || db).insert(userWorkspaces).values({
+    accepted: true,
     userId: user.id,
     workspaceId: workspace.id,
     createdBy: user.id,

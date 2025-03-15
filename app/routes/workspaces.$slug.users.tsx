@@ -72,7 +72,12 @@ export default function workspaceUsers({
                     </div>
                     <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
                       <li>
-                        <Link to="./edit">
+                        <Link
+                          to={href('/workspaces/:slug/users/:id/edit', {
+                            slug: params.slug,
+                            id: user.id.toString(),
+                          })}
+                        >
                           <FaPencil /> Edit
                         </Link>
                       </li>

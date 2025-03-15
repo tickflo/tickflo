@@ -69,10 +69,15 @@ test('Redirects to workspace picker for more than one workspace', async ({
     )
   ).unwrap();
 
-  const user = await getUserById({ id: userId }, context);
+  const user = (
+    await getUserById({ id: userId, slug: slugify(workspaceNames[0]) }, context)
+  ).unwrap();
 
   (
-    await createWorkspace({ name: workspaceNames[1] }, { ...context, user })
+    await createWorkspace(
+      { name: workspaceNames[1] },
+      { ...context, user: Some(user) },
+    )
   ).unwrap();
 
   await page.getByLabel('Email').fill(email);
@@ -117,9 +122,8 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
-
   const slug = slugify(workspaceNames[1]);
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   const roles = (
     await getRoles({ slug }, { ...context, user: Some(user) })
@@ -167,7 +171,7 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId }, context)).unwrap();
+  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
 
   const roles = (
     await getRoles({ slug }, { ...context, user: Some(user) })

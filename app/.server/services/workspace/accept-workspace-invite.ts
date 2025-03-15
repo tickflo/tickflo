@@ -6,30 +6,26 @@ import { userWorkspaces } from '~/.server/db/schema';
 import { type ApiError, InputError } from '~/.server/errors';
 
 type Request = {
-  userId: number;
   workspaceId: number;
 };
 
 export async function acceptWorkspaceInvite(
-  { userId, workspaceId }: Request,
+  { workspaceId }: Request,
   context: Context,
 ): Promise<Result<void, ApiError>> {
-  if (Number.isNaN(userId)) {
-    return Err(new InputError(`Invalid userId ${userId}`));
-  }
-
   if (Number.isNaN(workspaceId)) {
     return Err(new InputError(`Invalid workspaceId ${workspaceId}`));
   }
 
   const { tx } = context;
+  const user = context.user.unwrap();
 
   const workspace = await (tx || db).query.userWorkspaces.findFirst({
     columns: {
       accepted: true,
     },
     where: and(
-      eq(userWorkspaces.userId, userId),
+      eq(userWorkspaces.userId, user.id),
       eq(userWorkspaces.workspaceId, workspaceId),
     ),
   });
@@ -49,7 +45,7 @@ export async function acceptWorkspaceInvite(
     .set({ accepted: true })
     .where(
       and(
-        eq(userWorkspaces.userId, userId),
+        eq(userWorkspaces.userId, user.id),
         eq(userWorkspaces.workspaceId, workspaceId),
       ),
     );

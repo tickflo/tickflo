@@ -3,23 +3,28 @@ import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { type ApiError, InputError, PermissionsError } from '~/.server/errors';
-import { userWorkspaces, users, workspaces } from '../../db/schema';
+import {
+  userWorkspaceRoles,
+  userWorkspaces,
+  users,
+  workspaces,
+} from '../../db/schema';
 import { getPermissions } from '../security';
 
-type User = typeof users.$inferSelect;
-
-export async function getUserById(
+export async function getRoleIdsForUserId(
   { id, slug }: { id: number; slug: string },
   context: Context,
-): Promise<Result<User, ApiError>> {
+): Promise<Result<number[], ApiError>> {
   const { tx } = context;
   const permissions = await getPermissions({ slug }, context);
   if (!permissions.users.read) {
     return Err(new PermissionsError('You do not have access users'));
   }
 
-  const row = await (tx || db)
-    .select()
+  const rows = await (tx || db)
+    .select({
+      id: userWorkspaceRoles.roleId,
+    })
     .from(users)
     .innerJoin(userWorkspaces, eq(userWorkspaces.userId, users.id))
     .innerJoin(
@@ -29,11 +34,18 @@ export async function getUserById(
         eq(workspaces.slug, slug),
       ),
     )
+    .innerJoin(
+      userWorkspaceRoles,
+      and(
+        eq(userWorkspaceRoles.userId, users.id),
+        eq(userWorkspaceRoles.workspaceId, workspaces.id),
+      ),
+    )
     .where(eq(users.id, id));
 
-  if (!row.length) {
+  if (!rows.length) {
     return Err(new InputError('User not found'));
   }
 
-  return Ok(row[0].users);
+  return Ok(rows.map((r) => r.id));
 }

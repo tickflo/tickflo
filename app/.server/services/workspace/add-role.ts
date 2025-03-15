@@ -54,7 +54,7 @@ export async function addRole(
     const result = await tx
       .insert(roles)
       .values({
-        role: name,
+        name,
         workspaceId: workspace.value.id,
         createdBy: user.id,
       })
