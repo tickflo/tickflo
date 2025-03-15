@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { Some } from 'ts-results-es';
 import { getTestContext } from '~/.server/context';
 import { signup } from '~/.server/services/auth';
-import { getUserById } from '~/.server/services/user';
+import { getUserForAccessToken } from '~/.server/services/user';
 import {
   addUser,
   createWorkspace,
@@ -56,7 +56,7 @@ test('Redirects to workspace picker for more than one workspace', async ({
   const email = faker.internet.email();
   const context = await getTestContext();
   const workspaceNames = [faker.company.name(), faker.company.name()];
-  const { userId } = (
+  const { token } = (
     await signup(
       {
         name: faker.person.firstName(),
@@ -69,9 +69,7 @@ test('Redirects to workspace picker for more than one workspace', async ({
     )
   ).unwrap();
 
-  const user = (
-    await getUserById({ id: userId, slug: slugify(workspaceNames[0]) }, context)
-  ).unwrap();
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
 
   (
     await createWorkspace(
@@ -109,7 +107,7 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
     )
   ).unwrap();
 
-  const { userId } = (
+  const { token } = (
     await signup(
       {
         name: faker.person.firstName(),
@@ -123,7 +121,7 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
   ).unwrap();
 
   const slug = slugify(workspaceNames[1]);
-  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
 
   const roles = (
     await getRoles({ slug }, { ...context, user: Some(user) })
@@ -158,7 +156,7 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
   const workspaceName = faker.company.name();
   const slug = slugify(workspaceName);
 
-  const { userId } = (
+  const { token } = (
     await signup(
       {
         name: faker.person.firstName(),
@@ -171,7 +169,7 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
     )
   ).unwrap();
 
-  const user = (await getUserById({ id: userId, slug }, context)).unwrap();
+  const user = (await getUserForAccessToken({ token }, context)).unwrap();
 
   const roles = (
     await getRoles({ slug }, { ...context, user: Some(user) })
