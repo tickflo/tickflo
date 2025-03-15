@@ -33,9 +33,14 @@ export async function loader({ context, params }: Route.LoaderArgs) {
   }
 
   return data({
-    user: user.value,
+    user: {
+      name: user.value.name,
+    },
     userRoles: userRoles.value,
-    roles: roles.value,
+    roles: roles.value.map((r) => ({
+      id: r.id,
+      name: r.name,
+    })),
   });
 }
 
