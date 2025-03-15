@@ -96,12 +96,12 @@ export async function createWorkspace(
   }
 
   await updatePermissionsForRole(
-    { roleId: adminRole.id, permissions: defaultAdminPermissions() },
+    { roleId: adminRole.id, permissions: defaultAdminPermissions(), slug },
     context,
   );
 
   await updatePermissionsForRole(
-    { roleId: technicianRole.id, permissions: defaultUserPermissions() },
+    { roleId: technicianRole.id, permissions: defaultUserPermissions(), slug },
     context,
   );
 

@@ -12,8 +12,8 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 
   const roleId = Number.parseInt(params.id || '', 10);
   const role = await getRoleById({ id: roleId, slug: params.slug }, ctx);
-  if (role.isNone()) {
-    return errorRedirect(session, 'Role not found', '..');
+  if (role.isErr()) {
+    return errorRedirect(session, role.error.message, '..');
   }
 
   return data({
@@ -66,7 +66,7 @@ export default function workspaceRemoveRole({
         method="get"
         className="modal-backdrop backdrop-brightness-50"
       >
-        <button type="submit">Close</button>
+        <button type="submit"> Close </button>
       </Form>
     </dialog>
   );

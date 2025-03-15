@@ -1,16 +1,40 @@
 import { and, eq, inArray } from 'drizzle-orm';
+import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
 import { rolePermissions } from '~/.server/db/schema';
-import { ApiError } from '~/.server/errors';
+import { ApiError, PermissionsError } from '~/.server/errors';
 import type { Permissions } from '~/.server/permissions';
+import { getRoleById } from '../workspace';
+import { getPermissions } from './get-permissions';
 
 export async function updatePermissionsForRole(
-  { roleId, permissions }: { roleId: number; permissions: Permissions },
+  {
+    roleId,
+    permissions,
+    slug,
+  }: { roleId: number; permissions: Permissions; slug: string },
   context: Context,
-) {
+): Promise<Result<void, ApiError>> {
+  const userPermissions = await getPermissions({ slug }, context);
+  if (!(userPermissions.roles.update || userPermissions.roles.create)) {
+    return Err(
+      new PermissionsError('You do not have permission to update permissions'),
+    );
+  }
+
   const { tx } = context;
   const user = context.user.unwrap();
+
+  const role = await getRoleById({ id: roleId, slug }, context);
+  if (role.isErr()) {
+    return Err(role.error);
+  }
+
+  // We don't need to save admin permissions
+  if (role.value.admin) {
+    return Ok.EMPTY;
+  }
 
   const permissionIds = await (tx || db).query.permissions.findMany();
 
@@ -40,7 +64,7 @@ export async function updatePermissionsForRole(
       );
       if (existing && !allowed) {
         deleteIds.push(existing.permissionId);
-      } else if (allowed) {
+      } else if (!existing && allowed) {
         createIds.push(permissionIdRow.id);
       }
     }
@@ -66,4 +90,6 @@ export async function updatePermissionsForRole(
       })),
     );
   }
+
+  return Ok.EMPTY;
 }

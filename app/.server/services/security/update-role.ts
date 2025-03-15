@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
@@ -5,16 +6,17 @@ import { roles } from '~/.server/db/schema';
 import { ApiError, InputError, PermissionsError } from '~/.server/errors';
 import type { Permissions } from '~/.server/permissions';
 import { getPermissions, updatePermissionsForRole } from '../security';
-import { getRoleByName } from './get-role-by-name';
-import { getWorkspaceBySlug } from './get-workspace-by-slug';
+import { getRoleById, getWorkspaceBySlug } from '../workspace';
 
-export async function addRole(
+export async function updateRole(
   {
+    id,
     slug,
     name,
     admin,
     permissions: rolePermissions,
   }: {
+    id: number;
     slug: string;
     name: string | undefined;
     admin: boolean;
@@ -23,8 +25,14 @@ export async function addRole(
   context: Context,
 ): Promise<Result<void, ApiError>> {
   const permissions = await getPermissions({ slug }, context);
-  if (!permissions.roles.create) {
-    return Err(new PermissionsError('You do not have permission to add roles'));
+  if (!permissions.roles.update) {
+    return Err(
+      new PermissionsError('You do not have permission to edit roles'),
+    );
+  }
+
+  if (Number.isNaN(id)) {
+    return Err(new InputError('Invalid role id'));
   }
 
   const { config } = context;
@@ -46,33 +54,27 @@ export async function addRole(
     return Err(new InputError(`Workspace ${slug} does not exist`));
   }
 
-  const existingRole = await getRoleByName({ slug, name }, context);
-  if (existingRole.isSome()) {
-    return Err(new InputError('A role with that name already exists'));
+  if ((await getRoleById({ slug, id }, context)).isErr()) {
+    return Err(new InputError('Invalid role id'));
   }
 
   const user = context.user.unwrap();
   await db.transaction(async (tx) => {
     const result = await tx
-      .insert(roles)
-      .values({
+      .update(roles)
+      .set({
         name,
         admin,
-        workspaceId: workspace.value.id,
-        createdBy: user.id,
+        updatedBy: user.id,
       })
-      .returning({
-        id: roles.id,
-      });
+      .where(eq(roles.id, id));
 
-    if (!result.length) {
-      return Err(new ApiError('Failed to insert role record'));
+    if (!result.rowCount) {
+      return Err(new ApiError('Failed to update role record'));
     }
 
-    const { id: roleId } = result[0];
-
     await updatePermissionsForRole(
-      { roleId, permissions: rolePermissions, slug },
+      { roleId: id, permissions: rolePermissions, slug },
       { ...context, tx },
     );
   });

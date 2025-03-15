@@ -1,12 +1,55 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FaPlus, FaUndo } from 'react-icons/fa';
+import { FaCheck, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
+import { errorRedirect } from '~/.server/helpers';
 import { defaultUserPermissions, isAction } from '~/.server/permissions';
-import { addRole } from '~/.server/services/workspace';
+import {
+  getPermissionsForRoleId,
+  updateRole,
+} from '~/.server/services/security';
+import { getRoleById } from '~/.server/services/workspace';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
 import config from '~/config';
-import type { Route } from './+types/workspaces.$slug.roles.add';
+import type { Route } from './+types/workspaces.$slug.roles.$id.edit';
+
+export async function loader({ context, params }: Route.LoaderArgs) {
+  const ctx = context.get(appContext);
+  const { session } = ctx;
+
+  const roleId = Number.parseInt(params.id, 10);
+  const role = await getRoleById({ id: roleId, slug: params.slug }, ctx);
+  if (role.isErr()) {
+    return errorRedirect(session, role.error.message, '..');
+  }
+
+  const permissions = await getPermissionsForRoleId(
+    { id: roleId, slug: params.slug },
+    ctx,
+  );
+
+  const userPermissions = [];
+  for (const action in permissions.users) {
+    // @ts-ignore
+    if (permissions.users[action]) {
+      userPermissions.push(action);
+    }
+  }
+
+  const rolePermissions = [];
+  for (const action in permissions.roles) {
+    // @ts-ignore
+    if (permissions.roles[action]) {
+      rolePermissions.push(action);
+    }
+  }
+
+  return data({
+    role: role.value,
+    userPermissions,
+    rolePermissions,
+  });
+}
 
 export async function action({ context, request, params }: Route.ActionArgs) {
   const ctx = context.get(appContext);
@@ -37,8 +80,9 @@ export async function action({ context, request, params }: Route.ActionArgs) {
     permissions.roles[action] = true;
   }
 
-  const result = await addRole(
-    { slug: params.slug, name, admin, permissions },
+  const id = Number.parseInt(params.id, 10);
+  const result = await updateRole(
+    { id, slug: params.slug, name, admin, permissions },
     ctx,
   );
 
@@ -49,17 +93,19 @@ export async function action({ context, request, params }: Route.ActionArgs) {
   return redirect('..');
 }
 
-export default function workspaceAddRole({ actionData }: Route.ComponentProps) {
+export default function workspaceEditRole({
+  loaderData,
+  actionData,
+}: Route.ComponentProps) {
+  const { role, rolePermissions, userPermissions } = loaderData;
   const errorMessage = actionData?.error;
 
-  const [admin, setAdmin] = useState(false);
-
-  const [checkedUserPermissions, setCheckedUserPermissions] = useState<
-    string[]
-  >([]);
-  const [checkedRolePermissions, setCheckedRolePermissions] = useState<
-    string[]
-  >([]);
+  const [name, setName] = useState(role.name);
+  const [admin, setAdmin] = useState(role.admin);
+  const [checkedUserPermissions, setCheckedUserPermissions] =
+    useState(userPermissions);
+  const [checkedRolePermissions, setCheckedRolePermissions] =
+    useState(rolePermissions);
 
   const permissionTypes = useMemo(
     () => [
@@ -100,7 +146,7 @@ export default function workspaceAddRole({ actionData }: Route.ComponentProps) {
   return (
     <dialog className="modal" open={true}>
       <div className="modal-box">
-        <h3 className="font-bold text-lg"> Add Role </h3>
+        <h3 className="font-bold text-lg">Edit Role</h3>
         <Form id="form-submit" method="post">
           <input type="hidden" name="action" value="add-user" />
           <fieldset className="fieldset">
@@ -115,6 +161,8 @@ export default function workspaceAddRole({ actionData }: Route.ComponentProps) {
               placeholder="Name"
               required
               maxLength={config.ROLE.MAX_NAME_LENGTH}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
           </fieldset>
           <fieldset className="fieldset">
@@ -177,8 +225,8 @@ export default function workspaceAddRole({ actionData }: Route.ComponentProps) {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              <FaPlus />
-              Add Role
+              <FaCheck />
+              Save Changes
             </button>
           </div>
         </Form>
