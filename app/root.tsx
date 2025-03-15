@@ -12,8 +12,17 @@ import {
 } from 'react-router';
 
 import { useEffect, useState } from 'react';
-import { FaBell, FaMoon, FaSignOutAlt, FaSun, FaUser } from 'react-icons/fa';
-import { FaPeopleGroup } from 'react-icons/fa6';
+import {
+  FaBell,
+  FaBriefcase,
+  FaEnvelope,
+  FaMoon,
+  FaSignOutAlt,
+  FaSun,
+  FaUser,
+  FaUserCircle,
+} from 'react-icons/fa';
+import { FaPeopleGroup, FaScrewdriverWrench } from 'react-icons/fa6';
 import type { Route } from './+types/root';
 import { getContext } from './.server/context';
 import { loginRedirect } from './.server/helpers';
@@ -68,6 +77,7 @@ export async function loader({ context }: Route.LoaderArgs) {
             name: user.value.name,
             email: user.value.email,
             emailConfirmed: user.value.emailConfirmed,
+            systemAdmin: user.value.systemAdmin,
           }
         : null,
     },
@@ -142,47 +152,74 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </li>
               <li>
                 <Link to="/notifications">
-                  <FaBell />
+                  <FaBell className="mt-1 inline" />
                   <span className="badge badge-xs badge-primary">99+</span>
                 </Link>
               </li>
-              <li>
-                {!user && <Link to="/login">Login</Link>}
-                {user && (
-                  <div className="dropdown dropdown-end">
-                    {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
-                    <div tabIndex={0} role="button">
-                      {user.email}
+              {!user && <Link to="/login">Login</Link>}
+              {user && (
+                <>
+                  <li>
+                    <div className="dropdown dropdown-center">
+                      {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
+                      <div tabIndex={0} role="button">
+                        <FaScrewdriverWrench className="inline" /> System
+                      </div>
+                      <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
+                        <li>
+                          <Link to="/sys/emails">
+                            <FaEnvelope /> Emails
+                          </Link>
+                        </li>
+                        <li>
+                          <Link to="/sys/workspaces">
+                            <FaBriefcase /> Workspaces
+                          </Link>
+                        </li>
+                        <li>
+                          <Link to="/sys/users">
+                            <FaPeopleGroup /> Users
+                          </Link>
+                        </li>
+                      </ul>
                     </div>
-                    <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
-                      <li>
-                        <Link
-                          to="/profile"
-                          onClick={(e) => e.currentTarget.blur()}
-                        >
-                          <FaUser /> Profile
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          to="/workspaces"
-                          onClick={(e) => e.currentTarget.blur()}
-                        >
-                          <FaPeopleGroup /> Workspaces
-                        </Link>
-                      </li>
-                      <li>
-                        <form method="post" action="/logout">
-                          <button type="submit" className="cursor-pointer">
-                            <FaSignOutAlt className="mr-2 inline" />
-                            Logout
-                          </button>
-                        </form>
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </li>
+                  </li>
+                  <li>
+                    <div className="dropdown dropdown-end">
+                      {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
+                      <div tabIndex={0} role="button">
+                        <FaUserCircle className="inline" /> {user.email}
+                      </div>
+                      <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
+                        <li>
+                          <Link
+                            to="/profile"
+                            onClick={(e) => e.currentTarget.blur()}
+                          >
+                            <FaUser /> Profile
+                          </Link>
+                        </li>
+                        <li>
+                          <Link
+                            to="/workspaces"
+                            onClick={(e) => e.currentTarget.blur()}
+                          >
+                            <FaPeopleGroup /> Workspaces
+                          </Link>
+                        </li>
+                        <li>
+                          <form method="post" action="/logout">
+                            <button type="submit" className="cursor-pointer">
+                              <FaSignOutAlt className="mr-2 inline" />
+                              Logout
+                            </button>
+                          </form>
+                        </li>
+                      </ul>
+                    </div>
+                  </li>
+                </>
+              )}
             </ul>
           </div>
         </div>

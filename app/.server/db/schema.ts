@@ -19,6 +19,7 @@ export const users = pgTable('users', {
   emailConfirmed: boolean('email_confirmed').notNull().default(false),
   emailConfirmationCode: varchar('email_confirmation_code', { length: 100 }),
   passwordHash: varchar('password_hash', { length: 100 }),
+  systemAdmin: boolean('system_admin').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
