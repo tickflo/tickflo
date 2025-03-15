@@ -23,7 +23,13 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 
   const roleGroups = await getUsersCountByRole({ slug: params.slug }, ctx);
 
-  return data({ roles: roles.value, roleGroups });
+  return data({
+    roles: roles.value.map((r) => ({
+      id: r.id,
+      name: r.name,
+    })),
+    roleGroups,
+  });
 }
 
 export default function workspaceRoles({

@@ -24,7 +24,13 @@ export async function loader({ context, params }: Route.LoaderArgs) {
   }
 
   return data(
-    { workspace: workspace.value, permissions },
+    {
+      workspace: {
+        slug: workspace.value.slug,
+        name: workspace.value.name,
+      },
+      permissions,
+    },
     {
       headers: {
         'Set-Cookie': await commitSession(session),
