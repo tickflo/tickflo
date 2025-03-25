@@ -41,7 +41,7 @@
     "@faker-js/faker": "^9.6.0",
     "@playwright/test": "^1.51.1",
     "@react-router/dev": "^7.3.0",
-    "@tailwindcss/vite": "^4.0.13",
+    "@tailwindcss/vite": "^4.0.16",
     "@types/express": "^5.0.0",
     "@types/express-serve-static-core": "^5.0.6",
     "@types/morgan": "^1.9.9",
