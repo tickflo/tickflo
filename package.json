@@ -42,7 +42,7 @@
     "@playwright/test": "^1.51.1",
     "@react-router/dev": "^7.3.0",
     "@tailwindcss/vite": "^4.0.13",
-    "@types/express": "^5.0.0",
+    "@types/express": "^5.0.1",
     "@types/express-serve-static-core": "^5.0.6",
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.13.10",
