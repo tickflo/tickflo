@@ -166,17 +166,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </div>
                       <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
                         <li>
-                          <Link to="/sys/emails">
+                          <Link
+                            to="/sys/emails"
+                            onClick={(e) => e.currentTarget.blur()}
+                          >
                             <FaEnvelope /> Emails
                           </Link>
                         </li>
                         <li>
-                          <Link to="/sys/workspaces">
+                          <Link
+                            to="/sys/workspaces"
+                            onClick={(e) => e.currentTarget.blur()}
+                          >
                             <FaPeopleGroup /> Workspaces
                           </Link>
                         </li>
                         <li>
-                          <Link to="/sys/users">
+                          <Link
+                            to="/sys/users"
+                            onClick={(e) => e.currentTarget.blur()}
+                          >
                             <FaPeopleGroup /> Users
                           </Link>
                         </li>

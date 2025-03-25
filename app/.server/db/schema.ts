@@ -101,6 +101,9 @@ export const emails = pgTable('emails', {
   vars: json(),
   from: varchar({ length: 254 }).notNull().default('noreply@tickflo.co'),
   to: varchar({ length: 254 }).notNull(),
+  state: varchar({ length: 20 }).notNull().default('created'),
+  stateUpdatedAt: timestamp('state_updated_at', { withTimezone: true }),
+  bounceDescription: varchar('bounce_description', { length: 254 }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

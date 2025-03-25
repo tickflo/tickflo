@@ -43,11 +43,17 @@ export async function getUsers(
     })
     .from(users)
     .innerJoin(userWorkspaces, eq(userWorkspaces.userId, users.id))
-    .innerJoin(userWorkspaceRoles, eq(userWorkspaceRoles.userId, users.id))
+    .innerJoin(
+      userWorkspaceRoles,
+      and(
+        eq(userWorkspaceRoles.userId, users.id),
+        eq(userWorkspaceRoles.workspaceId, userWorkspaces.workspaceId),
+      ),
+    )
     .innerJoin(
       workspaces,
       and(
-        eq(workspaces.id, userWorkspaceRoles.workspaceId),
+        eq(workspaces.id, userWorkspaces.workspaceId),
         eq(workspaces.slug, slug),
       ),
     )
