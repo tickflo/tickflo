@@ -23,7 +23,13 @@ export async function loader({ context, params }: Route.LoaderArgs) {
 
   const roleGroups = await getUsersCountByRole({ slug: params.slug }, ctx);
 
-  return data({ roles: roles.value, roleGroups });
+  return data({
+    roles: roles.value.map((r) => ({
+      id: r.id,
+      name: r.name,
+    })),
+    roleGroups,
+  });
 }
 
 export default function workspaceRoles({
@@ -36,7 +42,7 @@ export default function workspaceRoles({
     <>
       <div>
         <h1 className="mb-2 text-2xl">
-          <FaShield className="inline" /> Roles
+          <FaShield className="inline pb-1 pl-1" /> Roles
         </h1>
 
         <hr className="mb-2" />
