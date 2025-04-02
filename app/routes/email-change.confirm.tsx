@@ -4,6 +4,7 @@ import { errorRedirect } from '~/.server/helpers';
 import { confirmEmailChange, getEmailChange } from '~/.server/services/user';
 import { commitSession } from '~/.server/session';
 import { appContext } from '~/app-context';
+import { ErrorAlert } from '~/components/error-alert';
 import type { Route } from './+types/email-change.confirm';
 
 export async function loader({ context, request }: Route.LoaderArgs) {
@@ -38,10 +39,12 @@ export async function action({ request }: Route.ActionArgs) {
 
   const result = await confirmEmailChange({ code, password }, context);
   if (result.isErr()) {
-    session.flash('error', result.error.message);
-  } else {
-    session.flash('message', 'Email address changed!');
+    return data({
+      error: result.error.message,
+    });
   }
+
+  session.flash('message', 'Email address changed!');
 
   return redirect('/', {
     headers: {
@@ -50,7 +53,10 @@ export async function action({ request }: Route.ActionArgs) {
   });
 }
 
-export default function ChangeEmail({ loaderData }: Route.ComponentProps) {
+export default function ChangeEmail({
+  loaderData,
+  actionData,
+}: Route.ComponentProps) {
   const { newEmail, code } = loaderData;
 
   return (
@@ -73,6 +79,8 @@ export default function ChangeEmail({ loaderData }: Route.ComponentProps) {
                 placeholder="Password"
               />
             </fieldset>
+
+            {actionData?.error && <ErrorAlert message={actionData.error} />}
 
             <button type="submit" className="btn btn-primary mt-4">
               Change email
