@@ -61,9 +61,9 @@ const revertEmailChange = {
   subject: 'Your email address was changed',
   body: `Hello,
 
-Your Tickflo account email was changed to **{{new_email}}**. If you made this change, no further action is needed.
+Your Tickflo account email was changed to {{new_email}}. If you made this change, no further action is needed.
 
-If you did NOT request this change, you can revert it within {{revert_time}} by clicking the link below:
+If you did NOT request this change, you have until {{expires_at}} to undo this change by clicking the link below:
 
 {{revert_link}}
 

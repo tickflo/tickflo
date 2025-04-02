@@ -12,3 +12,5 @@ export * from './update-profile';
 export * from './send-confirm-email';
 export * from './get-email-change';
 export * from './cancel-email-change';
+export * from './confirm-email-change';
+export * from './send-email-changed';
