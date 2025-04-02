@@ -118,8 +118,8 @@ importers:
         specifier: ^1.1.6
         version: 1.1.6(@types/react-dom@19.0.4(@types/react@19.0.12))(@types/react@19.0.12)(react-dom@19.0.0(react@19.0.0))(react-router@7.3.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react@19.0.0)(vite@6.2.4(@types/node@22.13.17)(jiti@2.4.2)(lightningcss@1.29.2))
       tailwindcss:
-        specifier: ^4.0.16
-        version: 4.0.16
+        specifier: ^4.1.1
+        version: 4.1.1
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@22.13.17)(typescript@5.8.2)
@@ -3298,9 +3298,6 @@ packages:
   supports-preserve-symlinks-flag@1.0.0:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
-
-  tailwindcss@4.0.16:
-    resolution: {integrity: sha512-i/SbG7ThTIcLshcFJL+je7hCv9dPis4Xl4XNeel6iZNX42pp/BZ+la+SbZIPoYE+PN8zhKbnHblpQ/lhOWwIeQ==}
 
   tailwindcss@4.1.1:
     resolution: {integrity: sha512-QNbdmeS979Efzim2g/bEvfuh+fTcIdp1y7gA+sb6OYSW74rt7Cr7M78AKdf6HqWT3d5AiTb7SwTT3sLQxr4/qw==}
@@ -6575,8 +6572,6 @@ snapshots:
       has-flag: 4.0.0
 
   supports-preserve-symlinks-flag@1.0.0: {}
-
-  tailwindcss@4.0.16: {}
 
   tailwindcss@4.1.1: {}
 
