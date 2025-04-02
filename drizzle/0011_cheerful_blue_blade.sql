@@ -1,0 +1,1 @@
+ALTER TABLE "user_email_changes" ADD COLUMN "undone_at" timestamp with time zone;

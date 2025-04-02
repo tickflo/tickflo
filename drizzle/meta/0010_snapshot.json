@@ -1,6 +1,6 @@
 {
-  "id": "d142648b-3d37-4fa7-adbb-70c9f461f52b",
-  "prevId": "d605a8e7-de6d-4322-86a7-548d40a66277",
+  "id": "3b612c66-9d62-4488-a66c-6c5376a328d7",
+  "prevId": "ead2f91e-9d5f-439d-954f-8d5e1a927fa2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -14,7 +14,7 @@
           "primaryKey": true,
           "notNull": true,
           "identity": {
-            "type": "always",
+            "type": "byDefault",
             "name": "email_templates_id_seq",
             "schema": "public",
             "increment": "1",
@@ -121,7 +121,7 @@
       "uniqueConstraints": {
         "email_templates_workspace_id_template_type_id_unique": {
           "name": "email_templates_workspace_id_template_type_id_unique",
-          "nullsNotDistinct": false,
+          "nullsNotDistinct": true,
           "columns": [
             "workspace_id",
             "template_type_id"
@@ -652,27 +652,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "confirm_max_age": {
-          "name": "confirm_max_age",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "confirmed_at": {
-          "name": "confirmed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "undo_token": {
           "name": "undo_token",
           "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "undo_max_age": {
-          "name": "undo_max_age",
-          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -688,6 +670,30 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "confirmed_at": {
+          "name": "confirmed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "confirm_max_age": {
+          "name": "confirm_max_age",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "undo_max_age": {
+          "name": "undo_max_age",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

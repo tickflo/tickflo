@@ -26,6 +26,7 @@ test('Redirects to workspace page after successful login', async ({ page }) => {
       {
         name: faker.person.firstName(),
         email,
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         password: PASSWORD,
         confirmPassword: PASSWORD,
@@ -58,6 +59,7 @@ test('Redirects to workspace picker for more than one workspace', async ({
       {
         name: faker.person.firstName(),
         email,
+        recoveryEmail: faker.internet.email(),
         workspaceName: workspaceNames[0],
         password: PASSWORD,
         confirmPassword: PASSWORD,
@@ -96,6 +98,7 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
       {
         name: faker.person.firstName(),
         email,
+        recoveryEmail: faker.internet.email(),
         workspaceName: workspaceNames[0],
         password: PASSWORD,
         confirmPassword: PASSWORD,
@@ -109,6 +112,7 @@ test('Redirects to workspace picker for one workspace and an invite', async ({
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName: workspaceNames[1],
         password: PASSWORD,
         confirmPassword: PASSWORD,
@@ -158,6 +162,7 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName: workspaceName,
         password: PASSWORD,
         confirmPassword: PASSWORD,
@@ -189,6 +194,7 @@ test('Redirect to create workspace for no workspaces', async ({ page }) => {
       {
         name: faker.person.firstName(),
         email,
+        recoveryEmail: faker.internet.email(),
         workspaceName: undefined,
         password: PASSWORD,
         confirmPassword: PASSWORD,

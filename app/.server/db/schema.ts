@@ -18,6 +18,7 @@ export const users = pgTable('users', {
   email: varchar({ length: 254 }).notNull().unique(),
   emailConfirmed: boolean('email_confirmed').notNull().default(false),
   emailConfirmationCode: varchar('email_confirmation_code', { length: 100 }),
+  recoveryEmail: varchar({ length: 254 }),
   passwordHash: varchar('password_hash', { length: 100 }),
   systemAdmin: boolean('system_admin').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
@@ -60,6 +61,7 @@ export const userEmailChanges = pgTable('user_email_changes', {
   confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
   confirmMaxAge: integer('confirm_max_age').notNull(),
   undoMaxAge: integer('undo_max_age').notNull(),
+  undoneAt: timestamp('undone_at', { withTimezone: true }),
 });
 
 export const tokens = pgTable('tokens', {

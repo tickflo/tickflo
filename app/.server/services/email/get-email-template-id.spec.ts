@@ -22,6 +22,7 @@ test('Returns workspace template', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         password: 'password',
         confirmPassword: 'password',
@@ -52,6 +53,7 @@ test('Return None for missing template', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         password: 'password',
         confirmPassword: 'password',

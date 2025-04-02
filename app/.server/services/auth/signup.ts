@@ -14,6 +14,7 @@ type Request = {
   name: string | undefined;
   workspaceName: string | undefined;
   email: string | undefined;
+  recoveryEmail: string | undefined;
   password: string | undefined;
   confirmPassword: string | undefined;
 };
@@ -29,6 +30,7 @@ export async function signup(
 ): Promise<Result<Response, ApiError>> {
   const name = request.name?.toString().trim();
   const email = request.email?.toString().toLowerCase().trim();
+  const recoveryEmail = request.recoveryEmail?.toString().toLowerCase().trim();
   const workspaceName = request.workspaceName?.toString().trim();
 
   const { config, tx } = context;
@@ -47,6 +49,10 @@ export async function signup(
 
   if (!email) {
     return Err(new InputError('Email is required'));
+  }
+
+  if (!recoveryEmail) {
+    return Err(new InputError('Recovery email is required'));
   }
 
   if (!request.password) {
@@ -76,6 +82,7 @@ export async function signup(
       {
         userId: user.id,
         email,
+        recoveryEmail,
         password: request.password,
         name,
       },
@@ -119,6 +126,7 @@ export async function signup(
       .values({
         name,
         email,
+        recoveryEmail,
         emailConfirmationCode,
         passwordHash: hash,
       })
@@ -154,12 +162,13 @@ export async function signup(
 type InviteeRequest = {
   userId: number;
   email: string;
+  recoveryEmail: string;
   name: string;
   password: string;
 };
 
 async function signupInvitee(
-  { userId, email, name, password }: InviteeRequest,
+  { userId, email, recoveryEmail, name, password }: InviteeRequest,
   context: Context,
 ): Promise<Result<Response, ApiError>> {
   const hash = await createHash(`${email}${password}`);
@@ -169,6 +178,7 @@ async function signupInvitee(
       .update(users)
       .set({
         name,
+        recoveryEmail,
         passwordHash: hash,
         updatedBy: userId,
       })

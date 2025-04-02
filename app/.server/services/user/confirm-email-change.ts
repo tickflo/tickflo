@@ -81,7 +81,7 @@ export async function confirmEmailChange(
         vars: {
           new_email: emailChange.value.new,
           expires_at: `${prettyDate(expiresAt)}`,
-          revert_link: `${config.BASE_URL}/email-change/undo?code=${encodeURIComponent(emailChange.value.undoToken)}`,
+          revert_link: `${config.BASE_URL}/email-change/undo?id=${emailChange.value.userId}&code=${encodeURIComponent(emailChange.value.undoToken)}`,
         },
       },
       { ...context, tx },

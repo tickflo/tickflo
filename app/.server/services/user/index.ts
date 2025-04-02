@@ -14,3 +14,4 @@ export * from './get-email-change';
 export * from './cancel-email-change';
 export * from './confirm-email-change';
 export * from './send-email-changed';
+export * from './undo-email-change';

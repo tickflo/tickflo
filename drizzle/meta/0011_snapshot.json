@@ -1,6 +1,6 @@
 {
-  "id": "783cd1bc-5b0c-4511-a89c-3760eb66d748",
-  "prevId": "bc1933bb-92cb-4edf-ac5f-5aa5a7b225c2",
+  "id": "6bec803e-e3f9-4033-833c-d26e775ee806",
+  "prevId": "3b612c66-9d62-4488-a66c-6c5376a328d7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -14,7 +14,7 @@
           "primaryKey": true,
           "notNull": true,
           "identity": {
-            "type": "always",
+            "type": "byDefault",
             "name": "email_templates_id_seq",
             "schema": "public",
             "increment": "1",
@@ -121,7 +121,7 @@
       "uniqueConstraints": {
         "email_templates_workspace_id_template_type_id_unique": {
           "name": "email_templates_workspace_id_template_type_id_unique",
-          "nullsNotDistinct": false,
+          "nullsNotDistinct": true,
           "columns": [
             "workspace_id",
             "template_type_id"
@@ -688,6 +688,12 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "undone_at": {
+          "name": "undone_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -992,6 +998,12 @@
         "email_confirmation_code": {
           "name": "email_confirmation_code",
           "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recoveryEmail": {
+          "name": "recoveryEmail",
+          "type": "varchar(254)",
           "primaryKey": false,
           "notNull": false
         },

@@ -36,7 +36,12 @@ export const links: Route.LinksFunction = () => [
 ];
 
 function isAuthRequired(url: URL): boolean {
-  return !['/login', '/signup', '/api/system/reset-db'].includes(url.pathname);
+  return ![
+    '/login',
+    '/signup',
+    '/api/system/reset-db',
+    '/email-change/undo',
+  ].includes(url.pathname);
 }
 
 const auth: Route.unstable_MiddlewareFunction = async (
