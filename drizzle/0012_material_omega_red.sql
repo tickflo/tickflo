@@ -1,0 +1,2 @@
+ALTER TABLE "email_templates" DROP CONSTRAINT "email_templates_workspace_id_template_type_id_unique";--> statement-breakpoint
+ALTER TABLE "email_templates" ADD CONSTRAINT "email_templates_workspace_id_template_type_id_unique" UNIQUE NULLS NOT DISTINCT("workspace_id","template_type_id");
