@@ -72,20 +72,24 @@ export async function confirmEmailChange(
       })
       .where(eq(users.id, emailChange.value.userId));
 
-    const expiresAt = new Date(emailChange.value.createdAt);
-    expiresAt.setSeconds(expiresAt.getSeconds() + emailChange.value.undoMaxAge);
-    await sendEmail(
-      {
-        to: emailChange.value.old,
-        templateId: emailTemplates.revertEmailChange.typeId,
-        vars: {
-          new_email: emailChange.value.new,
-          expires_at: `${prettyDate(expiresAt)}`,
-          revert_link: `${config.BASE_URL}/email-change/undo?id=${emailChange.value.userId}&code=${encodeURIComponent(emailChange.value.undoToken)}`,
+    if (user.recoveryEmail) {
+      const expiresAt = new Date(emailChange.value.createdAt);
+      expiresAt.setSeconds(
+        expiresAt.getSeconds() + emailChange.value.undoMaxAge,
+      );
+      await sendEmail(
+        {
+          to: user.recoveryEmail,
+          templateId: emailTemplates.revertEmailChange.typeId,
+          vars: {
+            new_email: emailChange.value.new,
+            expires_at: `${prettyDate(expiresAt)}`,
+            revert_link: `${config.BASE_URL}/email-change/undo?id=${emailChange.value.userId}&code=${encodeURIComponent(emailChange.value.undoToken)}`,
+          },
         },
-      },
-      { ...context, tx },
-    );
+        { ...context, tx },
+      );
+    }
   });
 
   return Ok.EMPTY;
