@@ -120,7 +120,7 @@ export default function Profile({
                 {!!emailChange && (
                   <div className="card w-full flex-shrink-0 bg-primary/10 shadow-2xl">
                     <div className="card-body">
-                      <em>
+                      <span>
                         A confirmation email has been sent to{' '}
                         <strong>{emailChange.new}</strong>.
                         <br />
@@ -132,7 +132,7 @@ export default function Profile({
                           />
                         </strong>{' '}
                         to confirm the change.
-                      </em>
+                      </span>
                       <div className="card-actions">
                         <Form method="post" action="/email-change/resend">
                           <button type="submit" className="btn btn-sm">
@@ -140,7 +140,7 @@ export default function Profile({
                             Resend
                           </button>
                         </Form>
-                        <Form method="post" action="/email-change/resend">
+                        <Form method="post" action="/email-change/cancel">
                           <button type="submit" className="btn btn-sm">
                             <FaUndo />
                             Cancel

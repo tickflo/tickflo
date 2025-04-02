@@ -11,3 +11,4 @@ export * from './update-user';
 export * from './update-profile';
 export * from './send-confirm-email';
 export * from './get-email-change';
+export * from './cancel-email-change';
