@@ -139,7 +139,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <span className="badge badge-xs badge-primary">99+</span>
                 </Link>
               </li>
-              {!user && <Link to="/login">Login</Link>}
+              {!user && (
+                <li>
+                  <Link to="/login">Login</Link>
+                </li>
+              )}
               {user && (
                 <>
                   {user.systemAdmin && (
