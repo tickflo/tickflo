@@ -22,7 +22,7 @@ export async function sendConfirmEmail(
       vars: {
         confirmation_link: `${
           config.BASE_URL
-        }/email-confirmation/confirm?code=${encodeURIComponent(emailChange.value.confirmToken)}`,
+        }/email-change/confirm?code=${encodeURIComponent(emailChange.value.confirmToken)}`,
       },
     },
     context,

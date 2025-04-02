@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FaSave } from 'react-icons/fa';
-import { Form, Link, data, useNavigation } from 'react-router';
+import { FaEnvelope, FaSave, FaUndo } from 'react-icons/fa';
+import { Form, data, useNavigation } from 'react-router';
 import { getEmailChange, updateProfile } from '~/.server/services/user';
 import { appContext } from '~/app-context';
 import Countdown from '~/components/countdown';
@@ -118,26 +118,36 @@ export default function Profile({
                   Email
                 </label>
                 {!!emailChange && (
-                  <div className="my-1">
-                    <em>
-                      A confirmation email has been sent to {emailChange.new}.
-                      <br />
-                      You have{' '}
-                      <strong>
-                        <Countdown
-                          createdAt={emailChange.createdAt}
-                          maxAge={emailChange.maxAge}
-                        />
-                      </strong>{' '}
-                      to confirm the change.
-                      <br />
-                      <Link
-                        to="/confirm-email/resend"
-                        className="link link-primary"
-                      >
-                        Resend
-                      </Link>
-                    </em>
+                  <div className="card w-full flex-shrink-0 bg-primary/10 shadow-2xl">
+                    <div className="card-body">
+                      <em>
+                        A confirmation email has been sent to{' '}
+                        <strong>{emailChange.new}</strong>.
+                        <br />
+                        You have{' '}
+                        <strong>
+                          <Countdown
+                            createdAt={emailChange.createdAt}
+                            maxAge={emailChange.maxAge}
+                          />
+                        </strong>{' '}
+                        to confirm the change.
+                      </em>
+                      <div className="card-actions">
+                        <Form method="post" action="/email-change/resend">
+                          <button type="submit" className="btn btn-sm">
+                            <FaEnvelope />
+                            Resend
+                          </button>
+                        </Form>
+                        <Form method="post" action="/email-change/resend">
+                          <button type="submit" className="btn btn-sm">
+                            <FaUndo />
+                            Cancel
+                          </button>
+                        </Form>
+                      </div>
+                    </div>
                   </div>
                 )}
                 <input
