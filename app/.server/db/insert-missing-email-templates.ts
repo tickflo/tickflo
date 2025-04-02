@@ -25,7 +25,11 @@ export async function insertMissingEmailTemplates() {
     body: t.body,
   }));
 
-  await db.insert(emailTemplates).values(systemTemplates).onConflictDoNothing();
+  await db
+    .insert(emailTemplates)
+    .overridingSystemValue()
+    .values(systemTemplates)
+    .onConflictDoNothing();
 
   const result = await db
     .select({ id: max(emailTemplates.id) })
