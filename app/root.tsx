@@ -11,7 +11,7 @@ import {
   useRouteLoaderData,
 } from 'react-router';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   FaBell,
   FaEnvelope,
@@ -29,6 +29,7 @@ import { commitSession } from './.server/session';
 import { appContext } from './app-context';
 import stylesheet from './app.css?url';
 import { EmailConfirmationAlert } from './components/email-confirmation-alert';
+import Toast from './components/toast';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'stylesheet', href: stylesheet },
@@ -90,28 +91,6 @@ export async function loader({ context }: Route.LoaderArgs) {
 
 type RootLoaderData = typeof loader;
 
-const Toast = ({
-  message,
-  type,
-  onClose,
-}: { message: string; type: 'info' | 'error'; onClose: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose();
-    }, 3000); // Auto-dismiss after 3 seconds
-
-    return () => clearTimeout(timer); // Cleanup timer on unmount
-  }, [onClose]);
-
-  return (
-    <div className="toast toast-top top-10 z-50 animate-fade shadow-lg">
-      <div className={`alert alert-${type}`}>
-        <span>{message}</span>
-      </div>
-    </div>
-  );
-};
-
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData | undefined>('root');
   const user = data?.user;
@@ -158,40 +137,42 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {!user && <Link to="/login">Login</Link>}
               {user && (
                 <>
-                  <li>
-                    <div className="dropdown dropdown-center">
-                      {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
-                      <div tabIndex={0} role="button">
-                        <FaScrewdriverWrench className="inline" /> System
+                  {user.systemAdmin && (
+                    <li>
+                      <div className="dropdown dropdown-center">
+                        {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
+                        <div tabIndex={0} role="button">
+                          <FaScrewdriverWrench className="inline" /> System
+                        </div>
+                        <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
+                          <li>
+                            <Link
+                              to="/sys/emails"
+                              onClick={(e) => e.currentTarget.blur()}
+                            >
+                              <FaEnvelope /> Emails
+                            </Link>
+                          </li>
+                          <li>
+                            <Link
+                              to="/sys/workspaces"
+                              onClick={(e) => e.currentTarget.blur()}
+                            >
+                              <FaPeopleGroup /> Workspaces
+                            </Link>
+                          </li>
+                          <li>
+                            <Link
+                              to="/sys/users"
+                              onClick={(e) => e.currentTarget.blur()}
+                            >
+                              <FaPeopleGroup /> Users
+                            </Link>
+                          </li>
+                        </ul>
                       </div>
-                      <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
-                        <li>
-                          <Link
-                            to="/sys/emails"
-                            onClick={(e) => e.currentTarget.blur()}
-                          >
-                            <FaEnvelope /> Emails
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            to="/sys/workspaces"
-                            onClick={(e) => e.currentTarget.blur()}
-                          >
-                            <FaPeopleGroup /> Workspaces
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            to="/sys/users"
-                            onClick={(e) => e.currentTarget.blur()}
-                          >
-                            <FaPeopleGroup /> Users
-                          </Link>
-                        </li>
-                      </ul>
-                    </div>
-                  </li>
+                    </li>
+                  )}
                   <li>
                     <div className="dropdown dropdown-end">
                       {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}

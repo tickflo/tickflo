@@ -4,7 +4,6 @@ import { db } from '~/.server/db';
 import { insertMissingEmailTemplates } from '~/.server/db/insert-missing-email-templates';
 import { insertMissingPermissions } from '~/.server/db/insert-missing-permissions';
 import { applyMigrations } from '~/.server/db/migrate';
-import { seed } from '~/.server/db/seed';
 
 export async function setupDb() {
   console.log('Checking if database is up...');
@@ -21,8 +20,6 @@ export async function setupDb() {
   await applyMigrations();
 
   console.log('Seeding data...');
-
-  await seed();
 
   await insertMissingEmailTemplates();
 

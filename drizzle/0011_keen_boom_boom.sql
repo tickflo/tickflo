@@ -1,3 +1,0 @@
-ALTER TABLE "user_email_changes" ADD COLUMN "created_by" integer NOT NULL;--> statement-breakpoint
-ALTER TABLE "user_email_changes" ADD COLUMN "confirmed_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "user_email_changes" ADD CONSTRAINT "user_email_changes_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;

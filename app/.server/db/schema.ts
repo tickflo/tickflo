@@ -50,16 +50,16 @@ export const userEmailChanges = pgTable('user_email_changes', {
   old: varchar({ length: 254 }).notNull(),
   new: varchar({ length: 254 }).notNull(),
   confirmToken: varchar('confirm_token', { length: 100 }).notNull(),
-  confirmMaxAge: integer('confirm_max_age').notNull(),
-  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
   undoToken: varchar('undo_token', { length: 100 }).notNull(),
-  undoMaxAge: integer('undo_max_age').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
   createdBy: integer('created_by')
     .notNull()
     .references(() => users.id),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  confirmMaxAge: integer('confirm_max_age').notNull(),
+  undoMaxAge: integer('undo_max_age').notNull(),
 });
 
 export const tokens = pgTable('tokens', {
@@ -80,7 +80,7 @@ export const tokensRelations = relations(tokens, ({ one }) => ({
 export const emailTemplates = pgTable(
   'email_templates',
   {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    id: integer().primaryKey().generatedByDefaultAsIdentity(),
     workspaceId: integer('workspace_id').references(() => workspaces.id),
     templateTypeId: integer('template_type_id').notNull(),
     subject: text().notNull(),
@@ -94,7 +94,9 @@ export const emailTemplates = pgTable(
     ),
     updatedBy: integer('updated_by').references(() => users.id),
   },
-  (table) => [unique().on(table.workspaceId, table.templateTypeId)],
+  (table) => [
+    unique().on(table.workspaceId, table.templateTypeId).nullsNotDistinct(),
+  ],
 );
 
 export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({

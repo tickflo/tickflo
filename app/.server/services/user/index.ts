@@ -9,4 +9,5 @@ export * from './add-user';
 export * from './get-users-count-by-role';
 export * from './update-user';
 export * from './update-profile';
+export * from './send-confirm-email';
 export * from './get-email-change';
