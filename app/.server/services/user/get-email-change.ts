@@ -24,5 +24,13 @@ export async function getEmailChange(
     return None;
   }
 
+  const now = new Date();
+  const createdAt = new Date(result.createdAt);
+  const diff = Math.abs(now.getTime() - createdAt.getTime());
+  const seconds = Math.floor(diff / 1000);
+  if (seconds > result.confirmMaxAge) {
+    return None;
+  }
+
   return Some(result);
 }

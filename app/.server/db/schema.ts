@@ -43,6 +43,25 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   roles: many(userWorkspaceRoles),
 }));
 
+export const userEmailChanges = pgTable('user_email_changes', {
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id),
+  old: varchar({ length: 254 }).notNull(),
+  new: varchar({ length: 254 }).notNull(),
+  confirmToken: varchar('confirm_token', { length: 100 }).notNull(),
+  confirmMaxAge: integer('confirm_max_age').notNull(),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  undoToken: varchar('undo_token', { length: 100 }).notNull(),
+  undoMaxAge: integer('undo_max_age').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: integer('created_by')
+    .notNull()
+    .references(() => users.id),
+});
+
 export const tokens = pgTable('tokens', {
   userId: integer('user_id')
     .notNull()
