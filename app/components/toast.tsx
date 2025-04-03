@@ -31,7 +31,7 @@ export default function Toast({
   }, [type]);
 
   return (
-    <div className="toast toast-top top-10 z-50 animate-fade shadow-lg">
+    <div className="toast toast-top top-20 z-50 animate-fade shadow-lg">
       <div className={`alert ${alertStyle}`}>
         <span>{message}</span>
       </div>
