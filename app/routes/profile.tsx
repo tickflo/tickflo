@@ -1,3 +1,4 @@
+import { type FileUpload, parseFormData } from '@mjackson/form-data-parser';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FaEnvelope, FaSave, FaUndo } from 'react-icons/fa';
 import { Form, data, useNavigation } from 'react-router';
@@ -10,14 +11,19 @@ import config from '~/config';
 import type { Route } from './+types/profile';
 
 export async function action({ request, context }: Route.ActionArgs) {
-  const formData = await request.formData();
+  const ctx = context.get(appContext);
+  let avatarBuffer: Buffer | undefined;
+  const uploadHandler = async (fileUpload: FileUpload) => {
+    const arrayBuffer = await fileUpload.arrayBuffer();
+    avatarBuffer = Buffer.from(arrayBuffer);
+  };
+
+  const formData = await parseFormData(request, uploadHandler);
   const name = formData.get('name')?.toString();
   const email = formData.get('email')?.toString();
   const password = formData.get('password')?.toString();
   const newPassword = formData.get('new-password')?.toString();
   const confirmNewPassword = formData.get('confirm-new-password')?.toString();
-
-  const ctx = context.get(appContext);
 
   const result = await updateProfile(
     {
@@ -26,6 +32,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       password,
       confirmNewPassword,
       newPassword,
+      avatarBuffer,
     },
     ctx,
   );
@@ -44,6 +51,7 @@ export async function loader({ context }: Route.LoaderArgs) {
 
   return data({
     user: {
+      id: user.id,
       name: user.name,
       email: user.email,
     },
@@ -97,8 +105,34 @@ export default function Profile({
         <div className="card w-full max-w-xl flex-shrink-0 bg-base-100 shadow-2xl">
           <div className="card-body">
             <h2 className="card-title">Profile</h2>
-            <Form method="post" ref={$form}>
+            <Form method="post" ref={$form} encType="multipart/form-data">
               <fieldset className="fieldset">
+                <label htmlFor="avatar" className="fieldset-label">
+                  Avatar
+                </label>
+                <div className="flex flex-col items-start gap-4">
+                  <div className="avatar">
+                    <div className="w-24 rounded-full ring ring-offset-2 ring-offset-base-100">
+                      <img
+                        src={`/users/${user.id}/avatar`}
+                        alt="Avatar Preview"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      name="avatar"
+                      id="avatar"
+                      className="file-input"
+                    />
+                    <button type="submit" className="btn btn-error">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
                 <label htmlFor="name" className="fieldset-label">
                   Name
                 </label>

@@ -19,7 +19,6 @@ import {
   FaSignOutAlt,
   FaSun,
   FaUser,
-  FaUserCircle,
 } from 'react-icons/fa';
 import { FaPeopleGroup, FaScrewdriverWrench } from 'react-icons/fa6';
 import type { Route } from './+types/root';
@@ -186,7 +185,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <div className="dropdown dropdown-end">
                       {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
                       <div tabIndex={0} role="button">
-                        <FaUserCircle className="inline" /> {user.email}
+                        <div className="avatar mr-4">
+                          <div className="w-8 rounded-full ring ring-offset-2 ring-offset-base-100">
+                            <img
+                              src={`/users/${user.id}/avatar`}
+                              alt="Avatar Preview"
+                            />
+                          </div>
+                        </div>
+                        {user.email}
                       </div>
                       <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
                         <li>
