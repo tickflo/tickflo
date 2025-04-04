@@ -163,7 +163,7 @@ export default function Signup({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <label htmlFor="email" className="fieldset-label">
+              <label htmlFor="recovery-email" className="fieldset-label">
                 Recovery Email
               </label>
               {email &&

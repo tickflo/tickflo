@@ -1,4 +1,4 @@
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3ServiceException } from '@aws-sdk/client-s3';
 import { None, type Option, Some } from 'ts-results-es';
 import { s3 } from '.';
 import config from '../config';
@@ -25,6 +25,12 @@ export async function getFile(path: string): Promise<Option<File>> {
       buffer: (await result.Body.transformToByteArray()) as Buffer,
     });
   } catch (err) {
+    if (err instanceof S3ServiceException) {
+      if (err.name === 'NoSuchKey') {
+        return None;
+      }
+    }
+
     console.error('Get file error', err);
     return None;
   }

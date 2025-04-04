@@ -16,7 +16,8 @@ export default defineConfig(({ isSsrBuild }) => ({
   plugins: [
     tailwindcss(),
     process.env.NODE_ENV === 'development' ? reactRouterDevTools() : null,
-    reactRouter(),
+    // See: https://github.com/vitest-dev/vitest/issues/7794#issuecomment-2777307476
+    process.env.VITEST ? null : reactRouter(),
     tsconfigPaths(),
   ],
   optimizeDeps: {

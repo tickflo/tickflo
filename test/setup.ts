@@ -16,6 +16,20 @@ vi.mock('~/.server/db', async () => {
   };
 });
 
+/*
+vi.mock('~/.server/storage', async () => {
+  const { mockClient } = await import('aws-sdk-client-mock');
+  const storage =
+    await vi.importActual<typeof import('~/.server/storage')>(
+      '~/.server/storage',
+    );
+  return {
+    ...storage,
+    s3: mockClient(storage.s3),
+  };
+});
+*/
+
 beforeAll(async () => {
   await setupDb();
 });

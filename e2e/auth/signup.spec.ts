@@ -14,7 +14,10 @@ test('Redirects to workspace page after successful signup', async ({
 
   await page.getByLabel('Your name').fill(faker.person.firstName());
   await page.getByLabel('Workspace name').fill(workspaceName);
-  await page.getByLabel('Email').fill(faker.internet.email());
+  await page.locator('input[name="email"]').fill(faker.internet.email());
+  await page
+    .locator('input[name="recovery-email"]')
+    .fill(faker.internet.email());
   await page.locator('input[name="password"]').fill('password');
   await page.locator('input[name="confirm-password"]').fill('password');
   await page.getByRole('button', { name: 'Signup' }).click();
@@ -37,7 +40,10 @@ test('Slugifies workspace name', async ({ page }) => {
 test('Errors on mismatched passwords', async ({ page }) => {
   await page.getByLabel('Your name').fill(faker.person.firstName());
   await page.getByLabel('Workspace name').fill(faker.company.name());
-  await page.getByLabel('Email').fill(faker.internet.email());
+  await page.locator('input[name="email"]').fill(faker.internet.email());
+  await page
+    .locator('input[name="recovery-email"]')
+    .fill(faker.internet.email());
   await page.locator('input[name="password"]').fill('password');
   await page.locator('input[name="confirm-password"]').fill('different');
   await page.getByRole('button', { name: 'Signup' }).click();
@@ -47,7 +53,10 @@ test('Errors on mismatched passwords', async ({ page }) => {
 
 test('Errors on missing name', async ({ page }) => {
   await page.getByLabel('Workspace name').fill(faker.company.name());
-  await page.getByLabel('Email').fill(faker.internet.email());
+  await page.locator('input[name="email"]').fill(faker.internet.email());
+  await page
+    .locator('input[name="recovery-email"]')
+    .fill(faker.internet.email());
   await page.locator('input[name="password"]').fill('password');
   await page.locator('input[name="confirm-password"]').fill('password');
   await page.getByRole('button', { name: 'Signup' }).click();
@@ -58,6 +67,9 @@ test('Errors on missing name', async ({ page }) => {
 test('Errors on missing email', async ({ page }) => {
   await page.getByLabel('Your name').fill(faker.person.firstName());
   await page.getByLabel('Workspace name').fill(faker.company.name());
+  await page
+    .locator('input[name="recovery-email"]')
+    .fill(faker.internet.email());
   await page.locator('input[name="password"]').fill('password');
   await page.locator('input[name="confirm-password"]').fill('password');
   await page.getByRole('button', { name: 'Signup' }).click();
@@ -65,10 +77,23 @@ test('Errors on missing email', async ({ page }) => {
   await expect(page.getByText('Email is required')).toBeVisible();
 });
 
+test('Errors on missing recovery email', async ({ page }) => {
+  await page.getByLabel('Your name').fill(faker.person.firstName());
+  await page.getByLabel('Workspace name').fill(faker.company.name());
+  await page.locator('input[name="email"]').fill(faker.internet.email());
+  await page.locator('input[name="password"]').fill('password');
+  await page.locator('input[name="confirm-password"]').fill('password');
+  await page.getByRole('button', { name: 'Signup' }).click();
+
+  await expect(page.getByText('Recovery Email is required')).toBeVisible();
+});
+
 test('Errors on missing password', async ({ page }) => {
   await page.getByLabel('Your name').fill(faker.person.firstName());
-  await page.getByLabel('Email').fill(faker.internet.email());
-  await page.getByLabel('Workspace name').fill(faker.company.name());
+  await page.locator('input[name="email"]').fill(faker.internet.email());
+  await page
+    .locator('input[name="recovery-email"]')
+    .fill(faker.internet.email());
   await page.locator('input[name="confirm-password"]').fill('password');
   await page.getByRole('button', { name: 'Signup' }).click();
 
@@ -77,7 +102,11 @@ test('Errors on missing password', async ({ page }) => {
 
 test('Errors on missing confirm password', async ({ page }) => {
   await page.getByLabel('Your name').fill(faker.person.firstName());
-  await page.getByLabel('Email').fill(faker.internet.email());
+  await page.locator('input[name="email"]').fill(faker.internet.email());
+  await page
+    .locator('input[name="recovery-email"]')
+    .fill(faker.internet.email());
+  await page.locator('input[name="password"]').fill('password');
   await page.getByLabel('Workspace name').fill(faker.company.name());
   await page.locator('input[name="password"]').fill('password');
   await page.getByRole('button', { name: 'Signup' }).click();
