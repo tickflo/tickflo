@@ -1,7 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { None, type Option, Some } from 'ts-results-es';
 import type { Context } from '~/.server/context';
-import { SYSTEM_TEMPLATE_IDS as SYSTEM_EMAIL_TEMPLATE_IDS } from '~/.server/data';
 import { db } from '~/.server/db';
 import { emailTemplates, workspaces } from '~/.server/db/schema';
 
@@ -14,10 +13,6 @@ export async function getEmailTemplateId(
   { typeId, slug }: Request,
   context: Context,
 ): Promise<Option<number>> {
-  if (SYSTEM_EMAIL_TEMPLATE_IDS.includes(typeId)) {
-    return Some(typeId);
-  }
-
   const { tx } = context;
 
   const templates = await (tx || db)

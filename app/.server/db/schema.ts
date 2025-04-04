@@ -18,6 +18,7 @@ export const users = pgTable('users', {
   email: varchar({ length: 254 }).notNull().unique(),
   emailConfirmed: boolean('email_confirmed').notNull().default(false),
   emailConfirmationCode: varchar('email_confirmation_code', { length: 100 }),
+  recoveryEmail: varchar({ length: 254 }),
   passwordHash: varchar('password_hash', { length: 100 }),
   systemAdmin: boolean('system_admin').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
@@ -43,6 +44,26 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   roles: many(userWorkspaceRoles),
 }));
 
+export const userEmailChanges = pgTable('user_email_changes', {
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id),
+  old: varchar({ length: 254 }).notNull(),
+  new: varchar({ length: 254 }).notNull(),
+  confirmToken: varchar('confirm_token', { length: 100 }).notNull(),
+  undoToken: varchar('undo_token', { length: 100 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: integer('created_by')
+    .notNull()
+    .references(() => users.id),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  confirmMaxAge: integer('confirm_max_age').notNull(),
+  undoMaxAge: integer('undo_max_age').notNull(),
+  undoneAt: timestamp('undone_at', { withTimezone: true }),
+});
+
 export const tokens = pgTable('tokens', {
   userId: integer('user_id')
     .notNull()
@@ -61,7 +82,7 @@ export const tokensRelations = relations(tokens, ({ one }) => ({
 export const emailTemplates = pgTable(
   'email_templates',
   {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    id: integer().primaryKey().generatedByDefaultAsIdentity(),
     workspaceId: integer('workspace_id').references(() => workspaces.id),
     templateTypeId: integer('template_type_id').notNull(),
     subject: text().notNull(),
@@ -75,7 +96,9 @@ export const emailTemplates = pgTable(
     ),
     updatedBy: integer('updated_by').references(() => users.id),
   },
-  (table) => [unique().on(table.workspaceId, table.templateTypeId)],
+  (table) => [
+    unique().on(table.workspaceId, table.templateTypeId).nullsNotDistinct(),
+  ],
 );
 
 export const emailTemplatesRelations = relations(emailTemplates, ({ one }) => ({

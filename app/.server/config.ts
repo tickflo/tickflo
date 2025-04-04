@@ -12,6 +12,15 @@ interface Config {
   USER: UserConfig;
   ROLE: RoleConfig;
   WORKSPACE: WorkspaceConfig;
+  STORAGE: StorageConfig;
+}
+
+interface StorageConfig {
+  S3_ENDPOINT: string;
+  S3_ACCESS_KEY: string;
+  S3_SECRET_KEY: string;
+  S3_BUCKET: string;
+  S3_REGION: string;
 }
 
 const config = {
@@ -21,6 +30,13 @@ const config = {
   POSTGRES_HOST: process.env.POSTGRES_HOST || 'localhost',
   SESSION_TIMEOUT_MINUTES: 20,
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
+  STORAGE: {
+    S3_ENDPOINT: process.env.S3_ENDPOINT || 'http://localhost:9000',
+    S3_ACCESS_KEY: process.env.S3_ACCESS_KEY || 'tickflo',
+    S3_SECRET_KEY: process.env.S3_SECRET_KEY || 'password',
+    S3_BUCKET: process.env.S3_BUCKET || 'tickflo',
+    S3_REGION: process.env.S3_REGION || 'us-east-1',
+  },
   ...appConfig,
 } as Config;
 

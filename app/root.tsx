@@ -11,7 +11,7 @@ import {
   useRouteLoaderData,
 } from 'react-router';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   FaBell,
   FaEnvelope,
@@ -19,7 +19,6 @@ import {
   FaSignOutAlt,
   FaSun,
   FaUser,
-  FaUserCircle,
 } from 'react-icons/fa';
 import { FaPeopleGroup, FaScrewdriverWrench } from 'react-icons/fa6';
 import type { Route } from './+types/root';
@@ -29,13 +28,19 @@ import { commitSession } from './.server/session';
 import { appContext } from './app-context';
 import stylesheet from './app.css?url';
 import { EmailConfirmationAlert } from './components/email-confirmation-alert';
+import Toast from './components/toast';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'stylesheet', href: stylesheet },
 ];
 
 function isAuthRequired(url: URL): boolean {
-  return !['/login', '/signup', '/api/system/reset-db'].includes(url.pathname);
+  return ![
+    '/login',
+    '/signup',
+    '/api/system/reset-db',
+    '/email-change/undo',
+  ].includes(url.pathname);
 }
 
 const auth: Route.unstable_MiddlewareFunction = async (
@@ -90,28 +95,6 @@ export async function loader({ context }: Route.LoaderArgs) {
 
 type RootLoaderData = typeof loader;
 
-const Toast = ({
-  message,
-  type,
-  onClose,
-}: { message: string; type: 'info' | 'error'; onClose: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose();
-    }, 3000); // Auto-dismiss after 3 seconds
-
-    return () => clearTimeout(timer); // Cleanup timer on unmount
-  }, [onClose]);
-
-  return (
-    <div className="toast toast-top top-10 z-50 animate-fade shadow-lg">
-      <div className={`alert alert-${type}`}>
-        <span>{message}</span>
-      </div>
-    </div>
-  );
-};
-
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<RootLoaderData | undefined>('root');
   const user = data?.user;
@@ -155,48 +138,62 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <span className="badge badge-xs badge-primary">99+</span>
                 </Link>
               </li>
-              {!user && <Link to="/login">Login</Link>}
+              {!user && (
+                <li>
+                  <Link to="/login">Login</Link>
+                </li>
+              )}
               {user && (
                 <>
-                  <li>
-                    <div className="dropdown dropdown-center">
-                      {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
-                      <div tabIndex={0} role="button">
-                        <FaScrewdriverWrench className="inline" /> System
+                  {user.systemAdmin && (
+                    <li>
+                      <div className="dropdown dropdown-center">
+                        {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
+                        <div tabIndex={0} role="button">
+                          <FaScrewdriverWrench className="inline" /> System
+                        </div>
+                        <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
+                          <li>
+                            <Link
+                              to="/sys/emails"
+                              onClick={(e) => e.currentTarget.blur()}
+                            >
+                              <FaEnvelope /> Emails
+                            </Link>
+                          </li>
+                          <li>
+                            <Link
+                              to="/sys/workspaces"
+                              onClick={(e) => e.currentTarget.blur()}
+                            >
+                              <FaPeopleGroup /> Workspaces
+                            </Link>
+                          </li>
+                          <li>
+                            <Link
+                              to="/sys/users"
+                              onClick={(e) => e.currentTarget.blur()}
+                            >
+                              <FaPeopleGroup /> Users
+                            </Link>
+                          </li>
+                        </ul>
                       </div>
-                      <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
-                        <li>
-                          <Link
-                            to="/sys/emails"
-                            onClick={(e) => e.currentTarget.blur()}
-                          >
-                            <FaEnvelope /> Emails
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            to="/sys/workspaces"
-                            onClick={(e) => e.currentTarget.blur()}
-                          >
-                            <FaPeopleGroup /> Workspaces
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            to="/sys/users"
-                            onClick={(e) => e.currentTarget.blur()}
-                          >
-                            <FaPeopleGroup /> Users
-                          </Link>
-                        </li>
-                      </ul>
-                    </div>
-                  </li>
+                    </li>
+                  )}
                   <li>
                     <div className="dropdown dropdown-end">
                       {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
                       <div tabIndex={0} role="button">
-                        <FaUserCircle className="inline" /> {user.email}
+                        <div className="avatar mr-4">
+                          <div className="w-8 rounded-full ring ring-offset-2 ring-offset-base-100">
+                            <img
+                              src={`/users/${user.id}/avatar`}
+                              alt="Avatar Preview"
+                            />
+                          </div>
+                        </div>
+                        {user.email}
                       </div>
                       <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
                         <li>

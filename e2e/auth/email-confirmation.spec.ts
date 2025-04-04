@@ -13,6 +13,7 @@ test('Show email confirmation banner for new accounts', async ({ page }) => {
     await signup(
       {
         email,
+        recoveryEmail: faker.internet.email(),
         password,
         confirmPassword: password,
         name: faker.person.firstName(),
@@ -41,6 +42,7 @@ test('Not show after dismissing', async ({ page }) => {
     await signup(
       {
         email,
+        recoveryEmail: faker.internet.email(),
         password,
         confirmPassword: password,
         name: faker.person.firstName(),
@@ -82,6 +84,7 @@ test('Not show after resending', async ({ page }) => {
     await signup(
       {
         email,
+        recoveryEmail: faker.internet.email(),
         password,
         confirmPassword: password,
         name: faker.person.firstName(),
@@ -123,6 +126,7 @@ test('Not show after confirming', async ({ page }) => {
     await signup(
       {
         email,
+        recoveryEmail: faker.internet.email(),
         password,
         confirmPassword: password,
         name: faker.person.firstName(),

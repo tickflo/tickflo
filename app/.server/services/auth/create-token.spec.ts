@@ -16,6 +16,7 @@ test('Creates valid token', async () => {
     {
       name: faker.person.firstName(),
       email,
+      recoveryEmail: faker.internet.email(),
       password: 'password',
       confirmPassword: 'password',
       workspaceName: faker.company.name(),

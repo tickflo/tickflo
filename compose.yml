@@ -8,4 +8,18 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+  s3:
+    image: "quay.io/minio/minio"
+    restart: always
+    command:
+      "server /data --console-address \":9001\""
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - "./minio-data:/data"
+    environment:
+      MINIO_ROOT_USER: root
+      MINIO_ROOT_PASSWORD: password
+
 

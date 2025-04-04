@@ -12,20 +12,6 @@ import { getUserForAccessToken } from '../user';
 import { getWorkspaceBySlug } from '../workspace';
 import { getEmailTemplateId } from './get-email-template-id';
 
-test('Returns system template', async () => {
-  const context = await getTestContext();
-  const templateId = (
-    await getEmailTemplateId(
-      {
-        typeId: 1,
-        slug: 'foobar',
-      },
-      context,
-    )
-  ).unwrap();
-  expect(templateId).toBe(1);
-});
-
 test('Returns workspace template', async () => {
   const context = await getTestContext();
   const workspaceName = faker.company.name();
@@ -36,6 +22,7 @@ test('Returns workspace template', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         password: 'password',
         confirmPassword: 'password',
@@ -66,6 +53,7 @@ test('Return None for missing template', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         password: 'password',
         confirmPassword: 'password',

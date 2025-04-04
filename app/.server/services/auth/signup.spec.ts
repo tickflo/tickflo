@@ -17,6 +17,26 @@ test('Throw on missing email', async () => {
         name: faker.person.firstName(),
         workspaceName: faker.company.name(),
         email: '',
+        recoveryEmail: faker.internet.email(),
+        password: PASSWORD,
+        confirmPassword: PASSWORD,
+      },
+      context,
+    )
+  ).unwrapErr();
+
+  expect(error).toBeInstanceOf(InputError);
+});
+
+test('Throw on missing recovery email', async () => {
+  const context = await getTestContext();
+  const error = (
+    await signup(
+      {
+        name: faker.person.firstName(),
+        workspaceName: faker.company.name(),
+        email: faker.internet.email(),
+        recoveryEmail: '',
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -35,6 +55,7 @@ test('Throw on missing name', async () => {
         name: '',
         workspaceName: faker.company.name(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -53,6 +74,7 @@ test('Throw on missing workspace name', async () => {
         name: faker.person.firstName(),
         workspaceName: '',
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -71,6 +93,7 @@ test('Throw on missing password', async () => {
         name: faker.person.firstName(),
         workspaceName: faker.company.name(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         password: '',
         confirmPassword: PASSWORD,
       },
@@ -89,6 +112,7 @@ test('Throw on missing confirm password', async () => {
         name: faker.person.firstName(),
         workspaceName: faker.company.name(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: '',
       },
@@ -107,6 +131,7 @@ test('Throw on mismatched passwords', async () => {
         name: faker.person.firstName(),
         workspaceName: faker.company.name(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: 'wrong',
       },
@@ -128,6 +153,7 @@ test('Throw on existing user', async () => {
         name,
         workspaceName: faker.company.name(),
         email,
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -141,6 +167,7 @@ test('Throw on existing user', async () => {
         name,
         workspaceName: faker.company.name(),
         email,
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -161,6 +188,7 @@ test('Throw on existing workspace', async () => {
         name: faker.person.firstName(),
         workspaceName,
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -174,6 +202,7 @@ test('Throw on existing workspace', async () => {
         name: faker.person.firstName(),
         workspaceName: workspaceName,
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -192,6 +221,7 @@ test('Return token on valid signup', async () => {
         name: faker.person.firstName(),
         workspaceName: faker.company.name(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -212,6 +242,7 @@ test('Send signup email on valid signup', async () => {
         name: faker.person.firstName(),
         workspaceName: faker.company.name(),
         email,
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },
@@ -236,6 +267,7 @@ test('Create workspace with default roles on valid signup', async () => {
         name: faker.person.firstName(),
         workspaceName: faker.company.name(),
         email,
+        recoveryEmail: faker.internet.email(),
         password: PASSWORD,
         confirmPassword: PASSWORD,
       },

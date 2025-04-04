@@ -1,6 +1,8 @@
 export interface UserConfig {
   MIN_NAME_LENGTH: number;
   MAX_NAME_LENGTH: number;
+  CHANGE_EMAIL_CONFIRM_TIMEOUT_MINUTES: number;
+  CHANGE_EMAIL_UNDO_TIMEOUT_MINUTES: number;
 }
 
 export interface WorkspaceConfig {
@@ -24,6 +26,8 @@ const config = {
   USER: {
     MIN_NAME_LENGTH: 2,
     MAX_NAME_LENGTH: 100,
+    CHANGE_EMAIL_CONFIRM_TIMEOUT_MINUTES: 30,
+    CHANGE_EMAIL_UNDO_TIMEOUT_MINUTES: 24 * 60,
   },
   WORKSPACE: {
     MIN_NAME_LENGTH: 3,

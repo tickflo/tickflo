@@ -24,6 +24,7 @@ test('Throws on invalid name', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         password: 'password',
         confirmPassword: 'password',
@@ -86,6 +87,7 @@ test('Throws on invalid email', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         password: 'password',
         confirmPassword: 'password',
@@ -119,6 +121,7 @@ test('Throws on invalid roleId', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         password: 'password',
         confirmPassword: 'password',
@@ -152,6 +155,7 @@ test('Throws on non-existent role', async () => {
     await signup(
       {
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName,
         name: faker.person.firstName(),
         password: 'password',
@@ -186,6 +190,7 @@ test('Throw on non-existent workspace', async () => {
       {
         name: faker.person.firstName(),
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         workspaceName: faker.company.name(),
         password: 'password',
         confirmPassword: 'password',
@@ -222,6 +227,7 @@ test('Throw on adding existing member', async () => {
     await signup(
       {
         email,
+        recoveryEmail: faker.internet.email(),
         name,
         workspaceName,
         password: 'password',
@@ -260,6 +266,7 @@ test('Add new user', async () => {
     await signup(
       {
         email: faker.internet.email(),
+        recoveryEmail: faker.internet.email(),
         name: faker.person.firstName(),
         workspaceName,
         password: 'password',

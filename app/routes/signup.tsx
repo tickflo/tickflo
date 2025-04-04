@@ -5,6 +5,7 @@ import { signup } from '~/.server/services/auth';
 import { getUserByEmail } from '~/.server/services/user';
 import { commitSession } from '~/.server/session';
 import { ErrorAlert } from '~/components/error-alert';
+import { WarningAlert } from '~/components/warning-alert';
 import config from '~/config';
 import { slugify } from '~/utils/slugify';
 import type { Route } from './+types/signup';
@@ -18,6 +19,7 @@ export async function action({ request }: Route.ActionArgs) {
   const name = formData.get('name')?.toString();
   const workspaceName = formData.get('workspace-name')?.toString();
   const email = formData.get('email')?.toString();
+  const recoveryEmail = formData.get('recovery-email')?.toString();
   const password = formData.get('password')?.toString();
   const confirmPassword = formData.get('confirm-password')?.toString();
 
@@ -32,6 +34,7 @@ export async function action({ request }: Route.ActionArgs) {
       name,
       workspaceName,
       email,
+      recoveryEmail,
       password,
       confirmPassword,
     },
@@ -92,6 +95,7 @@ export default function Signup({
   const invited = loaderData?.invited || false;
 
   const [email, setEmail] = useState(loaderData?.email || '');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
   const [name, setName] = useState(loaderData?.name || '');
   const [workspaceName, setWorkspaceName] = useState('');
   const [workspaceSlug, setWorkspaceSlug] = useState('');
@@ -158,6 +162,27 @@ export default function Signup({
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+              />
+              <label htmlFor="recovery-email" className="fieldset-label">
+                Recovery Email
+              </label>
+              {email &&
+                email.toLowerCase().trim() ===
+                  recoveryEmail.toLowerCase().trim() && (
+                  <WarningAlert>
+                    We <strong>strongly</strong> recommend using a{' '}
+                    <strong>different</strong> email address in case your
+                    primary address is compromised.
+                  </WarningAlert>
+                )}
+              <input
+                id="recovery-email"
+                name="recovery-email"
+                type="email"
+                className="input"
+                placeholder="Recovery Email"
+                value={recoveryEmail}
+                onChange={(e) => setRecoveryEmail(e.target.value)}
               />
               <label htmlFor="password" className="fieldset-label">
                 Password
