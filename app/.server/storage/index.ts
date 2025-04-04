@@ -14,3 +14,4 @@ export const s3 = new S3Client({
 export * from './create-file';
 export * from './create-folder';
 export * from './get-file';
+export * from './delete-file';

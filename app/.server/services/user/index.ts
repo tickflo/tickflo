@@ -16,3 +16,4 @@ export * from './confirm-email-change';
 export * from './send-email-changed';
 export * from './undo-email-change';
 export * from './upload-avatar';
+export * from './delete-avatar';

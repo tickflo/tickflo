@@ -6,6 +6,7 @@ import { db } from '~/.server/db';
 import { userEmailChanges, users } from '~/.server/db/schema';
 import { ApiError, InputError } from '~/.server/errors';
 import { createHash, validateHash } from '../auth/hash';
+import { deleteAvatar } from './delete-avatar';
 import { sendConfirmEmail } from './send-confirm-email';
 import { uploadAvatar } from './upload-avatar';
 
@@ -16,6 +17,7 @@ type Request = {
   newPassword: string | undefined;
   confirmNewPassword: string | undefined;
   avatarBuffer: Buffer | undefined;
+  removeAvatar: boolean;
 };
 
 export async function updateProfile(
@@ -67,6 +69,10 @@ export async function updateProfile(
   let passwordHash = user.passwordHash;
   if (request.newPassword) {
     passwordHash = await createHash(`${email}${request.newPassword}`);
+  }
+
+  if (request.removeAvatar) {
+    await deleteAvatar(context);
   }
 
   if (request.avatarBuffer) {

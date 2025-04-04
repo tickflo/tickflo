@@ -15,7 +15,9 @@ export async function action({ request, context }: Route.ActionArgs) {
   let avatarBuffer: Buffer | undefined;
   const uploadHandler = async (fileUpload: FileUpload) => {
     const arrayBuffer = await fileUpload.arrayBuffer();
-    avatarBuffer = Buffer.from(arrayBuffer);
+    if (arrayBuffer.byteLength) {
+      avatarBuffer = Buffer.from(arrayBuffer);
+    }
   };
 
   const formData = await parseFormData(request, uploadHandler);
@@ -24,6 +26,9 @@ export async function action({ request, context }: Route.ActionArgs) {
   const password = formData.get('password')?.toString();
   const newPassword = formData.get('new-password')?.toString();
   const confirmNewPassword = formData.get('confirm-new-password')?.toString();
+  const removeAvatar = formData.get('remove-avatar') === 'on';
+
+  console.log('buffer', avatarBuffer);
 
   const result = await updateProfile(
     {
@@ -33,6 +38,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       confirmNewPassword,
       newPassword,
       avatarBuffer,
+      removeAvatar,
     },
     ctx,
   );
@@ -127,11 +133,17 @@ export default function Profile({
                       id="avatar"
                       className="file-input"
                     />
-                    <button type="submit" className="btn btn-error">
-                      Delete
-                    </button>
                   </div>
                 </div>
+
+                <label className="fieldset-label my-4">
+                  <input
+                    type="checkbox"
+                    name="remove-avatar"
+                    className="checkbox"
+                  />
+                  Remove current avatar?
+                </label>
 
                 <label htmlFor="name" className="fieldset-label">
                   Name
