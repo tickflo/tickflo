@@ -8,6 +8,10 @@ import config from '~/config';
 import { slugify } from '~/utils/slugify';
 import type { Route } from './+types/workspaces.new';
 
+export function meta() {
+  return [{ title: 'Tickflo - New Workspaces' }];
+}
+
 export async function action({ context, request }: Route.ActionArgs) {
   const ctx = context.get(appContext);
   const formData = await request.formData();

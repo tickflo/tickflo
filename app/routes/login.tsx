@@ -7,7 +7,7 @@ import { ErrorAlert } from '~/components/error-alert';
 import type { Route } from './+types/login';
 
 export function meta() {
-  return [{ title: 'Tickflo Login' }];
+  return [{ title: 'Tickflo - Login' }];
 }
 
 export async function action({ context, request }: Route.ActionArgs) {
