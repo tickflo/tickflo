@@ -21,6 +21,10 @@ import { commitSession } from '~/.server/session';
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces.$slug';
 
+export function meta({ data }: Route.MetaArgs) {
+  return [{ title: `Tickflo - ${data.workspace.name}` }];
+}
+
 export async function loader({ context, params }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
   const { session } = ctx;

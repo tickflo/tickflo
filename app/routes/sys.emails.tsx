@@ -8,6 +8,10 @@ import { capitalize } from '~/utils/capitalize';
 import { prettyDate } from '~/utils/pretty-date';
 import type { Route } from './+types/sys.emails';
 
+export function meta() {
+  return [{ title: 'Tickflo - Email Log' }];
+}
+
 export async function loader({ request, context }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
   const url = new URL(request.url);

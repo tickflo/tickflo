@@ -10,6 +10,10 @@ import Toast from '~/components/toast';
 import config from '~/config';
 import type { Route } from './+types/profile';
 
+export function meta() {
+  return [{ title: 'Tickflo - Profile' }];
+}
+
 export async function action({ request, context }: Route.ActionArgs) {
   const ctx = context.get(appContext);
   let avatarBuffer: Buffer | undefined;

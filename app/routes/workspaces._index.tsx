@@ -11,6 +11,10 @@ import {
 import { appContext } from '~/app-context';
 import type { Route } from './+types/workspaces._index';
 
+export function meta() {
+  return [{ title: 'Tickflo - Workspaces' }];
+}
+
 export async function loader({ context }: Route.LoaderArgs) {
   const ctx = context.get(appContext);
   const { user } = ctx;
