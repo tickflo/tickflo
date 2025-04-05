@@ -85,6 +85,13 @@
       "when": 1743626910812,
       "tag": "0011_natural_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1743802311431,
+      "tag": "0012_calm_black_widow",
+      "breakpoints": true
     }
   ]
 }

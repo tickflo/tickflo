@@ -1,5 +1,12 @@
 import 'dotenv/config';
-import type { RoleConfig, UserConfig, WorkspaceConfig } from '~/config';
+import type {
+  ContactConfig,
+  LocationConfig,
+  PortalConfig,
+  RoleConfig,
+  UserConfig,
+  WorkspaceConfig,
+} from '~/config';
 import appConfig from '~/config';
 
 interface Config {
@@ -10,8 +17,11 @@ interface Config {
   SESSION_TIMEOUT_MINUTES: number;
   BASE_URL: string;
   USER: UserConfig;
+  CONTACT: ContactConfig;
+  LOCATION: LocationConfig;
   ROLE: RoleConfig;
   WORKSPACE: WorkspaceConfig;
+  PORTAL: PortalConfig;
   STORAGE: StorageConfig;
 }
 

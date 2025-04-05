@@ -3,6 +3,7 @@ import {
   boolean,
   integer,
   json,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -323,3 +324,144 @@ export const rolePermissionsRelations = relations(
     permissions: many(permissions),
   }),
 );
+
+export const locations = pgTable('locations', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  workspaceId: integer('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  name: varchar({ length: config.LOCATION.MAX_NAME_LENGTH }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: integer('created_by')
+    .notNull()
+    .references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+    () => new Date(),
+  ),
+  updatedBy: integer('updated_by').references(() => users.id),
+});
+
+export const contacts = pgTable('contacts', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  workspaceId: integer('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  locationId: integer('location_id').references(() => locations.id),
+  name: varchar({ length: config.CONTACT.MAX_NAME_LENGTH }).notNull(),
+  email: varchar({ length: 254 }).notNull(),
+  phone: varchar({ length: 16 }),
+  timezone: varchar({ length: 64 }),
+  customFields: jsonb('custom_fields'),
+  createdBy: integer('created_by').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+    () => new Date(),
+  ),
+  updatedBy: integer('updated_by').references(() => users.id),
+});
+
+export const portals = pgTable('portals', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  workspaceId: integer('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  name: varchar({ length: config.PORTAL.MAX_NAME_LENGTH }).notNull(),
+  slug: varchar({ length: config.PORTAL.MAX_SLUG_LENGTH }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: integer('created_by')
+    .notNull()
+    .references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+    () => new Date(),
+  ),
+  updatedBy: integer('updated_by').references(() => users.id),
+});
+
+export const portalSections = pgTable('portal_sections', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  portalId: integer('portal_id')
+    .notNull()
+    .references(() => portals.id),
+  title: varchar({ length: config.PORTAL.MAX_SECTION_TITLE_LENGTH }),
+  conditionId: integer().references(() => portalConditions.id),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: integer('created_by').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+    () => new Date(),
+  ),
+  updatedBy: integer('updated_by').references(() => users.id),
+});
+
+export const portalQuestions = pgTable('portal_questions', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  portalId: integer('portal_id')
+    .notNull()
+    .references(() => portals.id),
+  label: varchar({ length: config.PORTAL.MAX_QUESTION_LABEL_LENGTH }),
+  typeId: integer('type_id').notNull(),
+  conditionId: integer('condition_id').references(() => portalConditions.id),
+  defaultValue: text('default_value'),
+  createdBy: integer('created_by')
+    .notNull()
+    .references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+    () => new Date(),
+  ),
+  updatedBy: integer('updated_by').references(() => users.id),
+});
+
+export const portalQuestionOptions = pgTable('portal_question_options', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  questionId: integer('question_id')
+    .notNull()
+    .references(() => portalQuestions.id),
+  label: text().notNull(),
+  value: text().notNull(),
+  createdBy: integer('created_by')
+    .notNull()
+    .references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+    () => new Date(),
+  ),
+  updatedBy: integer('updated_by').references(() => users.id),
+});
+
+export const portalSectionQuestions = pgTable('portal_section_questions', {
+  sectionId: integer('section_id')
+    .notNull()
+    .references(() => portalSections.id),
+  questionId: integer('question_id')
+    .notNull()
+    .references(() => portalQuestions.id),
+  conditionId: integer('condition_id')
+    .notNull()
+    .references(() => portalConditions.id),
+  createdBy: integer('created_by')
+    .notNull()
+    .references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+    () => new Date(),
+  ),
+  updatedBy: integer('updated_by').references(() => users.id),
+});
+
+export const portalConditions = pgTable('portal_conditions', {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  portalId: integer('portal_id')
+    .notNull()
+    .references(() => portals.id),
+  rules: jsonb().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdBy: integer('created_by').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).$onUpdateFn(
+    () => new Date(),
+  ),
+  updatedBy: integer('updated_by').references(() => users.id),
+});

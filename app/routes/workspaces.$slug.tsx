@@ -6,6 +6,7 @@ import {
   FaHome,
   FaInbox,
   FaLock,
+  FaPuzzlePiece,
   FaUserCircle,
   FaUsers,
   FaWarehouse,
@@ -89,6 +90,14 @@ export default function workspaces({ loaderData }: Route.ComponentProps) {
             </NavLink>
           </li>
 
+          <li>
+            <NavLink
+              to={`/workspaces/${slug}/portals`}
+              className={({ isActive }) => (isActive ? 'menu-active' : '')}
+            >
+              <FaPuzzlePiece /> Portals
+            </NavLink>
+          </li>
           <li>
             <NavLink
               to={`/workspaces/${slug}/contacts`}

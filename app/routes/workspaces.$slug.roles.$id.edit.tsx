@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FaCheck, FaUndo } from 'react-icons/fa';
 import { Form, data, redirect } from 'react-router';
 import { errorRedirect } from '~/.server/helpers';
-import { defaultUserPermissions, isAction } from '~/.server/permissions';
+import { defaultUserPermissions } from '~/.server/permissions';
 import {
   getPermissionsForRoleId,
   updateRole,
@@ -11,6 +11,15 @@ import { getRoleById } from '~/.server/services/security';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
 import config from '~/config';
+import {
+  ACTIONS,
+  type Action,
+  type LoaderPermissions,
+  RESOURCES,
+  type Resource,
+  defaultLoaderPermissions,
+  isAction,
+} from '~/permissions';
 import type { Route } from './+types/workspaces.$slug.roles.$id.edit';
 
 export async function loader({ context, params }: Route.LoaderArgs) {
@@ -28,26 +37,21 @@ export async function loader({ context, params }: Route.LoaderArgs) {
     ctx,
   );
 
-  const userPermissions = [];
-  for (const action in permissions.users) {
+  const perms: LoaderPermissions = defaultLoaderPermissions;
+  for (const { key } of RESOURCES) {
     // @ts-ignore
-    if (permissions.users[action]) {
-      userPermissions.push(action);
-    }
-  }
-
-  const rolePermissions = [];
-  for (const action in permissions.roles) {
-    // @ts-ignore
-    if (permissions.roles[action]) {
-      rolePermissions.push(action);
+    for (const action in permissions[key]) {
+      // @ts-ignore
+      if (permissions[key][action]) {
+        // @ts-ignore
+        perms[key].push(action);
+      }
     }
   }
 
   return data({
     role: role.value,
-    userPermissions,
-    rolePermissions,
+    permissions: perms,
   });
 }
 
@@ -57,27 +61,18 @@ export async function action({ context, request, params }: Route.ActionArgs) {
   const formData = await request.formData();
   const name = formData.get('name')?.toString();
   const admin = formData.get('admin') === 'on';
-  const users = formData.getAll('users').map((v) => v.toString());
-  const roles = formData.getAll('roles').map((v) => v.toString());
-
   const permissions = defaultUserPermissions();
 
-  for (const action of users) {
-    if (!isAction(action)) {
-      return data({ error: `Invalid action: ${action}` });
+  for (const { key } of RESOURCES) {
+    const values = formData.getAll(key).map((v) => v.toString());
+    for (const action of values) {
+      if (!isAction(action)) {
+        return data({ error: `Invalid action: ${action}` });
+      }
+
+      // @ts-ignore
+      permissions[key][action] = true;
     }
-
-    // @ts-ignore
-    permissions.users[action] = true;
-  }
-
-  for (const action of roles) {
-    if (!isAction(action)) {
-      return data({ error: `Invalid action: ${action}` });
-    }
-
-    // @ts-ignore
-    permissions.roles[action] = true;
   }
 
   const id = Number.parseInt(params.id, 10);
@@ -97,50 +92,27 @@ export default function workspaceEditRole({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
-  const { role, rolePermissions, userPermissions } = loaderData;
+  const { role, permissions } = loaderData;
   const errorMessage = actionData?.error;
 
   const [name, setName] = useState(role.name);
   const [admin, setAdmin] = useState(role.admin);
-  const [checkedUserPermissions, setCheckedUserPermissions] =
-    useState(userPermissions);
-  const [checkedRolePermissions, setCheckedRolePermissions] =
-    useState(rolePermissions);
+  const [checkedPermissions, setCheckedPermissions] = useState(permissions);
 
-  const permissionTypes = useMemo(
-    () => [
-      ['create', 'Add'],
-      ['read', 'View'],
-      ['update', 'Update'],
-      ['delete', 'Remove'],
-    ],
-    [],
-  );
-
-  const onUserPermissionsChange = useCallback(
-    (name: string, checked: boolean) => {
+  const onPermissionsChange = useCallback(
+    (resource: Resource, action: Action, checked: boolean) => {
+      const newPermissions = JSON.parse(JSON.stringify(checkedPermissions));
       if (!checked) {
-        setCheckedUserPermissions(
-          checkedUserPermissions.filter((n) => n !== name),
+        newPermissions[resource] = checkedPermissions[resource].filter(
+          (a) => a !== action,
         );
       } else {
-        setCheckedUserPermissions([...checkedUserPermissions, name]);
+        newPermissions[resource].push(action);
       }
-    },
-    [checkedUserPermissions],
-  );
 
-  const onRolePermissionsChange = useCallback(
-    (name: string, checked: boolean) => {
-      if (!checked) {
-        setCheckedRolePermissions(
-          checkedRolePermissions.filter((n) => n !== name),
-        );
-      } else {
-        setCheckedRolePermissions([...checkedRolePermissions, name]);
-      }
+      setCheckedPermissions(newPermissions);
     },
-    [checkedRolePermissions],
+    [checkedPermissions],
   );
 
   return (
@@ -178,46 +150,33 @@ export default function workspaceEditRole({
               className="toggle toggle-primary"
             />
           </fieldset>
-          <fieldset
-            className="fieldset flex w-full gap-4 rounded-box border border-base-300 p-4"
-            disabled={admin}
-          >
-            <legend className="fieldset-legend">User permissions</legend>
-            {permissionTypes.map(([name, label]) => (
-              <input
-                key={name}
-                name="users"
-                type="checkbox"
-                aria-label={label}
-                value={name}
-                className="btn"
-                checked={admin || checkedUserPermissions.indexOf(name) > -1}
-                onChange={(e) =>
-                  onUserPermissionsChange(name, e.target.checked)
-                }
-              />
-            ))}
-          </fieldset>
-          <fieldset
-            className="fieldset flex w-full gap-4 rounded-box border border-base-300 p-4"
-            disabled={admin}
-          >
-            <legend className="fieldset-legend">Role permissions</legend>
-            {permissionTypes.map(([name, label]) => (
-              <input
-                key={name}
-                name="roles"
-                type="checkbox"
-                aria-label={label}
-                value={name}
-                className="btn"
-                checked={admin || checkedRolePermissions.indexOf(name) > -1}
-                onChange={(e) =>
-                  onRolePermissionsChange(name, e.target.checked)
-                }
-              />
-            ))}
-          </fieldset>
+
+          {RESOURCES.map(({ key, label }) => (
+            <fieldset
+              className="fieldset flex w-full gap-4 rounded-box border border-base-300 p-4"
+              disabled={admin}
+              key={key}
+            >
+              <legend className="fieldset-legend">{label} permissions</legend>
+              {ACTIONS.map(({ action, label }) => (
+                <input
+                  key={action}
+                  name={key}
+                  type="checkbox"
+                  aria-label={label}
+                  value={action}
+                  className="btn"
+                  checked={
+                    admin || checkedPermissions[key].indexOf(action) > -1
+                  }
+                  onChange={(e) =>
+                    onPermissionsChange(key, action, e.target.checked)
+                  }
+                />
+              ))}
+            </fieldset>
+          ))}
+
           {errorMessage && <ErrorAlert message={errorMessage} />}
           <div className="modal-action">
             <button type="submit" form="form-dismiss" className="btn">
