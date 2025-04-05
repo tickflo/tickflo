@@ -1,8 +1,33 @@
 import { FaPlus, FaPuzzlePiece, FaSearch, FaTrash } from 'react-icons/fa';
 import { FaBoltLightning, FaPencil } from 'react-icons/fa6';
-import { Link, Outlet } from 'react-router';
+import { Link, Outlet, data } from 'react-router';
+import { appContext } from '~/app-context';
 
-export default function workspacePortals() {
+import config from '~/.server/config';
+import { errorRedirect } from '~/.server/helpers';
+import { getPortals } from '~/.server/services/portal';
+import type { Route } from './+types/workspaces.$slug.portals';
+
+export async function loader({ context, params }: Route.LoaderArgs) {
+  const ctx = context.get(appContext);
+  const { session } = ctx;
+
+  const portals = await getPortals({ slug: params.slug }, ctx);
+  if (portals.isErr()) {
+    return errorRedirect(session, portals.error.message, '..');
+  }
+
+  return data({
+    portals: portals.value.map((r) => ({
+      id: r.id,
+      name: r.name,
+      url: `${config.BASE_URL}/portals/${params.slug}/${r.slug}`,
+    })),
+  });
+}
+export default function workspacePortals({ loaderData }: Route.ComponentProps) {
+  const { portals } = loaderData;
+
   return (
     <>
       <div>
@@ -35,37 +60,36 @@ export default function workspacePortals() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>
-                <div className="dropdown">
-                  {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
-                  <div tabIndex={0} role="button" className="btn btn-sm">
-                    <FaBoltLightning /> Actions
+            {portals.map((portal) => (
+              <tr key={portal.id}>
+                <td>
+                  <div className="dropdown">
+                    {/*biome-ignore lint/a11y/useSemanticElements: reason required for safari*/}
+                    <div tabIndex={0} role="button" className="btn btn-sm">
+                      <FaBoltLightning /> Actions
+                    </div>
+                    <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
+                      <li>
+                        <Link to="google.com">
+                          <FaPencil /> Edit
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to="google.com" className="text-error">
+                          <FaTrash /> Remove
+                        </Link>
+                      </li>
+                    </ul>
                   </div>
-                  <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
-                    <li>
-                      <Link to="google.com">
-                        <FaPencil /> Edit
-                      </Link>
-                    </li>
-                    <li>
-                      <Link to="google.com" className="text-error">
-                        <FaTrash /> Remove
-                      </Link>
-                    </li>
-                  </ul>
-                </div>
-              </td>
-              <td>Default</td>
-              <td>
-                <a
-                  href="https://app.tickflo.co/portal/cool-guys/default"
-                  className="link link-primary"
-                >
-                  https://app.tickflo.co/portal/cool-guys/default
-                </a>
-              </td>
-            </tr>
+                </td>
+                <td>{portal.name}</td>
+                <td>
+                  <a href={portal.url} className="link link-primary">
+                    {portal.url}
+                  </a>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
