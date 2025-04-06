@@ -402,8 +402,9 @@ export const portalQuestions = pgTable('portal_questions', {
   portalId: integer('portal_id')
     .notNull()
     .references(() => portals.id),
-  label: varchar({ length: config.PORTAL.MAX_QUESTION_LABEL_LENGTH }),
+  label: varchar({ length: config.PORTAL.MAX_QUESTION_LABEL_LENGTH }).notNull(),
   typeId: integer('type_id').notNull(),
+  fieldId: integer('field_id'),
   conditionId: integer('condition_id').references(() => portalConditions.id),
   defaultValue: text('default_value'),
   createdBy: integer('created_by')
@@ -438,9 +439,7 @@ export const portalSectionQuestions = pgTable('portal_section_questions', {
   questionId: integer('question_id')
     .notNull()
     .references(() => portalQuestions.id),
-  conditionId: integer('condition_id')
-    .notNull()
-    .references(() => portalConditions.id),
+  conditionId: integer('condition_id').references(() => portalConditions.id),
   createdBy: integer('created_by')
     .notNull()
     .references(() => users.id),

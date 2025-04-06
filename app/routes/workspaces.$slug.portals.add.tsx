@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FaPlus, FaUndo } from 'react-icons/fa';
-import { Form, data, redirect } from 'react-router';
+import { Form, data, href, redirect } from 'react-router';
 import { addPortal } from '~/.server/services/portal';
 import { appContext } from '~/app-context';
 import { ErrorAlert } from '~/components/error-alert';
@@ -20,7 +20,12 @@ export async function action({ context, request, params }: Route.ActionArgs) {
     return data({ error: result.error.message });
   }
 
-  return redirect('..');
+  return redirect(
+    href('/workspaces/:slug/portal-edit/:id', {
+      slug: params.slug,
+      id: result.value.id.toString(),
+    }),
+  );
 }
 
 export default function workspaceAddPortal({
