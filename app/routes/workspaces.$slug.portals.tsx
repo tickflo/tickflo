@@ -1,6 +1,6 @@
 import { FaPlus, FaPuzzlePiece, FaSearch, FaTrash } from 'react-icons/fa';
 import { FaBoltLightning, FaPencil } from 'react-icons/fa6';
-import { Link, Outlet, data } from 'react-router';
+import { Link, Outlet, data, href } from 'react-router';
 import { appContext } from '~/app-context';
 
 import config from '~/.server/config';
@@ -25,7 +25,10 @@ export async function loader({ context, params }: Route.LoaderArgs) {
     })),
   });
 }
-export default function workspacePortals({ loaderData }: Route.ComponentProps) {
+export default function workspacePortals({
+  params,
+  loaderData,
+}: Route.ComponentProps) {
   const { portals } = loaderData;
 
   return (
@@ -70,7 +73,12 @@ export default function workspacePortals({ loaderData }: Route.ComponentProps) {
                     </div>
                     <ul className="dropdown-content menu z-1 w-52 rounded-box bg-base-100 p-2 shadow-sm">
                       <li>
-                        <Link to="google.com">
+                        <Link
+                          to={href('/workspaces/:slug/portal-edit/:id', {
+                            slug: params.slug,
+                            id: portal.id.toString(),
+                          })}
+                        >
                           <FaPencil /> Edit
                         </Link>
                       </li>
