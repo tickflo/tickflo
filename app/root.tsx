@@ -21,6 +21,8 @@ import {
   FaUser,
 } from 'react-icons/fa';
 import { FaPeopleGroup, FaScrewdriverWrench } from 'react-icons/fa6';
+import Icon from '~/tickflo-icon.png';
+import Logo from '~/tickflo.png';
 import type { Route } from './+types/root';
 import { getContext } from './.server/context';
 import { loginRedirect } from './.server/helpers';
@@ -106,6 +108,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href={Icon} />
         <Meta />
         <Links />
       </head>
@@ -116,7 +119,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="navbar bg-base-100 shadow-sm">
           <div className="flex-1">
             <Link className="btn btn-ghost text-xl" to="/">
-              Tickflo
+              <img src={Logo} alt="Tickflo" className="h-12" />
             </Link>
           </div>
           <div className="flex-none">
