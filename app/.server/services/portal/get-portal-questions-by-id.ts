@@ -6,10 +6,18 @@ import { portalQuestions, portals, workspaces } from '~/.server/db/schema';
 import { type ApiError, PermissionsError } from '~/.server/errors';
 import { getPermissions } from '../security';
 
+type Question = {
+  id: number;
+  label: string;
+  typeId: number;
+  fieldId: number | null;
+  defaultValue: string | null;
+};
+
 export async function getPortalQuestionsById(
   { slug, id }: { slug: string; id: number },
   context: Context,
-): Promise<Result<number[], ApiError>> {
+): Promise<Result<Question[], ApiError>> {
   const { tx } = context;
   const permissions = await getPermissions({ slug }, context);
   if (!permissions.portals.read) {
@@ -26,5 +34,5 @@ export async function getPortalQuestionsById(
     .innerJoin(portalQuestions, eq(portalQuestions.portalId, portals.id))
     .where(eq(portals.id, id));
 
-  return Ok(result.map((r) => r.portal_questions.id));
+  return Ok(result.map((r) => r.portal_questions));
 }

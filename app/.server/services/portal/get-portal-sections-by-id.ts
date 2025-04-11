@@ -16,13 +16,12 @@ type Section = {
   id: number;
   title: string | null;
   questions: Question[];
+  conditionId: number | null;
 };
 
 type Question = {
   id: number;
-  label: string;
-  typeId: number;
-  defaultValue: string | null;
+  conditionId: number | null;
 };
 
 export async function getPortalSectionsById(
@@ -63,11 +62,10 @@ export async function getPortalSectionsById(
       return {
         id,
         title: rows[0].portal_sections.title,
+        conditionId: rows[0].portal_sections.conditionId,
         questions: rows.map((r) => ({
-          id: r.portal_questions.id,
-          label: r.portal_questions.label,
-          typeId: r.portal_questions.typeId,
-          defaultValue: r.portal_questions.defaultValue,
+          id: r.portal_section_questions.questionId,
+          conditionId: r.portal_section_questions.conditionId,
         })),
       };
     }),
