@@ -1,0 +1,1 @@
+ALTER TABLE "portal_sections" ADD COLUMN "rank" varchar(12) NOT NULL;

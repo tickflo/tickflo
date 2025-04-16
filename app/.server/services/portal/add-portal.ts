@@ -1,3 +1,4 @@
+import { LexoRank } from 'lexorank';
 import { Err, Ok, type Result } from 'ts-results-es';
 import type { Context } from '~/.server/context';
 import { db } from '~/.server/db';
@@ -104,10 +105,13 @@ export async function addPortal(
       return Err(new ApiError('Failed to create portal'));
     }
 
+    const rank = LexoRank.middle();
+
     const sections = await tx
       .insert(portalSections)
       .values({
         portalId,
+        rank: rank.toString(),
         createdBy: user.id,
       })
       .returning({ id: portalSections.id });
@@ -119,11 +123,20 @@ export async function addPortal(
     const sectionId = sections[0].id;
 
     await tx.insert(portalSectionQuestions).values(
-      questions.map((q) => ({
-        sectionId,
-        questionId: q.id,
-        createdBy: user.id,
-      })),
+      questions.map((q, index) => {
+        let rank = LexoRank.middle();
+
+        for (let i = 0; i < index; ++i) {
+          rank = rank.genNext();
+        }
+
+        return {
+          sectionId,
+          questionId: q.id,
+          rank: rank.toString(),
+          createdBy: user.id,
+        };
+      }),
     );
 
     return Ok({ id: portalId });

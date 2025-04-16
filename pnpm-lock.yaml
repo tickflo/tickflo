@@ -59,6 +59,9 @@ importers:
       isbot:
         specifier: ^5.1.25
         version: 5.1.25
+      lexorank:
+        specifier: ^1.0.5
+        version: 1.0.5
       morgan:
         specifier: ^1.10.0
         version: 1.10.0
@@ -3024,6 +3027,9 @@ packages:
   lefthook@1.11.6:
     resolution: {integrity: sha512-j0VmMM50WlPDassmgvapRum9po29Tv1BXzBNFpzGkk9E91CEG9jKik/OHyH/r/na+q8qNIUUyPL6QQuTN/UhQQ==}
     hasBin: true
+
+  lexorank@1.0.5:
+    resolution: {integrity: sha512-K1B/Yr/gIU0wm68hk/yB0p/mv6xM3ShD5aci42vOwcjof8slG8Kpo3Q7+1WTv7DaRHKWRgLPqrFDt+4GtuFAtA==}
 
   lightningcss-darwin-arm64@1.29.2:
     resolution: {integrity: sha512-cK/eMabSViKn/PG8U/a7aCorpeKLMlK0bQeNHmdb7qUnBkNPnL+oV5DjJUo0kqWsJUapZsM4jCfYItbqBDvlcA==}
@@ -7166,6 +7172,8 @@ snapshots:
       lefthook-openbsd-x64: 1.11.6
       lefthook-windows-arm64: 1.11.6
       lefthook-windows-x64: 1.11.6
+
+  lexorank@1.0.5: {}
 
   lightningcss-darwin-arm64@1.29.2:
     optional: true

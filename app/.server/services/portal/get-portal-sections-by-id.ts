@@ -12,16 +12,18 @@ import {
 import { type ApiError, PermissionsError } from '~/.server/errors';
 import { getPermissions } from '../security';
 
-type Section = {
+export type Section = {
   id: number;
   title: string | null;
   questions: Question[];
   conditionId: number | null;
+  rank: string;
 };
 
 type Question = {
   id: number;
   conditionId: number | null;
+  rank: string;
 };
 
 export async function getPortalSectionsById(
@@ -50,7 +52,8 @@ export async function getPortalSectionsById(
       portalQuestions,
       eq(portalQuestions.id, portalSectionQuestions.questionId),
     )
-    .where(eq(portals.id, id));
+    .where(eq(portals.id, id))
+    .orderBy(portalSections.rank, portalSectionQuestions.rank);
 
   const sectionIds = result
     .map((r) => r.portal_sections.id)
@@ -63,9 +66,11 @@ export async function getPortalSectionsById(
         id,
         title: rows[0].portal_sections.title,
         conditionId: rows[0].portal_sections.conditionId,
+        rank: rows[0].portal_sections.rank,
         questions: rows.map((r) => ({
           id: r.portal_section_questions.questionId,
           conditionId: r.portal_section_questions.conditionId,
+          rank: rows[0].portal_section_questions.rank,
         })),
       };
     }),

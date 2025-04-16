@@ -387,6 +387,7 @@ export const portalSections = pgTable('portal_sections', {
     .references(() => portals.id),
   title: varchar({ length: config.PORTAL.MAX_SECTION_TITLE_LENGTH }),
   conditionId: integer().references(() => portalConditions.id),
+  rank: varchar({ length: 12 }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -440,6 +441,7 @@ export const portalSectionQuestions = pgTable('portal_section_questions', {
     .notNull()
     .references(() => portalQuestions.id),
   conditionId: integer('condition_id').references(() => portalConditions.id),
+  rank: varchar({ length: 12 }).notNull(),
   createdBy: integer('created_by')
     .notNull()
     .references(() => users.id),
