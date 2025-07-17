@@ -1,0 +1,1 @@
+ALTER TABLE "portal_section_questions" ALTER COLUMN "condition_id" DROP NOT NULL;
