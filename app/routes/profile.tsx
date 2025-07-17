@@ -32,8 +32,6 @@ export async function action({ request, context }: Route.ActionArgs) {
   const confirmNewPassword = formData.get('confirm-new-password')?.toString();
   const removeAvatar = formData.get('remove-avatar') === 'on';
 
-  console.log('buffer', avatarBuffer);
-
   const result = await updateProfile(
     {
       name,
