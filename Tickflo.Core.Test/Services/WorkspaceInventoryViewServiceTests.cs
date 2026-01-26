@@ -3,6 +3,9 @@ namespace Tickflo.CoreTest.Services;
 using Moq;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Inventory;
+using Tickflo.Core.Services.Views;
+using Tickflo.Core.Services.Workspace;
 using Xunit;
 
 public class WorkspaceInventoryViewServiceTests

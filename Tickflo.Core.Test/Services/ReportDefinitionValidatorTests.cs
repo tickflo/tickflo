@@ -1,5 +1,6 @@
 namespace Tickflo.CoreTest.Services;
 
+using Tickflo.Core.Services.Reporting;
 using Xunit;
 
 public class ReportDefinitionValidatorTests

@@ -1,6 +1,7 @@
 namespace Tickflo.CoreTest.Services;
 
 using System.Security.Claims;
+using Tickflo.Core.Services.Common;
 using Xunit;
 
 public class CurrentUserServiceTests

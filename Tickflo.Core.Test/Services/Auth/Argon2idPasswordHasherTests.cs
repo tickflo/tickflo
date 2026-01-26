@@ -1,5 +1,6 @@
 namespace Tickflo.CoreTest.Services.Auth;
 
+using Tickflo.Core.Services.Authentication;
 using Xunit;
 
 public class Argon2idPasswordHasherTests

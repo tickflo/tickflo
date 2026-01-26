@@ -1,6 +1,8 @@
 namespace Tickflo.CoreTest.Services;
 
 using Moq;
+using Tickflo.Core.Services.Views;
+using Tickflo.Core.Services.Workspace;
 using Xunit;
 
 public class WorkspaceFilesViewServiceTests

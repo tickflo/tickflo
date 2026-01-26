@@ -2,6 +2,9 @@ namespace Tickflo.CoreTest.Services;
 
 using Moq;
 using Tickflo.Core.Data;
+using Tickflo.Core.Services.Locations;
+using Tickflo.Core.Services.Views;
+using Tickflo.Core.Services.Workspace;
 using Xunit;
 
 public class WorkspaceLocationsViewServiceTests
