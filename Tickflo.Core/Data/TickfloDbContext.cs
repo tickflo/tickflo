@@ -88,14 +88,11 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
         modelBuilder.Entity<ContactLocation>()
             .HasIndex(cl => new { cl.WorkspaceId, cl.ContactId });
 
-        modelBuilder.Entity<Ticket>()
-            .HasIndex(t => new { t.WorkspaceId, t.Id });
-
-        // TicketInventory relationship
         modelBuilder.Entity<TicketInventory>()
             .HasOne(ti => ti.Ticket)
             .WithMany(t => t.TicketInventories)
             .HasForeignKey(ti => ti.TicketId);
+
         modelBuilder.Entity<TicketInventory>()
             .HasOne(ti => ti.Inventory)
             .WithMany()
