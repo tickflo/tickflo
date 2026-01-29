@@ -112,7 +112,7 @@ public class WorkspaceModel : PageModel
             return this.Page();
         }
 
-        var found = await this.dbContext.Workspaces.FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
+        var found = await this.dbContext.Workspaces.FirstOrDefaultAsync(w => w.Slug == slug);
         if (found == null)
         {
             return this.NotFound();

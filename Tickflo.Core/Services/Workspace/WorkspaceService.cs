@@ -67,6 +67,7 @@ public class WorkspaceService(TickfloDbContext dbContext) : IWorkspaceService
     public async Task<List<UserWorkspace>> GetUserWorkspacesAsync(int userId) =>
         await this.dbContext.UserWorkspaces
             .Where(uw => uw.UserId == userId)
+            .Include(uw => uw.Workspace)
             .ToListAsync();
 
     public async Task<List<UserWorkspace>> GetAcceptedWorkspacesAsync(int userId)

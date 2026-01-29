@@ -2,7 +2,6 @@ namespace Tickflo.Web.Pages.Workspaces;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Teams;
 using Tickflo.Core.Services.Views;

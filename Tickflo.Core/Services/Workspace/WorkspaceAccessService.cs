@@ -83,6 +83,7 @@ public class WorkspaceAccessService(TickfloDbContext dbContext) : IWorkspaceAcce
     private const string CreateAction = "create";
     private const string EditAction = "edit";
     private const string AllTicketsScope = "all";
+    private static readonly string[] ManagedSections = ["dashboard", "contacts", "inventory", "locations", "reports", "roles", "teams", "tickets", "users", "settings"];
     private static readonly CompositeFormat UserNotAdminErrorFormat = CompositeFormat.Parse("User {0} is not an admin of workspace {1}.");
     private static readonly CompositeFormat UserNoAccessErrorFormat = CompositeFormat.Parse("User {0} does not have access to workspace {1}.");
     #endregion
@@ -103,34 +104,75 @@ public class WorkspaceAccessService(TickfloDbContext dbContext) : IWorkspaceAcce
             .Include(uwr => uwr.Role)
             .AnyAsync(uwr => uwr.UserId == userId &&
                             uwr.WorkspaceId == workspaceId &&
-                            uwr.Role.IsAdmin);
+                            uwr.Role.Admin);
 
         return hasAdminRole;
     }
 
     public async Task<Dictionary<string, EffectiveSectionPermission>> GetUserPermissionsAsync(int workspaceId, int userId)
     {
-        // Get all role permissions for the user's roles in this workspace
-        var rolePermissions = await this.dbContext.UserWorkspaceRoles
+        var isAdmin = await this.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        if (isAdmin)
+        {
+            return ManagedSections.ToDictionary(
+                section => section,
+                section => new EffectiveSectionPermission
+                {
+                    Section = section,
+                    CanView = true,
+                    CanCreate = true,
+                    CanEdit = true,
+                    CanDelete = false,
+                    TicketViewScope = section == "tickets" ? "all" : null
+                });
+        }
+
+        // Get user's role IDs
+        var userRoleIds = await this.dbContext.UserWorkspaceRoles
             .Where(uwr => uwr.UserId == userId && uwr.WorkspaceId == workspaceId)
-            .Include(uwr => uwr.Role)
-            .ThenInclude(r => r.RolePermissions)
-            .SelectMany(uwr => uwr.Role.RolePermissions)
+            .Select(uwr => uwr.RoleId)
             .ToListAsync();
 
-        // Group by section and aggregate permissions (OR logic - any role grants permission)
-        var effectivePermissions = rolePermissions
-            .GroupBy(rp => rp.Section)
-            .ToDictionary(
-                g => g.Key,
-                g => new EffectiveSectionPermission
-                {
-                    Section = g.Key,
-                    CanView = g.Any(p => p.CanView),
-                    CanCreate = g.Any(p => p.CanCreate),
-                    CanEdit = g.Any(p => p.CanEdit),
-                    CanDelete = false
-                });
+        if (userRoleIds.Count == 0)
+        {
+            return [];
+        }
+
+        // Get role permission links
+        var rolePermissionLinks = await this.dbContext.RolePermissions
+            .Where(rp => userRoleIds.Contains(rp.RoleId))
+            .ToListAsync();
+
+        // Get permission catalog entries
+        var permissionIds = rolePermissionLinks.Select(rp => rp.PermissionId).Distinct().ToList();
+        var permissions = await this.dbContext.Permissions
+            .Where(p => permissionIds.Contains(p.Id))
+            .ToListAsync();
+
+        // Build effective permissions by section
+        var effectivePermissions = new Dictionary<string, EffectiveSectionPermission>();
+        foreach (var section in ManagedSections)
+        {
+            var eff = new EffectiveSectionPermission
+            {
+                Section = section,
+                CanView = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("view", StringComparison.OrdinalIgnoreCase)),
+                CanEdit = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("edit", StringComparison.OrdinalIgnoreCase)),
+                CanCreate = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("create", StringComparison.OrdinalIgnoreCase)),
+                CanDelete = false
+            };
+
+            if (section == "tickets")
+            {
+                var scopes = permissions
+                    .Where(p => p.Resource.Equals("tickets_scope", StringComparison.OrdinalIgnoreCase))
+                    .Select(p => p.Action.ToLowerInvariant())
+                    .ToList();
+                eff.TicketViewScope = scopes.Contains("mine") ? "mine" : scopes.Contains("team") ? "team" : "all";
+            }
+
+            effectivePermissions[section] = eff;
+        }
 
         return effectivePermissions;
     }
@@ -158,23 +200,45 @@ public class WorkspaceAccessService(TickfloDbContext dbContext) : IWorkspaceAcce
             return AllTicketsScope;
         }
 
-        // Get the most permissive ticket view scope from user's roles
-        var rolePermissions = await this.dbContext.UserWorkspaceRoles
+        // Get user's role IDs
+        var userRoleIds = await this.dbContext.UserWorkspaceRoles
             .Where(uwr => uwr.UserId == userId && uwr.WorkspaceId == workspaceId)
-            .Include(uwr => uwr.Role)
-            .ThenInclude(r => r.RolePermissions)
-            .SelectMany(uwr => uwr.Role.RolePermissions)
-            .Where(rp => rp.Section == "tickets")
+            .Select(uwr => uwr.RoleId)
             .ToListAsync();
 
-        // If user can view all tickets (CanView = true), return "all"
-        if (rolePermissions.Any(p => p.CanView))
+        if (userRoleIds.Count == 0)
+        {
+            return "assigned";
+        }
+
+        // Get role permission links
+        var rolePermissionLinks = await this.dbContext.RolePermissions
+            .Where(rp => userRoleIds.Contains(rp.RoleId))
+            .ToListAsync();
+
+        // Get permission catalog entries for tickets_scope
+        var permissionIds = rolePermissionLinks.Select(rp => rp.PermissionId).Distinct().ToList();
+        var scopes = await this.dbContext.Permissions
+            .Where(p => permissionIds.Contains(p.Id) && p.Resource == "tickets_scope")
+            .Select(p => p.Action.ToLowerInvariant())
+            .ToListAsync();
+
+        // Return most permissive scope: all > team > mine
+        if (scopes.Contains("all"))
         {
             return AllTicketsScope;
         }
 
-        // Otherwise, return limited scope based on role metadata
-        // Default to "assigned" if no specific scope found
+        if (scopes.Contains("team"))
+        {
+            return "team";
+        }
+
+        if (scopes.Contains("mine"))
+        {
+            return "mine";
+        }
+
         return "assigned";
     }
 

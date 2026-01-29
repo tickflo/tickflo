@@ -29,8 +29,7 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
     public DbSet<Team> Teams => this.Set<Team>();
     public DbSet<TeamMember> TeamMembers => this.Set<TeamMember>();
     public DbSet<Permission> Permissions => this.Set<Permission>();
-    public DbSet<RolePermission> RolePermissionsTable => this.Set<RolePermission>();
-    public DbSet<RolePermissionLink> RolePermissions => this.Set<RolePermissionLink>();
+    public DbSet<RolePermission> RolePermissions => this.Set<RolePermission>();
     public DbSet<Notification> Notifications => this.Set<Notification>();
     public DbSet<UserNotificationPreference> UserNotificationPreferences => this.Set<UserNotificationPreference>();
     public DbSet<FileStorage> FileStorages => this.Set<FileStorage>();
@@ -144,8 +143,7 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
             .HasIndex(p => new { p.Action, p.Resource })
             .IsUnique();
 
-        // Role to permission link table
-        modelBuilder.Entity<RolePermissionLink>()
+        modelBuilder.Entity<RolePermission>()
             .HasKey(rp => new { rp.RoleId, rp.PermissionId });
 
         // User notification preferences
