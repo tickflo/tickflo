@@ -1,8 +1,8 @@
 namespace Tickflo.Core.Services.Views;
 
-using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Tickets;
+using Tickflo.Core.Services.Workspace;
 
 public class WorkspaceTicketsSaveViewData
 {
@@ -18,20 +18,18 @@ public interface IWorkspaceTicketsSaveViewService
 
 
 public class WorkspaceTicketsSaveViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository,
+    IWorkspaceAccessService workspaceAccessService,
     ITicketManagementService ticketManagementService) : IWorkspaceTicketsSaveViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
     private readonly ITicketManagementService ticketManagementService = ticketManagementService;
 
     public async Task<WorkspaceTicketsSaveViewData> BuildAsync(int workspaceId, int userId, bool isNew, Ticket? existing = null)
     {
         var data = new WorkspaceTicketsSaveViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
 
         if (isAdmin)
         {
@@ -41,7 +39,7 @@ public class WorkspaceTicketsSaveViewService(
         }
         else
         {
-            if (eff.TryGetValue("tickets", out var tp))
+            if (permissions.TryGetValue("tickets", out var tp))
             {
                 data.CanCreateTickets = tp.CanCreate;
                 data.CanEditTickets = tp.CanEdit;

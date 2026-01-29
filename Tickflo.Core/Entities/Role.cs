@@ -10,4 +10,7 @@ public class Role : IWorkspaceEntity
     public DateTime? UpdatedAt { get; set; }
     public int? UpdatedBy { get; set; }
     public bool Admin { get; set; }
+
+    // Navigation properties
+    public ICollection<RolePermission> RolePermissions { get; set; } = [];
 }

@@ -2,16 +2,19 @@ namespace Tickflo.Web.Pages.Workspaces;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Common;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [Authorize]
 public class InventoryModel(
     IWorkspaceService workspaceService,
-    IInventoryRepository inventoryRepository,
+    TickfloDbContext dbContext,
     ICurrentUserService currentUserService,
     IWorkspaceAccessService workspaceAccessService,
     IWorkspaceInventoryViewService workspaceInventoryViewService) : WorkspacePageModel
@@ -26,7 +29,7 @@ public class InventoryModel(
     #endregion
 
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly IInventoryRepository inventoryRepository = inventoryRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly ICurrentUserService currentUserService = currentUserService;
     private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
     private readonly IWorkspaceInventoryViewService workspaceInventoryViewService = workspaceInventoryViewService;
@@ -92,7 +95,8 @@ public class InventoryModel(
             return authResult;
         }
 
-        var item = await this.inventoryRepository.FindAsync(this.Workspace!.Id, id);
+        var item = await this.dbContext.Inventory
+            .FirstOrDefaultAsync(i => i.WorkspaceId == this.Workspace!.Id && i.Id == id);
         if (item == null)
         {
             return this.NotFound();
@@ -113,7 +117,8 @@ public class InventoryModel(
             return authResult;
         }
 
-        var item = await this.inventoryRepository.FindAsync(this.Workspace!.Id, id);
+        var item = await this.dbContext.Inventory
+            .FirstOrDefaultAsync(i => i.WorkspaceId == this.Workspace!.Id && i.Id == id);
         if (item == null)
         {
             return this.NotFound();
@@ -152,7 +157,7 @@ public class InventoryModel(
     private async Task UpdateInventoryStatusAsync(Inventory item, string status)
     {
         item.Status = status;
-        await this.inventoryRepository.UpdateAsync(item);
+        await this.dbContext.SaveChangesAsync();
     }
 
     private RedirectResult RedirectToInventoryPage() => this.Redirect($"/workspaces/{this.Workspace!.Slug}/inventory");

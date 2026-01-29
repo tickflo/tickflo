@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Email;
 
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -10,20 +11,20 @@ public interface IEmailTemplateService
 }
 
 
-public class EmailTemplateService(IEmailTemplateRepository emailTemplateRepository) : IEmailTemplateService
+public class EmailTemplateService(TickfloDbContext dbContext) : IEmailTemplateService
 {
     #region Constants
     private static readonly CompositeFormat TemplateNotFoundErrorFormat = CompositeFormat.Parse("Email template with type ID {0} not found.");
     #endregion
 
-    private readonly IEmailTemplateRepository emailTemplateRepository = emailTemplateRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<(string subject, string body)> RenderTemplateAsync(
         EmailTemplateType templateType,
         Dictionary<string, string> variables,
         int? workspaceId = null)
     {
-        var template = await this.GetTemplateOrThrowAsync(templateType, workspaceId);
+        var template = await this.GetTemplateOrThrowAsync(templateType);
 
         var subject = ReplaceVariables(template.Subject, variables);
         var body = ReplaceVariables(template.Body, variables);
@@ -31,9 +32,11 @@ public class EmailTemplateService(IEmailTemplateRepository emailTemplateReposito
         return (subject, body);
     }
 
-    private async Task<EmailTemplate> GetTemplateOrThrowAsync(EmailTemplateType templateType, int? workspaceId)
+    private async Task<EmailTemplate> GetTemplateOrThrowAsync(EmailTemplateType templateType)
     {
-        var template = await this.emailTemplateRepository.FindByTypeAsync(templateType, workspaceId) ?? throw new InvalidOperationException(string.Format(null, TemplateNotFoundErrorFormat, (int)templateType));
+        var template = await this.dbContext.EmailTemplates
+            .FirstOrDefaultAsync(t => t.TemplateTypeId == (int)templateType)
+            ?? throw new InvalidOperationException(string.Format(null, TemplateNotFoundErrorFormat, (int)templateType));
 
         return template;
     }

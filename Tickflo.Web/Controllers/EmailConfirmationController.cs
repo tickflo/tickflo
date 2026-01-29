@@ -2,17 +2,20 @@ namespace Tickflo.Web.Controllers;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Services.Authentication;
 using Tickflo.Core.Services.Common;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [ApiController]
 public class EmailConfirmationController(
-    IUserRepository users,
+    TickfloDbContext dbContext,
     ICurrentUserService currentUserService,
     IAuthenticationService authenticationService) : ControllerBase
 {
-    private readonly IUserRepository userRepository = users;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IAuthenticationService authenticationService = authenticationService;
     private readonly ICurrentUserService currentUserService = currentUserService;
 
@@ -26,7 +29,7 @@ public class EmailConfirmationController(
         }
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
-        var user = await this.userRepository.FindByEmailAsync(normalizedEmail);
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase));
         if (user == null)
         {
             return this.NotFound();
@@ -46,7 +49,7 @@ public class EmailConfirmationController(
         user.EmailConfirmationCode = null;
         user.UpdatedBy = user.Id;
         user.UpdatedAt = DateTime.UtcNow;
-        await this.userRepository.UpdateAsync(user);
+        await this.dbContext.SaveChangesAsync();
 
         return this.Redirect("/workspaces");
     }
@@ -61,7 +64,7 @@ public class EmailConfirmationController(
             return this.Unauthorized();
         }
 
-        var user = await this.userRepository.FindByIdAsync(userId);
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user == null || user.EmailConfirmed)
         {
             return this.Redirect("/workspaces");

@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Notifications;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -104,18 +105,9 @@ public interface INotificationTriggerService
         Dictionary<string, string>? resultData = null);
 }
 
-public class NotificationTriggerService(
-    INotificationRepository notificationRepository,
-    IUserRepository userRepository,
-    ITeamRepository teamRepository,
-    IWorkspaceRepository workspaceRepository,
-    IContactRepository contactRepository) : INotificationTriggerService
+public class NotificationTriggerService(TickfloDbContext dbContext) : INotificationTriggerService
 {
-    private readonly INotificationRepository notificationRepository = notificationRepository;
-    private readonly IUserRepository userRepository = userRepository;
-    private readonly ITeamRepository teamRepository = teamRepository;
-    private readonly IWorkspaceRepository workspaceRepository = workspaceRepository;
-    private readonly IContactRepository contactRepository = contactRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task NotifyTicketCreatedAsync(
         int workspaceId,
@@ -123,10 +115,10 @@ public class NotificationTriggerService(
         int createdByUserId)
     {
         var notifications = new List<Notification>();
-        var creator = await this.userRepository.FindByIdAsync(createdByUserId);
+        var creator = await this.dbContext.Users.FindAsync(createdByUserId);
         var creatorName = creator?.Name ?? creator?.Email ?? "Someone";
 
-        var workspace = await this.workspaceRepository.FindByIdAsync(workspaceId);
+        var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
         var ticketData = System.Text.Json.JsonSerializer.Serialize(new { ticketId = ticket.Id, workspaceSlug = workspace?.Slug });
 
         // Notify assigned user
@@ -143,14 +135,15 @@ public class NotificationTriggerService(
                 Body = $"{creatorName} assigned you ticket #{ticket.Id}: {ticket.Subject}",
                 Data = ticketData,
                 Status = "sent",
-                CreatedBy = createdByUserId
+                CreatedBy = createdByUserId,
+                CreatedAt = DateTime.UtcNow
             });
         }
 
         // Notify team members if assigned to team
         if (ticket.AssignedTeamId.HasValue)
         {
-            var team = await this.teamRepository.FindByIdAsync(ticket.AssignedTeamId.Value);
+            var team = await this.dbContext.Teams.FindAsync(ticket.AssignedTeamId.Value);
             if (team != null)
             {
                 // Team notification - would need ITeamMemberRepository for this
@@ -164,16 +157,15 @@ public class NotificationTriggerService(
                     Subject = "New Ticket for Team",
                     Body = $"{creatorName} created ticket #{ticket.Id} for team {team.Name}: {ticket.Subject}",
                     Status = "sent",
-                    CreatedBy = createdByUserId
+                    CreatedBy = createdByUserId,
+                    CreatedAt = DateTime.UtcNow
                 });
             }
         }
 
         // Add all notifications to queue
-        foreach (var notif in notifications)
-        {
-            await this.notificationRepository.AddAsync(notif);
-        }
+        this.dbContext.Notifications.AddRange(notifications);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task NotifyTicketAssignmentChangedAsync(
@@ -184,10 +176,10 @@ public class NotificationTriggerService(
         int changedByUserId)
     {
         var notifications = new List<Notification>();
-        var changer = await this.userRepository.FindByIdAsync(changedByUserId);
+        var changer = await this.dbContext.Users.FindAsync(changedByUserId);
         var changerName = changer?.Name ?? changer?.Email ?? "Someone";
 
-        var workspace = await this.workspaceRepository.FindByIdAsync(workspaceId);
+        var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
         var ticketData = System.Text.Json.JsonSerializer.Serialize(new { ticketId = ticket.Id, workspaceSlug = workspace?.Slug });
 
         // Notify previously assigned user (unassigned)
@@ -204,7 +196,8 @@ public class NotificationTriggerService(
                 Body = $"{changerName} unassigned you from ticket #{ticket.Id}: {ticket.Subject}",
                 Data = ticketData,
                 Status = "sent",
-                CreatedBy = changedByUserId
+                CreatedBy = changedByUserId,
+                CreatedAt = DateTime.UtcNow
             });
         }
 
@@ -222,14 +215,13 @@ public class NotificationTriggerService(
                 Body = $"{changerName} assigned you ticket #{ticket.Id}: {ticket.Subject}",
                 Data = ticketData,
                 Status = "sent",
-                CreatedBy = changedByUserId
+                CreatedBy = changedByUserId,
+                CreatedAt = DateTime.UtcNow
             });
         }
 
-        foreach (var notif in notifications)
-        {
-            await this.notificationRepository.AddAsync(notif);
-        }
+        this.dbContext.Notifications.AddRange(notifications);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task NotifyTicketStatusChangedAsync(
@@ -240,10 +232,10 @@ public class NotificationTriggerService(
         int changedByUserId)
     {
         var notifications = new List<Notification>();
-        var changer = await this.userRepository.FindByIdAsync(changedByUserId);
+        var changer = await this.dbContext.Users.FindAsync(changedByUserId);
         var changerName = changer?.Name ?? changer?.Email ?? "Someone";
 
-        var workspace = await this.workspaceRepository.FindByIdAsync(workspaceId);
+        var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
         var ticketData = System.Text.Json.JsonSerializer.Serialize(new { ticketId = ticket.Id, workspaceSlug = workspace?.Slug });
 
         // Notify assigned user/team about status change
@@ -260,13 +252,14 @@ public class NotificationTriggerService(
                 Body = $"{changerName} changed ticket #{ticket.Id} status from {previousStatus} to {newStatus}: {ticket.Subject}",
                 Data = ticketData,
                 Status = "sent",
-                CreatedBy = changedByUserId
+                CreatedBy = changedByUserId,
+                CreatedAt = DateTime.UtcNow
             });
         }
 
         if (ticket.AssignedTeamId.HasValue)
         {
-            var team = await this.teamRepository.FindByIdAsync(ticket.AssignedTeamId.Value);
+            var team = await this.dbContext.Teams.FindAsync(ticket.AssignedTeamId.Value);
             if (team != null)
             {
                 // Team notification queued
@@ -279,15 +272,14 @@ public class NotificationTriggerService(
                     Subject = "Ticket Status Changed",
                     Body = $"{changerName} changed ticket #{ticket.Id} status from {previousStatus} to {newStatus} for team {team.Name}: {ticket.Subject}",
                     Status = "sent",
-                    CreatedBy = changedByUserId
+                    CreatedBy = changedByUserId,
+                    CreatedAt = DateTime.UtcNow
                 });
             }
         }
 
-        foreach (var notif in notifications)
-        {
-            await this.notificationRepository.AddAsync(notif);
-        }
+        this.dbContext.Notifications.AddRange(notifications);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task NotifyTicketCommentAddedAsync(
@@ -297,10 +289,10 @@ public class NotificationTriggerService(
         bool isVisibleToClient)
     {
         var notifications = new List<Notification>();
-        var commenter = await this.userRepository.FindByIdAsync(commentedByUserId);
+        var commenter = await this.dbContext.Users.FindAsync(commentedByUserId);
         var commenterName = commenter?.Name ?? commenter?.Email ?? "Someone";
 
-        var workspace = await this.workspaceRepository.FindByIdAsync(workspaceId);
+        var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
         var ticketData = System.Text.Json.JsonSerializer.Serialize(new { ticketId = ticket.Id, workspaceSlug = workspace?.Slug });
 
         // Collect recipients: assigned user and contact's assigned user (if any)
@@ -308,7 +300,8 @@ public class NotificationTriggerService(
 
         if (ticket.ContactId.HasValue)
         {
-            var contact = await this.contactRepository.FindAsync(workspaceId, ticket.ContactId.Value);
+            var contact = await this.dbContext.Contacts
+                .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == ticket.ContactId.Value);
             if (contact?.AssignedUserId.HasValue == true)
             {
                 recipientIds.Add(contact.AssignedUserId);
@@ -331,7 +324,8 @@ public class NotificationTriggerService(
             // Skip notifying contact-assigned user if comment is internal-only (not visible to client)
             if (!isVisibleToClient && ticket.ContactId.HasValue)
             {
-                var contact = await this.contactRepository.FindAsync(workspaceId, ticket.ContactId.Value);
+                var contact = await this.dbContext.Contacts
+                    .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == ticket.ContactId.Value);
                 if (contact?.AssignedUserId == recipientId.Value)
                 {
                     continue;
@@ -350,7 +344,8 @@ public class NotificationTriggerService(
                 Body = $"{commenterName} added a comment to ticket #{ticket.Id}: {ticket.Subject}",
                 Data = ticketData,
                 Status = "sent",
-                CreatedBy = commentedByUserId
+                CreatedBy = commentedByUserId,
+                CreatedAt = DateTime.UtcNow
             });
 
             // Email notification (queued for batch send)
@@ -365,14 +360,13 @@ public class NotificationTriggerService(
                 Body = $"{commenterName} added a comment to ticket #{ticket.Id}: {ticket.Subject}",
                 Data = ticketData,
                 Status = "pending", // queued for batch email sender
-                CreatedBy = commentedByUserId
+                CreatedBy = commentedByUserId,
+                CreatedAt = DateTime.UtcNow
             });
         }
 
-        foreach (var notif in notifications)
-        {
-            await this.notificationRepository.AddAsync(notif);
-        }
+        this.dbContext.Notifications.AddRange(notifications);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task NotifyUserAddedToWorkspaceAsync(
@@ -380,7 +374,7 @@ public class NotificationTriggerService(
         int userId,
         int addedByUserId)
     {
-        var adder = await this.userRepository.FindByIdAsync(addedByUserId);
+        var adder = await this.dbContext.Users.FindAsync(addedByUserId);
         var adderName = adder?.Name ?? adder?.Email ?? "Someone";
 
         // Notify the invited user
@@ -394,10 +388,12 @@ public class NotificationTriggerService(
             Subject = "Added to Workspace",
             Body = $"{adderName} added you to a workspace",
             Status = "sent",
-            CreatedBy = addedByUserId
+            CreatedBy = addedByUserId,
+            CreatedAt = DateTime.UtcNow
         };
 
-        await this.notificationRepository.AddAsync(notification);
+        this.dbContext.Notifications.Add(notification);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task NotifyAdminsAsync(
@@ -413,9 +409,11 @@ public class NotificationTriggerService(
             WorkspaceId = workspaceId,
             Type = "admin_alert",
             DeliveryMethod = "email",
+            CreatedAt = DateTime.UtcNow
         };
 
-        await this.notificationRepository.AddAsync(notification);
+        this.dbContext.Notifications.Add(notification);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task NotifyUsersAsync(
@@ -435,13 +433,12 @@ public class NotificationTriggerService(
                 WorkspaceId = workspaceId,
                 Type = "bulk_notification",
                 DeliveryMethod = "email",
+                CreatedAt = DateTime.UtcNow
             });
         }
 
-        foreach (var notif in notifications)
-        {
-            await this.notificationRepository.AddAsync(notif);
-        }
+        this.dbContext.Notifications.AddRange(notifications);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task SendTransactionalEmailAsync(
@@ -466,8 +463,10 @@ public class NotificationTriggerService(
             WorkspaceId = workspaceId,
             Type = "workflow_completed",
             DeliveryMethod = "email",
+            CreatedAt = DateTime.UtcNow
         };
 
-        await this.notificationRepository.AddAsync(notification);
+        this.dbContext.Notifications.Add(notification);
+        await this.dbContext.SaveChangesAsync();
     }
 }

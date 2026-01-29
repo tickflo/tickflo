@@ -9,11 +9,13 @@ using Tickflo.Core.Services.Contacts;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [Authorize]
 public class ContactsEditModel(
     IWorkspaceService workspaceService,
     IWorkspaceContactsEditViewService workspaceContactsEditViewService,
-    IContactRepository contactRepository,
+    TickfloDbContext dbContext,
     IContactRegistrationService contactRegistrationService) : WorkspacePageModel
 {
     #region Constants
@@ -24,7 +26,7 @@ public class ContactsEditModel(
 
     private readonly IWorkspaceService workspaceService = workspaceService;
     private readonly IWorkspaceContactsEditViewService workspaceContactsEditViewService = workspaceContactsEditViewService;
-    private readonly IContactRepository contactRepository = contactRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IContactRegistrationService contactRegistrationService = contactRegistrationService;
 
     public string WorkspaceSlug { get; private set; } = string.Empty;
@@ -176,7 +178,7 @@ public class ContactsEditModel(
         created.Tags = trimmedFields.Tags;
         created.PreferredChannel = trimmedFields.PreferredChannel;
         created.Priority = trimmedFields.Priority;
-        await this.contactRepository.UpdateAsync(created);
+        await this.dbContext.SaveChangesAsync();
 
         this.SetSuccessMessage(string.Format(null, ContactCreatedMessage, created.Name));
         return created;
@@ -199,7 +201,7 @@ public class ContactsEditModel(
         updated.Tags = trimmedFields.Tags;
         updated.PreferredChannel = trimmedFields.PreferredChannel;
         updated.Priority = trimmedFields.Priority;
-        await this.contactRepository.UpdateAsync(updated);
+        await this.dbContext.SaveChangesAsync();
 
         this.SetSuccessMessage(string.Format(null, ContactUpdatedMessage, updated.Name));
         return updated;

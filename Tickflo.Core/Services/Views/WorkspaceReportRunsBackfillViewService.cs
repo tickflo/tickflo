@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Views;
 
-using Tickflo.Core.Data;
+using Tickflo.Core.Services.Workspace;
+
 public class WorkspaceReportRunsBackfillViewData
 {
     public bool CanEditReports { get; set; }
@@ -12,19 +13,16 @@ public interface IWorkspaceReportRunsBackfillViewService
 }
 
 
-public class WorkspaceReportRunsBackfillViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository) : IWorkspaceReportRunsBackfillViewService
+public class WorkspaceReportRunsBackfillViewService(IWorkspaceAccessService workspaceAccessService) : IWorkspaceReportRunsBackfillViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceReportRunsBackfillViewData> BuildAsync(int workspaceId, int userId)
     {
         var data = new WorkspaceReportRunsBackfillViewData();
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-        data.CanEditReports = isAdmin || (eff.TryGetValue("reports", out var rp) && rp.CanEdit);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
+        data.CanEditReports = isAdmin || (permissions.TryGetValue("reports", out var rp) && rp.CanEdit);
         return data;
     }
 }

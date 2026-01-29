@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Workspace;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 /// <summary>
@@ -59,14 +60,15 @@ public interface IWorkspaceService
     public Task<UserWorkspace?> GetMembershipAsync(int userId, int workspaceId);
 }
 
-public class WorkspaceService(
-    IWorkspaceRepository workspaceRepository,
-    IUserWorkspaceRepository userWorkspaceRepository) : IWorkspaceService
+public class WorkspaceService(TickfloDbContext dbContext) : IWorkspaceService
 {
-    private readonly IWorkspaceRepository workspaceRepository = workspaceRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
-    public async Task<List<UserWorkspace>> GetUserWorkspacesAsync(int userId) => await this.userWorkspaceRepository.FindForUserAsync(userId);
+    public async Task<List<UserWorkspace>> GetUserWorkspacesAsync(int userId) =>
+        await this.dbContext.UserWorkspaces
+            .Where(uw => uw.UserId == userId)
+            .Include(uw => uw.Workspace)
+            .ToListAsync();
 
     public async Task<List<UserWorkspace>> GetAcceptedWorkspacesAsync(int userId)
     {
@@ -74,17 +76,23 @@ public class WorkspaceService(
         return [.. all.Where(uw => uw.Accepted)];
     }
 
-    public async Task<WorkspaceEntity?> GetWorkspaceBySlugAsync(string slug) => await this.workspaceRepository.FindBySlugAsync(slug);
+    public async Task<WorkspaceEntity?> GetWorkspaceBySlugAsync(string slug) =>
+        await this.dbContext.Workspaces
+            .FirstOrDefaultAsync(w => w.Slug == slug);
 
-    public async Task<WorkspaceEntity?> GetWorkspaceAsync(int workspaceId) => await this.workspaceRepository.FindByIdAsync(workspaceId);
+    public async Task<WorkspaceEntity?> GetWorkspaceAsync(int workspaceId) =>
+        await this.dbContext.Workspaces.FindAsync(workspaceId);
 
     public async Task<bool> UserHasMembershipAsync(int userId, int workspaceId)
     {
-        var membership = await this.userWorkspaceRepository.FindAsync(userId, workspaceId);
+        var membership = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId);
         return membership?.Accepted ?? false;
     }
 
-    public async Task<UserWorkspace?> GetMembershipAsync(int userId, int workspaceId) => await this.userWorkspaceRepository.FindAsync(userId, workspaceId);
+    public async Task<UserWorkspace?> GetMembershipAsync(int userId, int workspaceId) =>
+        await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId);
 }
 
 

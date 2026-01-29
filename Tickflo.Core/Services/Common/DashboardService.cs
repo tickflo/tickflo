@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Common;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -132,15 +133,7 @@ public class TopMember
     public int ClosedCount { get; set; }
 }
 
-public class DashboardService(
-    ITicketRepository ticketRepository,
-    ITicketStatusRepository statusRepository,
-    ITicketPriorityRepository priorityRepository,
-    IUserRepository userRepository,
-    IUserWorkspaceRepository userWorkspaceRepository,
-    ITeamMemberRepository teamMembersRepository,
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepository,
-    IRolePermissionRepository rolePermissionRepository) : IDashboardService
+public class DashboardService(TickfloDbContext db) : IDashboardService
 {
     #region Constants
     private const string DateFormat = "MMM dd";
@@ -151,19 +144,12 @@ public class DashboardService(
     private const string MeFilter = "me";
     private const string OthersFilter = "others";
     private const string NoDataAvailable = "N/A";
-    private const string UserNameFormat = "User #{0}";
+    private static readonly System.Text.CompositeFormat UserNameFormat = System.Text.CompositeFormat.Parse("User #{0}");
     private const int DefaultTopMembersCount = 5;
     private const int DefaultActivityDaysBack = 30;
     #endregion
 
-    private readonly ITicketRepository ticketRepository = ticketRepository;
-    private readonly ITicketStatusRepository statusRepository = statusRepository;
-    private readonly ITicketPriorityRepository priorityRepository = priorityRepository;
-    private readonly IUserRepository userRepository = userRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly ITeamMemberRepository teamMemberRepository = teamMembersRepository;
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepository;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly TickfloDbContext db = db;
 
     public async Task<DashboardTicketStats> GetTicketStatsAsync(
         int workspaceId,
@@ -171,11 +157,11 @@ public class DashboardService(
         string ticketViewScope,
         List<int> userTeamIds)
     {
-        var tickets = await this.ticketRepository.ListAsync(workspaceId);
+        var tickets = await this.db.Tickets.Where(t => t.WorkspaceId == workspaceId).ToListAsync();
         var visibleTickets = await this.ApplyTicketScopeFilterAsync(tickets, workspaceId, userId, ticketViewScope, userTeamIds);
 
         var closedIds = await this.GetClosedStatusIdsAsync(workspaceId);
-        var memberships = await this.userWorkspaceRepository.FindForWorkspaceAsync(workspaceId);
+        var memberships = await this.db.UserWorkspaces.Where(uw => uw.WorkspaceId == workspaceId).ToListAsync();
 
         return new DashboardTicketStats
         {
@@ -193,7 +179,7 @@ public class DashboardService(
         List<int> userTeamIds,
         int daysBack = DefaultActivityDaysBack)
     {
-        var tickets = await this.ticketRepository.ListAsync(workspaceId);
+        var tickets = await this.db.Tickets.Where(t => t.WorkspaceId == workspaceId).ToListAsync();
         var visibleTickets = await this.ApplyTicketScopeFilterAsync(tickets, workspaceId, userId, ticketViewScope, userTeamIds);
         var closedIds = await this.GetClosedStatusIdsAsync(workspaceId);
 
@@ -217,14 +203,14 @@ public class DashboardService(
         List<int> userTeamIds,
         int topN = DefaultTopMembersCount)
     {
-        var tickets = await this.ticketRepository.ListAsync(workspaceId);
+        var tickets = await this.db.Tickets.Where(t => t.WorkspaceId == workspaceId).ToListAsync();
         var visibleTickets = await this.ApplyTicketScopeFilterAsync(tickets, workspaceId, userId, ticketViewScope, userTeamIds);
         var closedIds = await this.GetClosedStatusIdsAsync(workspaceId);
 
         var closedAssigned = visibleTickets
             .Where(t => t.AssignedUserId.HasValue && IsTicketClosed(t, closedIds))
             .GroupBy(t => t.AssignedUserId!.Value)
-            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .Select(g => new TicketUserCount(g.Key, g.Count()))
             .OrderByDescending(x => x.Count)
             .Take(topN)
             .ToList();
@@ -232,13 +218,15 @@ public class DashboardService(
         return await this.BuildTopMembersListAsync(closedAssigned);
     }
 
+    private sealed record TicketUserCount(int UserId, int Count);
+
     public async Task<string> GetAverageResolutionTimeAsync(
         int workspaceId,
         int userId,
         string ticketViewScope,
         List<int> userTeamIds)
     {
-        var tickets = await this.ticketRepository.ListAsync(workspaceId);
+        var tickets = await this.db.Tickets.Where(t => t.WorkspaceId == workspaceId).ToListAsync();
         var visibleTickets = await this.ApplyTicketScopeFilterAsync(tickets, workspaceId, userId, ticketViewScope, userTeamIds);
         var closedIds = await this.GetClosedStatusIdsAsync(workspaceId);
 
@@ -263,10 +251,10 @@ public class DashboardService(
         string ticketViewScope,
         List<int> userTeamIds)
     {
-        var tickets = await this.ticketRepository.ListAsync(workspaceId);
+        var tickets = await this.db.Tickets.Where(t => t.WorkspaceId == workspaceId).ToListAsync();
         var visibleTickets = await this.ApplyTicketScopeFilterAsync(tickets, workspaceId, userId, ticketViewScope, userTeamIds);
 
-        var priorities = await this.priorityRepository.ListAsync(workspaceId);
+        var priorities = await this.db.TicketPriorities.Where(p => p.WorkspaceId == workspaceId).ToListAsync();
 
         // Count by PriorityId when available, otherwise by name
         var byId = priorities.ToDictionary(p => p.Id, p => 0);
@@ -347,10 +335,7 @@ public class DashboardService(
     }
 
     private async Task<HashSet<int>> GetClosedStatusIdsAsync(int workspaceId)
-    {
-        var statuses = await this.statusRepository.ListAsync(workspaceId);
-        return [.. statuses.Where(s => s.IsClosedState).Select(s => s.Id)];
-    }
+        => [.. await this.db.TicketStatuses.Where(s => s.WorkspaceId == workspaceId && s.IsClosedState).Select(s => s.Id).ToListAsync()];
 
     private static bool IsTicketClosed(Ticket ticket, HashSet<int> closedStatusIds) => ticket.StatusId.HasValue && closedStatusIds.Contains(ticket.StatusId.Value);
 
@@ -360,16 +345,16 @@ public class DashboardService(
         return [.. Enumerable.Range(0, daysBack).Select(i => startDate.AddDays(i))];
     }
 
-    private async Task<List<TopMember>> BuildTopMembersListAsync(IEnumerable<dynamic> closedAssigned)
+    private async Task<List<TopMember>> BuildTopMembersListAsync(IEnumerable<TicketUserCount> closedAssigned)
     {
         var topMembers = new List<TopMember>();
         foreach (var item in closedAssigned)
         {
-            var user = await this.userRepository.FindByIdAsync(item.UserId);
+            var user = await this.db.Users.FirstOrDefaultAsync(u => u.Id == item.UserId);
             topMembers.Add(new TopMember
             {
                 UserId = item.UserId,
-                Name = user?.Name ?? string.Format(UserNameFormat, item.UserId),
+                Name = user?.Name ?? string.Format(System.Globalization.CultureInfo.InvariantCulture, UserNameFormat, item.UserId),
                 ClosedCount = item.Count
             });
         }
@@ -380,8 +365,12 @@ public class DashboardService(
     {
         if (userTeamIds == null || userTeamIds.Count == 0)
         {
-            var myTeams = await this.teamMemberRepository.ListTeamsForUserAsync(workspaceId, userId);
-            userTeamIds = [.. myTeams.Select(t => t.Id)];
+            userTeamIds = await this.db.TeamMembers
+                .Where(tm => tm.UserId == userId)
+                .Join(this.db.Teams, tm => tm.TeamId, t => t.Id, (tm, t) => new { tm.TeamId, t.WorkspaceId })
+                .Where(x => x.WorkspaceId == workspaceId)
+                .Select(x => x.TeamId)
+                .ToListAsync();
         }
         return [.. userTeamIds];
     }

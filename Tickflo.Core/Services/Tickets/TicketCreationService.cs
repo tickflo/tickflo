@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Tickets;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -42,15 +43,7 @@ public interface ITicketCreationService
     public Task<List<Ticket>> CreateBulkAsync(int workspaceId, List<TicketCreationRequest> requests, int createdByUserId);
 }
 
-public class TicketCreationService(
-    ITicketRepository ticketRepository,
-    ITicketHistoryRepository historyRepository,
-    IUserWorkspaceRepository userWorkspaceRepository,
-    ITeamRepository teamRepository,
-    ILocationRepository locationRepository,
-    ITicketStatusRepository statusRepository,
-    ITicketPriorityRepository priorityRepository,
-    ITicketTypeRepository ticketTypeRepository) : ITicketCreationService
+public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreationService
 {
     private const string DefaultTicketType = "Standard";
     private const string DefaultPriority = "Normal";
@@ -64,26 +57,7 @@ public class TicketCreationService(
     private const string ErrorInvalidAssignee = "Assigned user does not have valid access to this workspace";
     private const string ErrorInvalidTeam = "Team not found or does not belong to this workspace";
 
-    private readonly ITicketRepository ticketRepository = ticketRepository;
-    private readonly ITicketHistoryRepository historyRepository = historyRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly ITeamRepository teamRepository = teamRepository;
-    private readonly ILocationRepository locationRepository = locationRepository;
-    private readonly ITicketStatusRepository statusRepository = statusRepository;
-    private readonly ITicketPriorityRepository priorityRepository = priorityRepository;
-    private readonly ITicketTypeRepository ticketTypeRepository = ticketTypeRepository;
-
-    // Backward-compatible constructor for tests or simple usage
-    public TicketCreationService(
-        ITicketRepository ticketRepository,
-        ITicketHistoryRepository historyRepository,
-        IUserWorkspaceRepository userWorkspaceRepository,
-        ITeamRepository teamRepository,
-        ILocationRepository locationRepository)
-        : this(ticketRepository, historyRepository, userWorkspaceRepository, teamRepository, locationRepository,
-               statusRepository: null!, priorityRepository: null!, ticketTypeRepository: null!)
-    {
-    }
+    private readonly TickfloDbContext dbContext = dbContext;
 
     /// <summary>
     /// Creates a new ticket with comprehensive validation and assignment logic.
@@ -105,7 +79,9 @@ public class TicketCreationService(
         await this.AssignUserToTicketAsync(workspaceId, ticket, request);
         await this.AssignTeamToTicketAsync(workspaceId, ticket, request);
 
-        await this.ticketRepository.CreateAsync(ticket);
+        this.dbContext.Tickets.Add(ticket);
+        await this.dbContext.SaveChangesAsync();
+
         await this.CreateTicketHistoryAsync(workspaceId, ticket.Id, createdByUserId, ticket.Subject);
 
         return ticket;
@@ -131,7 +107,9 @@ public class TicketCreationService(
             return;
         }
 
-        var location = await this.locationRepository.FindAsync(workspaceId, locationId.Value) ?? throw new InvalidOperationException(ErrorLocationNotFound);
+        var location = await this.dbContext.Locations
+            .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId.Value)
+            ?? throw new InvalidOperationException(ErrorLocationNotFound);
 
         if (!location.Active)
         {
@@ -147,7 +125,8 @@ public class TicketCreationService(
         }
 
         var typeName = string.IsNullOrWhiteSpace(request.Type) ? DefaultTicketType : request.Type.Trim();
-        var type = await this.ticketTypeRepository.FindByNameAsync(workspaceId, typeName);
+        var type = await this.dbContext.TicketTypes
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
         return type?.Id;
     }
 
@@ -159,7 +138,8 @@ public class TicketCreationService(
         }
 
         var priorityName = string.IsNullOrWhiteSpace(request.Priority) ? DefaultPriority : request.Priority.Trim();
-        var priority = await this.priorityRepository.FindAsync(workspaceId, priorityName);
+        var priority = await this.dbContext.TicketPriorities
+            .FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(priorityName, StringComparison.OrdinalIgnoreCase));
         return priority?.Id;
     }
 
@@ -171,7 +151,8 @@ public class TicketCreationService(
         }
 
         var statusName = string.IsNullOrWhiteSpace(request.Status) ? DefaultStatus : request.Status.Trim();
-        var status = await this.statusRepository.FindByNameAsync(workspaceId, statusName);
+        var status = await this.dbContext.TicketStatuses
+            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusName, StringComparison.OrdinalIgnoreCase));
         return status?.Id;
     }
 
@@ -190,7 +171,9 @@ public class TicketCreationService(
             StatusId = statusId,
             ContactId = request.ContactId,
             LocationId = request.LocationId,
-            TicketInventories = request.Inventories ?? []
+            TicketInventories = request.Inventories ?? [],
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
     private async Task AssignUserToTicketAsync(int workspaceId, Ticket ticket, TicketCreationRequest request)
@@ -207,7 +190,9 @@ public class TicketCreationService(
 
     private async Task ValidateAndAssignUserAsync(int workspaceId, Ticket ticket, int userId)
     {
-        var assigneeWorkspace = await this.userWorkspaceRepository.FindAsync(userId, workspaceId);
+        var assigneeWorkspace = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId);
+
         if (assigneeWorkspace != null && assigneeWorkspace.Accepted)
         {
             ticket.AssignedUserId = userId;
@@ -220,7 +205,9 @@ public class TicketCreationService(
 
     private async Task AssignDefaultUserFromLocationAsync(int workspaceId, Ticket ticket, int locationId)
     {
-        var location = await this.locationRepository.FindAsync(workspaceId, locationId);
+        var location = await this.dbContext.Locations
+            .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId);
+
         if (location?.DefaultAssigneeUserId.HasValue == true)
         {
             ticket.AssignedUserId = location.DefaultAssigneeUserId;
@@ -234,7 +221,7 @@ public class TicketCreationService(
             return;
         }
 
-        var team = await this.teamRepository.FindByIdAsync(request.AssignedTeamId.Value);
+        var team = await this.dbContext.Teams.FindAsync(request.AssignedTeamId.Value);
         if (team != null && team.WorkspaceId == workspaceId)
         {
             ticket.AssignedTeamId = request.AssignedTeamId.Value;
@@ -245,14 +232,21 @@ public class TicketCreationService(
         }
     }
 
-    private async Task CreateTicketHistoryAsync(int workspaceId, int ticketId, int createdByUserId, string subject) => await this.historyRepository.CreateAsync(new TicketHistory
+    private async Task CreateTicketHistoryAsync(int workspaceId, int ticketId, int createdByUserId, string subject)
     {
-        WorkspaceId = workspaceId,
-        TicketId = ticketId,
-        CreatedByUserId = createdByUserId,
-        Action = HistoryActionCreated,
-        Note = $"Ticket created: {subject}"
-    });
+        var history = new TicketHistory
+        {
+            WorkspaceId = workspaceId,
+            TicketId = ticketId,
+            CreatedByUserId = createdByUserId,
+            Action = HistoryActionCreated,
+            Note = $"Ticket created: {subject}",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        this.dbContext.TicketHistories.Add(history);
+        await this.dbContext.SaveChangesAsync();
+    }
 
     /// <summary>
     /// Creates a ticket from a contact inquiry or report.

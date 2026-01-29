@@ -24,11 +24,12 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
     public DbSet<TicketPriority> TicketPriorities => this.Set<TicketPriority>();
     public DbSet<TicketType> TicketTypes => this.Set<TicketType>();
     public DbSet<TicketHistory> TicketHistory => this.Set<TicketHistory>();
+    public DbSet<TicketHistory> TicketHistories => this.Set<TicketHistory>();
     public DbSet<TicketComment> TicketComments => this.Set<TicketComment>();
     public DbSet<Team> Teams => this.Set<Team>();
     public DbSet<TeamMember> TeamMembers => this.Set<TeamMember>();
     public DbSet<Permission> Permissions => this.Set<Permission>();
-    public DbSet<RolePermissionLink> RolePermissions => this.Set<RolePermissionLink>();
+    public DbSet<RolePermission> RolePermissions => this.Set<RolePermission>();
     public DbSet<Notification> Notifications => this.Set<Notification>();
     public DbSet<UserNotificationPreference> UserNotificationPreferences => this.Set<UserNotificationPreference>();
     public DbSet<FileStorage> FileStorages => this.Set<FileStorage>();
@@ -88,14 +89,11 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
         modelBuilder.Entity<ContactLocation>()
             .HasIndex(cl => new { cl.WorkspaceId, cl.ContactId });
 
-        modelBuilder.Entity<Ticket>()
-            .HasIndex(t => new { t.WorkspaceId, t.Id });
-
-        // TicketInventory relationship
         modelBuilder.Entity<TicketInventory>()
             .HasOne(ti => ti.Ticket)
             .WithMany(t => t.TicketInventories)
             .HasForeignKey(ti => ti.TicketId);
+
         modelBuilder.Entity<TicketInventory>()
             .HasOne(ti => ti.Inventory)
             .WithMany()
@@ -145,8 +143,7 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
             .HasIndex(p => new { p.Action, p.Resource })
             .IsUnique();
 
-        // Role to permission link table
-        modelBuilder.Entity<RolePermissionLink>()
+        modelBuilder.Entity<RolePermission>()
             .HasKey(rp => new { rp.RoleId, rp.PermissionId });
 
         // User notification preferences

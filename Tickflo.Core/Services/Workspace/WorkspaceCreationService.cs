@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Workspace;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
@@ -23,10 +24,7 @@ public interface IWorkspaceCreationService
 }
 
 public partial class WorkspaceCreationService(
-    IWorkspaceRepository workspaceRepository,
-    IRoleRepository roleRepository,
-    IUserWorkspaceRepository userWorkspaceRepository,
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepository,
+    TickfloDbContext dbContext,
     TickfloConfig config) : IWorkspaceCreationService
 {
     private static readonly (string Name, bool IsAdmin)[] DefaultRoles =
@@ -37,10 +35,7 @@ public partial class WorkspaceCreationService(
         ("Viewer", false)
     ];
 
-    private readonly IWorkspaceRepository workspaceRepository = workspaceRepository;
-    private readonly IRoleRepository roleRepository = roleRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly TickfloConfig config = config;
 
     /// <summary>
@@ -65,36 +60,51 @@ public partial class WorkspaceCreationService(
             throw new BadRequestException($"Invalid workspace slug: {slug}");
         }
 
-        if (await this.workspaceRepository.FindBySlugAsync(slug) != null)
+        var existingWorkspace = await this.dbContext.Workspaces
+            .FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
+
+        if (existingWorkspace != null)
         {
             throw new BadRequestException($"Workspace with slug '{slug}' already exists");
         }
 
-        var workspace = await this.workspaceRepository.AddAsync(new Workspace
+        var workspace = new Workspace
         {
             Name = workspaceName.Trim(),
             Slug = slug,
-            CreatedBy = createdByUserId
-        });
+            CreatedBy = createdByUserId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
 
-        await this.userWorkspaceRepository.AddAsync(new UserWorkspace
+        this.dbContext.Workspaces.Add(workspace);
+        await this.dbContext.SaveChangesAsync();
+
+        var membership = new UserWorkspace
         {
             UserId = createdByUserId,
             WorkspaceId = workspace.Id,
             Accepted = true,
-            CreatedBy = createdByUserId
-        });
+            CreatedBy = createdByUserId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        this.dbContext.UserWorkspaces.Add(membership);
+        await this.dbContext.SaveChangesAsync();
 
         int? adminRoleId = null;
         foreach (var (name, isAdmin) in DefaultRoles)
         {
-            var role = await this.roleRepository.AddAsync(new Role
+            var role = new Role
             {
                 WorkspaceId = workspace.Id,
                 Name = name,
-                Admin = isAdmin,
                 CreatedBy = createdByUserId
-            });
+            };
+
+            this.dbContext.Roles.Add(role);
+            await this.dbContext.SaveChangesAsync();
 
             if (name == "Admin")
             {
@@ -107,13 +117,16 @@ public partial class WorkspaceCreationService(
             throw new InternalServerErrorException("Failed to create admin role");
         }
 
-        await this.userWorkspaceRoleRepository.AddAsync(new UserWorkspaceRole
+        var roleAssignment = new UserWorkspaceRole
         {
             UserId = createdByUserId,
             WorkspaceId = workspace.Id,
             RoleId = adminRoleId.Value,
             CreatedBy = createdByUserId
-        });
+        };
+
+        this.dbContext.UserWorkspaceRoles.Add(roleAssignment);
+        await this.dbContext.SaveChangesAsync();
 
         return workspace;
     }

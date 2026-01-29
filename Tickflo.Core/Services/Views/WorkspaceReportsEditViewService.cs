@@ -1,8 +1,10 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Reporting;
+using Tickflo.Core.Services.Workspace;
 
 public class WorkspaceReportsEditViewData
 {
@@ -20,28 +22,26 @@ public interface IWorkspaceReportsEditViewService
 
 
 public class WorkspaceReportsEditViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository,
-    IReportRepository reporyRepository,
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService,
     IReportingService reportingService) : IWorkspaceReportsEditViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
-    private readonly IReportRepository reporyRepository = reporyRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
     private readonly IReportingService reportingService = reportingService;
 
     public async Task<WorkspaceReportsEditViewData> BuildAsync(int workspaceId, int userId, int reportId = 0)
     {
         var data = new WorkspaceReportsEditViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
 
         if (isAdmin)
         {
             data.CanViewReports = data.CanEditReports = data.CanCreateReports = true;
         }
-        else if (eff.TryGetValue("reports", out var rp))
+        else if (permissions.TryGetValue("reports", out var rp))
         {
             data.CanViewReports = rp.CanView;
             data.CanEditReports = rp.CanEdit;
@@ -52,7 +52,9 @@ public class WorkspaceReportsEditViewService(
 
         if (reportId > 0)
         {
-            data.ExistingReport = await this.reporyRepository.FindAsync(workspaceId, reportId);
+            data.ExistingReport = await this.dbContext.Reports
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Id == reportId);
         }
 
         return data;

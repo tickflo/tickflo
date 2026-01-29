@@ -5,10 +5,9 @@ public class RolePermission
 #pragma warning restore CA1711
 {
     public int RoleId { get; set; }
-    public string Section { get; set; } = string.Empty; // e.g., "tickets", "contacts", etc.
-    public bool CanView { get; set; }
-    public bool CanEdit { get; set; }
-    public bool CanCreate { get; set; }
-    // For tickets section only: view scope control ("all", "mine", "team")
-    public string? TicketViewScope { get; set; }
+    public int PermissionId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public int? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public int? UpdatedBy { get; set; }
 }

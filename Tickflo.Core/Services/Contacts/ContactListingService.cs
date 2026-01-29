@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Contacts;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -15,23 +16,26 @@ public interface IContactListingService
 }
 
 
-public class ContactListingService(
-    IContactRepository contactRepository,
-    ITicketPriorityRepository priorityRepository) : IContactListingService
+public class ContactListingService(TickfloDbContext dbContext) : IContactListingService
 {
-    private readonly IContactRepository contactRepository = contactRepository;
-    private readonly ITicketPriorityRepository priorityRepository = priorityRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<(IReadOnlyList<Contact> Items, IReadOnlyList<TicketPriority> Priorities)> GetListAsync(
         int workspaceId,
         string? priorityFilter = null,
         string? searchQuery = null)
     {
-        var allContacts = await this.contactRepository.ListAsync(workspaceId);
-        var filtered = FilterContacts(allContacts, priorityFilter, searchQuery);
-        var priorities = await this.priorityRepository.ListAsync(workspaceId);
+        var allContacts = await this.dbContext.Contacts
+            .Where(c => c.WorkspaceId == workspaceId)
+            .ToListAsync();
 
-        return (filtered.ToList(), priorities.ToList());
+        var filtered = FilterContacts(allContacts, priorityFilter, searchQuery);
+
+        var priorities = await this.dbContext.TicketPriorities
+            .Where(p => p.WorkspaceId == workspaceId)
+            .ToListAsync();
+
+        return (filtered.ToList(), priorities);
     }
 
     private static IEnumerable<Contact> FilterContacts(

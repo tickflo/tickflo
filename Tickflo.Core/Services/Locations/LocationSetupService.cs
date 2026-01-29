@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Locations;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -66,12 +67,9 @@ public interface ILocationSetupService
     public Task RemoveLocationAsync(int workspaceId, int locationId);
 }
 
-public class LocationSetupService(
-    ILocationRepository locationRepository,
-    IContactRepository contactRepository) : ILocationSetupService
+public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupService
 {
-    private readonly ILocationRepository locationRepository = locationRepository;
-    private readonly IContactRepository contactRepository = contactRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     /// <summary>
     /// Creates a new location with validation.
@@ -89,8 +87,10 @@ public class LocationSetupService(
 
         var name = request.Name.Trim();
 
-        var existingLocations = await this.locationRepository.ListAsync(workspaceId);
-        if (existingLocations.Any(l => string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase)))
+        var exists = await this.dbContext.Locations
+            .AnyAsync(l => l.WorkspaceId == workspaceId && l.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+        if (exists)
         {
             throw new InvalidOperationException($"Location '{name}' already exists in this workspace");
         }
@@ -103,7 +103,8 @@ public class LocationSetupService(
             Active = true // Business rule: New locations are active by default
         };
 
-        await this.locationRepository.CreateAsync(location);
+        this.dbContext.Locations.Add(location);
+        await this.dbContext.SaveChangesAsync();
 
         return location;
     }
@@ -117,7 +118,9 @@ public class LocationSetupService(
         LocationUpdateRequest request,
         int updatedByUserId)
     {
-        var location = await this.locationRepository.FindAsync(workspaceId, locationId) ?? throw new InvalidOperationException("Location not found");
+        var location = await this.dbContext.Locations
+            .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId)
+            ?? throw new InvalidOperationException("Location not found");
 
         // Update name if provided
         if (!string.IsNullOrWhiteSpace(request.Name))
@@ -127,9 +130,10 @@ public class LocationSetupService(
             // Check uniqueness if name is changing
             if (!string.Equals(location.Name, name, StringComparison.OrdinalIgnoreCase))
             {
-                var existingLocations = await this.locationRepository.ListAsync(workspaceId);
-                if (existingLocations.Any(l => l.Id != locationId &&
-                    string.Equals(l.Name, name, StringComparison.OrdinalIgnoreCase)))
+                var exists = await this.dbContext.Locations
+                    .AnyAsync(l => l.WorkspaceId == workspaceId && l.Id != locationId && l.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+                if (exists)
                 {
                     throw new InvalidOperationException($"Location '{name}' already exists in this workspace");
                 }
@@ -143,7 +147,7 @@ public class LocationSetupService(
             location.Address = string.IsNullOrWhiteSpace(request.Address) ? "" : request.Address.Trim();
         }
 
-        await this.locationRepository.UpdateAsync(location);
+        await this.dbContext.SaveChangesAsync();
 
         return location;
     }
@@ -153,7 +157,9 @@ public class LocationSetupService(
     /// </summary>
     public async Task<Location> ActivateLocationAsync(int workspaceId, int locationId, int activatedByUserId)
     {
-        var location = await this.locationRepository.FindAsync(workspaceId, locationId) ?? throw new InvalidOperationException("Location not found");
+        var location = await this.dbContext.Locations
+            .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId)
+            ?? throw new InvalidOperationException("Location not found");
 
         if (location.Active)
         {
@@ -162,7 +168,7 @@ public class LocationSetupService(
 
         location.Active = true;
 
-        await this.locationRepository.UpdateAsync(location);
+        await this.dbContext.SaveChangesAsync();
 
         // Could add: Notify users, log activation, etc.
 
@@ -174,7 +180,9 @@ public class LocationSetupService(
     /// </summary>
     public async Task<Location> DeactivateLocationAsync(int workspaceId, int locationId, int deactivatedByUserId)
     {
-        var location = await this.locationRepository.FindAsync(workspaceId, locationId) ?? throw new InvalidOperationException("Location not found");
+        var location = await this.dbContext.Locations
+            .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId)
+            ?? throw new InvalidOperationException("Location not found");
 
         if (!location.Active)
         {
@@ -185,7 +193,7 @@ public class LocationSetupService(
 
         location.Active = false;
 
-        await this.locationRepository.UpdateAsync(location);
+        await this.dbContext.SaveChangesAsync();
 
         // Could add: Reassign inventory, notify users, etc.
 
@@ -201,13 +209,19 @@ public class LocationSetupService(
         List<int> contactIds,
         int assignedByUserId)
     {
-        var location = await this.locationRepository.FindAsync(workspaceId, locationId) ?? throw new InvalidOperationException("Location not found");
+        var location = await this.dbContext.Locations
+            .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId)
+            ?? throw new InvalidOperationException("Location not found");
 
         // Business rule: Validate all contacts exist in the workspace
         if (contactIds.Count != 0)
         {
-            var workspaceContacts = await this.contactRepository.ListAsync(workspaceId);
-            var invalidContacts = contactIds.Except(workspaceContacts.Select(c => c.Id)).ToList();
+            var validContactIds = await this.dbContext.Contacts
+                .Where(c => c.WorkspaceId == workspaceId)
+                .Select(c => c.Id)
+                .ToListAsync();
+
+            var invalidContacts = contactIds.Except(validContactIds).ToList();
 
             if (invalidContacts.Count != 0)
             {
@@ -218,7 +232,7 @@ public class LocationSetupService(
         // TODO: Implement contact assignment logic when schema supports it
         // This might involve a location_contacts join table
 
-        await this.locationRepository.UpdateAsync(location);
+        await this.dbContext.SaveChangesAsync();
     }
 
     /// <summary>
@@ -226,11 +240,14 @@ public class LocationSetupService(
     /// </summary>
     public async Task RemoveLocationAsync(int workspaceId, int locationId)
     {
-        var location = await this.locationRepository.FindAsync(workspaceId, locationId) ?? throw new InvalidOperationException("Location not found");
+        var location = await this.dbContext.Locations
+            .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId)
+            ?? throw new InvalidOperationException("Location not found");
 
         // Business rule: Could prevent deletion if location has inventory or tickets
 
-        await this.locationRepository.DeleteAsync(workspaceId, locationId);
+        this.dbContext.Locations.Remove(location);
+        await this.dbContext.SaveChangesAsync();
     }
 }
 

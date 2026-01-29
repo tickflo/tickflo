@@ -3,16 +3,20 @@ namespace Tickflo.Web.Pages.Workspaces;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Locations;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
+using ContactLocation = Core.Entities.ContactLocation;
+
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
 
 [Authorize]
 public class LocationsEditModel(
     IWorkspaceService workspaceService,
-    ILocationRepository locationRepository,
+    TickfloDbContext dbContext,
     IWorkspaceLocationsEditViewService workspaceLocationsEditViewService,
     ILocationSetupService locationSetupService) : WorkspacePageModel
 {
@@ -23,7 +27,7 @@ public class LocationsEditModel(
     #endregion
 
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly ILocationRepository locationRepository = locationRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IWorkspaceLocationsEditViewService workspaceLocationsEditViewService = workspaceLocationsEditViewService;
     private readonly ILocationSetupService locationSetupService = locationSetupService;
     public string WorkspaceSlug { get; private set; } = string.Empty;
@@ -147,7 +151,23 @@ public class LocationsEditModel(
             return this.Page();
         }
 
-        await this.locationRepository.SetContactsAsync(workspaceId, effectiveLocationId, this.SelectedContactIds ?? []);
+        // Update location contacts
+        var existingContacts = await this.dbContext.ContactLocations
+            .Where(lc => lc.LocationId == effectiveLocationId)
+            .ToListAsync();
+        this.dbContext.ContactLocations.RemoveRange(existingContacts);
+
+        foreach (var contactId in this.SelectedContactIds ?? [])
+        {
+            this.dbContext.ContactLocations.Add(new ContactLocation
+            {
+                LocationId = effectiveLocationId,
+                ContactId = contactId,
+                WorkspaceId = workspaceId
+            });
+        }
+        await this.dbContext.SaveChangesAsync();
+
         return this.RedirectToLocationsWithPreservedFilters(slug);
     }
 
@@ -185,7 +205,7 @@ public class LocationsEditModel(
         }, userId);
 
         this.ApplyLocationSettings(created);
-        await this.locationRepository.UpdateAsync(created);
+        await this.dbContext.SaveChangesAsync();
         this.SetSuccessMessage(string.Format(null, LocationCreatedSuccessfully, created.Name));
 
         return created.Id;
@@ -200,7 +220,7 @@ public class LocationsEditModel(
         }, userId);
 
         this.ApplyLocationSettings(updated);
-        await this.locationRepository.UpdateAsync(updated);
+        await this.dbContext.SaveChangesAsync();
         this.SetSuccessMessage(string.Format(null, LocationUpdatedSuccessfully, updated.Name));
 
         return updated.Id;

@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Inventory;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 public interface IInventoryListingService
 {
@@ -13,18 +14,33 @@ public interface IInventoryListingService
 }
 
 
-public class InventoryListingService(IInventoryRepository inventoryRepository) : IInventoryListingService
+public class InventoryListingService(TickfloDbContext dbContext) : IInventoryListingService
 {
-    private readonly IInventoryRepository inventoryRepository = inventoryRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<IReadOnlyList<Entities.Inventory>> GetListAsync(
         int workspaceId,
         string? searchQuery = null,
         string? statusFilter = null)
     {
-        // Repository already supports filtering, delegate directly
-        var result = await this.inventoryRepository.ListAsync(workspaceId, searchQuery, statusFilter);
-        return result.ToList().AsReadOnly();
+        var query = this.dbContext.Inventory
+            .Where(i => i.WorkspaceId == workspaceId);
+
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var trimmedQuery = searchQuery.Trim();
+            query = query.Where(i =>
+                i.Sku.Contains(trimmedQuery) ||
+                i.Name.Contains(trimmedQuery));
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusFilter))
+        {
+            query = query.Where(i => i.Status == statusFilter);
+        }
+
+        var result = await query.ToListAsync();
+        return result.AsReadOnly();
     }
 }
 

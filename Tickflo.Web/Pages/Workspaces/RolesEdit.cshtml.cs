@@ -3,13 +3,16 @@ namespace Tickflo.Web.Pages.Workspaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [Authorize]
-public class RolesEditModel(IWorkspaceService workspaceService, IRoleRepository roleRepository, IRolePermissionRepository rolePermissionRepository, IWorkspaceRolesEditViewService workspaceRolesEditViewService) : WorkspacePageModel
+public class RolesEditModel(IWorkspaceService workspaceService, TickfloDbContext dbContext, Services.ITempRolePermissionService rolePermissionService, IWorkspaceRolesEditViewService workspaceRolesEditViewService) : WorkspacePageModel
 {
     #region Constants
     private const int NewRoleId = 0;
@@ -23,8 +26,8 @@ public class RolesEditModel(IWorkspaceService workspaceService, IRoleRepository 
     #endregion
 
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly IRoleRepository roleRepository = roleRepository;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly Services.ITempRolePermissionService rolePermissionService = rolePermissionService;
     private readonly IWorkspaceRolesEditViewService workspaceRolesEditViewService = workspaceRolesEditViewService;
 
     public string WorkspaceSlug { get; private set; } = string.Empty;
@@ -179,13 +182,18 @@ public class RolesEditModel(IWorkspaceService workspaceService, IRoleRepository 
     private async Task CreateNewRoleAsync(int workspaceId, int userId)
     {
         var nameTrim = this.Name?.Trim() ?? string.Empty;
-        var createdId = (await this.roleRepository.AddAsync(new Role
+        var role = new Role
         {
             WorkspaceId = workspaceId,
             Name = nameTrim,
             Admin = this.Admin,
             CreatedBy = userId,
-        }))?.Id ?? 0;
+        };
+
+        this.dbContext.Roles.Add(role);
+        await this.dbContext.SaveChangesAsync();
+
+        var createdId = role.Id;
 
         if (createdId == 0)
         {
@@ -193,13 +201,13 @@ public class RolesEditModel(IWorkspaceService workspaceService, IRoleRepository 
             throw new InvalidOperationException(RoleCreationFailed);
         }
 
-        await this.rolePermissionRepository.UpsertAsync(createdId, this.MapEffectivePermissions(), userId);
+        await this.rolePermissionService.UpsertAsync(createdId, this.MapEffectivePermissions(), userId);
     }
 
     private async Task UpdateExistingRoleAsync(int id, int workspaceId, int userId, WorkspaceRolesEditViewData viewData)
     {
         var nameTrim = this.Name?.Trim() ?? string.Empty;
-        var role = viewData.ExistingRole ?? await this.roleRepository.FindByIdAsync(id);
+        var role = viewData.ExistingRole ?? await this.dbContext.Roles.FindAsync(id);
 
         var roleCheck = this.EnsureEntityBelongsToWorkspace(role, workspaceId);
         if (roleCheck is not null)
@@ -207,7 +215,8 @@ public class RolesEditModel(IWorkspaceService workspaceService, IRoleRepository 
             throw new InvalidOperationException("Role does not belong to this workspace");
         }
 
-        var existingWithName = await this.roleRepository.FindByNameAsync(workspaceId, nameTrim);
+        var existingWithName = await this.dbContext.Roles
+            .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Name.Equals(nameTrim, StringComparison.OrdinalIgnoreCase));
         if (existingWithName != null && existingWithName.Id != role!.Id)
         {
             this.ModelState.AddModelError(nameof(this.Name), RoleNameDuplicate);
@@ -217,8 +226,8 @@ public class RolesEditModel(IWorkspaceService workspaceService, IRoleRepository 
 
         role!.Name = nameTrim;
         role.Admin = this.Admin;
-        await this.roleRepository.UpdateAsync(role);
-        await this.rolePermissionRepository.UpsertAsync(role.Id, this.MapEffectivePermissions(), userId);
+        await this.dbContext.SaveChangesAsync();
+        await this.rolePermissionService.UpsertAsync(role.Id, this.MapEffectivePermissions(), userId);
     }
 
     private void ApplyExistingPermissions(IEnumerable<EffectiveSectionPermission> existingPerms)

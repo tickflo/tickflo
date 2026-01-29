@@ -1,8 +1,9 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
-
 using Tickflo.Core.Services.Workspace;
+
 public class WorkspaceSettingsViewData
 {
     public bool CanViewSettings { get; set; }
@@ -34,33 +35,27 @@ public interface IWorkspaceSettingsViewService
 
 
 public class WorkspaceSettingsViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository,
-    ITicketStatusRepository statusRepository,
-    ITicketPriorityRepository priorityRepository,
-    ITicketTypeRepository ticketTypeRepository,
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService,
     IWorkspaceSettingsService workspaceSettingsService) : IWorkspaceSettingsViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
-    private readonly ITicketStatusRepository statusRepository = statusRepository;
-    private readonly ITicketPriorityRepository priorityRepository = priorityRepository;
-    private readonly ITicketTypeRepository ticketTypeRepository = ticketTypeRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
     private readonly IWorkspaceSettingsService workspaceSettingsService = workspaceSettingsService;
 
     public async Task<WorkspaceSettingsViewData> BuildAsync(int workspaceId, int userId)
     {
         var data = new WorkspaceSettingsViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
         if (isAdmin)
         {
             data.CanViewSettings = data.CanEditSettings = data.CanCreateSettings = true;
         }
         else
         {
-            var perms = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-            if (perms.TryGetValue("settings", out var eff))
+            var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
+            if (permissions.TryGetValue("settings", out var eff))
             {
                 data.CanViewSettings = eff.CanView;
                 data.CanEditSettings = eff.CanEdit;
@@ -70,9 +65,21 @@ public class WorkspaceSettingsViewService(
 
         // Ensure defaults and load lists
         await this.workspaceSettingsService.EnsureDefaultsExistAsync(workspaceId);
-        data.Statuses = await this.statusRepository.ListAsync(workspaceId);
-        data.Priorities = await this.priorityRepository.ListAsync(workspaceId);
-        data.Types = await this.ticketTypeRepository.ListAsync(workspaceId);
+
+        data.Statuses = await this.dbContext.TicketStatuses
+            .AsNoTracking()
+            .Where(s => s.WorkspaceId == workspaceId)
+            .ToListAsync();
+
+        data.Priorities = await this.dbContext.TicketPriorities
+            .AsNoTracking()
+            .Where(p => p.WorkspaceId == workspaceId)
+            .ToListAsync();
+
+        data.Types = await this.dbContext.TicketTypes
+            .AsNoTracking()
+            .Where(t => t.WorkspaceId == workspaceId)
+            .ToListAsync();
 
         // Notification defaults (placeholder until persisted storage exists)
         data.NotificationsEnabled = true;

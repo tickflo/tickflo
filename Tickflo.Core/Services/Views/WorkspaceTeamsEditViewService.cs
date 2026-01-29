@@ -1,7 +1,9 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Workspace;
 
 public class WorkspaceTeamsEditViewData
 {
@@ -20,32 +22,24 @@ public interface IWorkspaceTeamsEditViewService
 
 
 public class WorkspaceTeamsEditViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository,
-    ITeamRepository teamRepository,
-    IUserWorkspaceRepository userWorkspaceRepository,
-    IUserRepository userRepository,
-    ITeamMemberRepository teamMembers) : IWorkspaceTeamsEditViewService
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService) : IWorkspaceTeamsEditViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
-    private readonly ITeamRepository teamRepository = teamRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly IUserRepository userRepository = userRepository;
-    private readonly ITeamMemberRepository teamMemberRepository = teamMembers;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceTeamsEditViewData> BuildAsync(int workspaceId, int userId, int teamId = 0)
     {
         var data = new WorkspaceTeamsEditViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
 
         if (isAdmin)
         {
             data.CanViewTeams = data.CanEditTeams = data.CanCreateTeams = true;
         }
-        else if (eff.TryGetValue("teams", out var tp))
+        else if (permissions.TryGetValue("teams", out var tp))
         {
             data.CanViewTeams = tp.CanView;
             data.CanEditTeams = tp.CanEdit;
@@ -53,26 +47,30 @@ public class WorkspaceTeamsEditViewService(
         }
 
         // Load workspace users
-        var memberships = await this.userWorkspaceRepository.FindForWorkspaceAsync(workspaceId);
-        if (memberships != null)
-        {
-            foreach (var memberUserId in memberships.Select(m => m.UserId).Distinct())
-            {
-                var user = await this.userRepository.FindByIdAsync(memberUserId);
-                if (user != null)
-                {
-                    data.WorkspaceUsers.Add(user);
-                }
-            }
-        }
+        var workspaceUserIds = await this.dbContext.UserWorkspaces
+            .AsNoTracking()
+            .Where(uw => uw.WorkspaceId == workspaceId)
+            .Select(uw => uw.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        data.WorkspaceUsers = await this.dbContext.Users
+            .AsNoTracking()
+            .Where(u => workspaceUserIds.Contains(u.Id))
+            .ToListAsync();
 
         if (teamId > 0)
         {
-            data.ExistingTeam = await this.teamRepository.FindByIdAsync(teamId);
+            data.ExistingTeam = await this.dbContext.Teams
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == teamId);
             if (data.ExistingTeam != null)
             {
-                var members = await this.teamMemberRepository.ListMembersAsync(teamId);
-                data.ExistingMemberIds = [.. members.Select(m => m.Id)];
+                data.ExistingMemberIds = await this.dbContext.TeamMembers
+                    .AsNoTracking()
+                    .Where(tm => tm.TeamId == teamId)
+                    .Select(tm => tm.UserId)
+                    .ToListAsync();
             }
         }
 

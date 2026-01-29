@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Tickets;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -73,8 +74,10 @@ public interface ITicketCommentService
     public Task DeleteCommentAsync(int workspaceId, int commentId, CancellationToken ct = default);
 }
 
-public class TicketCommentService(ITicketCommentRepository commentRepo) : ITicketCommentService
+public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentService
 {
+    private readonly TickfloDbContext dbContext = dbContext;
+
     /// <summary>
     /// Retrieves comments for a ticket with visibility filtering based on view context.
     /// </summary>
@@ -83,16 +86,20 @@ public class TicketCommentService(ITicketCommentRepository commentRepo) : ITicke
         // Business rule: Workspace and ticket IDs must be positive
         ValidateIdentifiers(workspaceId, ticketId);
 
-        var comments = await commentRepo.ListByTicketAsync(workspaceId, ticketId, ct);
+        var query = this.dbContext.TicketComments
+            .Where(c => c.WorkspaceId == workspaceId && c.TicketId == ticketId)
+            .OrderBy(c => c.CreatedAt);
 
         // Business rule: Client view shows only comments marked as client-visible
         if (isClientView)
         {
-            return [.. comments.Where(c => c.IsVisibleToClient)];
+            return await query
+                .Where(c => c.IsVisibleToClient)
+                .ToListAsync(ct);
         }
 
         // Internal view shows all comments (no filtering)
-        return comments;
+        return await query.ToListAsync(ct);
     }
 
     /// <summary>
@@ -122,7 +129,9 @@ public class TicketCommentService(ITicketCommentRepository commentRepo) : ITicke
             IsVisibleToClient = isVisibleToClient,
         };
 
-        return await commentRepo.CreateAsync(comment, ct);
+        this.dbContext.TicketComments.Add(comment);
+        await this.dbContext.SaveChangesAsync(ct);
+        return comment;
     }
 
     /// <summary>
@@ -155,7 +164,9 @@ public class TicketCommentService(ITicketCommentRepository commentRepo) : ITicke
             IsVisibleToClient = true, // Client comments are always visible to client
         };
 
-        return await commentRepo.CreateAsync(comment, ct);
+        this.dbContext.TicketComments.Add(comment);
+        await this.dbContext.SaveChangesAsync(ct);
+        return comment;
     }
 
     /// <summary>
@@ -176,14 +187,17 @@ public class TicketCommentService(ITicketCommentRepository commentRepo) : ITicke
             throw new InvalidOperationException("Comment content cannot be empty");
         }
 
-        var comment = await commentRepo.FindAsync(workspaceId, commentId, ct) ?? throw new InvalidOperationException($"Comment {commentId} not found in workspace {workspaceId}");
+        var comment = await this.dbContext.TicketComments
+            .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == commentId, ct)
+            ?? throw new InvalidOperationException($"Comment {commentId} not found in workspace {workspaceId}");
 
         // Update comment with new content and audit metadata
         comment.Content = content.Trim();
         comment.UpdatedAt = DateTime.UtcNow;
         comment.UpdatedByUserId = updatedByUserId;
 
-        return await commentRepo.UpdateAsync(comment, ct);
+        await this.dbContext.SaveChangesAsync(ct);
+        return comment;
     }
 
     /// <summary>
@@ -195,7 +209,14 @@ public class TicketCommentService(ITicketCommentRepository commentRepo) : ITicke
         // Business rule: All identifiers must be positive
         ValidateIdentifiers(workspaceId, commentId);
 
-        await commentRepo.DeleteAsync(workspaceId, commentId, ct);
+        var comment = await this.dbContext.TicketComments
+            .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == commentId, ct);
+
+        if (comment != null)
+        {
+            this.dbContext.TicketComments.Remove(comment);
+            await this.dbContext.SaveChangesAsync(ct);
+        }
     }
 
     /// <summary>

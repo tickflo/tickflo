@@ -1,5 +1,7 @@
+@using Microsoft.EntityFrameworkCore
 @inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
-@inject Tickflo.Core.Data.IUserRepository userRepository
+@inject Tickflo.Core.Data.TickfloDbContext dbContext
+@* TODO: This view should NOT be using TickfloDbContext directly. The logic needs moved into a Tickflo.Core service *@
 @{
     var path = ViewContext?.HttpContext?.Request?.Path.Value ?? string.Empty;
     const string lastWorkspaceCookieName = "last_workspace_slug";
@@ -9,7 +11,7 @@
     bool isAdmin = false;
     if (int.TryParse(uidStr, out var uid))
     {
-        var meTask = userRepository.FindByIdAsync(uid);
+        var meTask = dbContext.Users.FirstOrDefaultAsync(u => u.Id == uid);
         meTask.Wait();
         var me = meTask.Result;
         isAdmin = me?.SystemAdmin == true;

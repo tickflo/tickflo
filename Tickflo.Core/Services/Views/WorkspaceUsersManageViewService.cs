@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Views;
 
-using Tickflo.Core.Data;
+using Tickflo.Core.Services.Workspace;
+
 public class WorkspaceUsersManageViewData
 {
     public bool CanEditUsers { get; set; }
@@ -12,26 +13,23 @@ public interface IWorkspaceUsersManageViewService
 }
 
 
-public class WorkspaceUsersManageViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository) : IWorkspaceUsersManageViewService
+public class WorkspaceUsersManageViewService(IWorkspaceAccessService workspaceAccessService) : IWorkspaceUsersManageViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceUsersManageViewData> BuildAsync(int workspaceId, int userId)
     {
         var data = new WorkspaceUsersManageViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
         if (isAdmin)
         {
             data.CanEditUsers = true;
         }
         else
         {
-            var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-            data.CanEditUsers = eff.TryGetValue("users", out var up) && up.CanEdit;
+            var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
+            data.CanEditUsers = permissions.TryGetValue("users", out var up) && up.CanEdit;
         }
 
         return data;

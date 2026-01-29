@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Common;
 
 using System.Text.RegularExpressions;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 
 public class ValidationResult
@@ -34,9 +35,7 @@ public interface IValidationService
     public Task<ValidationResult> ValidateTeamNameAsync(int workspaceId, string teamName, int? excludeTeamId = null);
 }
 
-public partial class ValidationService(
-    IUserRepository userRepository,
-    IRoleRepository roleRepo) : IValidationService
+public partial class ValidationService(TickfloDbContext dbContext) : IValidationService
 {
     private const int MaxSlugLength = 30;
     private const int MaxSubjectLength = 255;
@@ -55,8 +54,7 @@ public partial class ValidationService(
         { "Cancelled", new[] { "Open" } }
     };
 
-    private readonly IUserRepository userRepository = userRepository;
-    private readonly IRoleRepository roleRepository = roleRepo;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<ValidationResult> ValidateEmailAsync(string email, bool checkUniqueness = false)
     {
@@ -82,7 +80,8 @@ public partial class ValidationService(
 
     private async Task<bool> IsEmailAlreadyInUseAsync(string email)
     {
-        var existing = await this.userRepository.FindByEmailAsync(email);
+        var existing = await this.dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email == email);
         return existing != null;
     }
 
@@ -170,7 +169,8 @@ public partial class ValidationService(
 
     private async Task<bool> IsRoleNameDuplicateAsync(int workspaceId, string roleName, int? excludeRoleId)
     {
-        var existing = await this.roleRepository.FindByNameAsync(workspaceId, roleName);
+        var existing = await this.dbContext.Roles
+            .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Name == roleName);
         return existing != null && (excludeRoleId == null || existing.Id != excludeRoleId.Value);
     }
 

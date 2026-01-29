@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Reporting;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -42,21 +43,21 @@ public interface IReportExecutionService
 
 
 public class ReportExecutionService(
-    IReportRepository reporyRepository,
-    IReportRunRepository reportRunRepository,
-    IUserWorkspaceRepository workspaceRepository,
+    TickfloDbContext dbContext,
     IReportingService reportingService) : IReportExecutionService
 {
-    private readonly IReportRepository reporyRepository = reporyRepository;
-    private readonly IReportRunRepository reportRunRepository = reportRunRepository;
-    private readonly IUserWorkspaceRepository workspaceRepository = workspaceRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IReportingService reportingService = reportingService;
 
     public async Task<ReportExecutionResult> ExecuteReportAsync(int userId, int workspaceId, int reportId, CancellationToken ct = default)
     {
-        var workspace = await this.workspaceRepository.FindAsync(userId, workspaceId) ?? throw new UnauthorizedAccessException();
+        var workspace = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId, ct)
+            ?? throw new UnauthorizedAccessException();
 
-        var report = await this.reporyRepository.FindAsync(workspaceId, reportId) ?? throw new KeyNotFoundException();
+        var report = await this.dbContext.Reports
+            .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Id == reportId, ct)
+            ?? throw new KeyNotFoundException();
 
         return await this.reportingService.ExecuteAsync(workspaceId, report, ct);
     }
@@ -70,9 +71,13 @@ public class ReportExecutionService(
 
     public async Task<ReportRun> ScheduleReportAsync(int userId, int workspaceId, int reportId, DateTime scheduledFor, CancellationToken ct = default)
     {
-        var workspace = await this.workspaceRepository.FindAsync(userId, workspaceId) ?? throw new UnauthorizedAccessException();
+        var workspace = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId, ct)
+            ?? throw new UnauthorizedAccessException();
 
-        var report = await this.reporyRepository.FindAsync(workspaceId, reportId) ?? throw new KeyNotFoundException();
+        var report = await this.dbContext.Reports
+            .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Id == reportId, ct)
+            ?? throw new KeyNotFoundException();
 
         if (scheduledFor < DateTime.UtcNow)
         {
@@ -80,23 +85,39 @@ public class ReportExecutionService(
         }
 
         // This is a simplified version - actual scheduling would need a background job
-        var run = new ReportRun { ReportId = reportId };
-        return await this.reportRunRepository.CreateAsync(run);
+        var run = new ReportRun { ReportId = reportId, WorkspaceId = workspaceId };
+        this.dbContext.ReportRuns.Add(run);
+        await this.dbContext.SaveChangesAsync(ct);
+        return run;
     }
 
     public async Task CancelReportRunAsync(int userId, int workspaceId, int reportRunId, CancellationToken ct = default)
     {
-        var workspace = await this.workspaceRepository.FindAsync(userId, workspaceId) ?? throw new UnauthorizedAccessException();
+        var workspace = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId, ct)
+            ?? throw new UnauthorizedAccessException();
 
-        var run = await this.reportRunRepository.FindAsync(workspaceId, reportRunId) ?? throw new KeyNotFoundException();
+        var run = await this.dbContext.ReportRuns
+            .FirstOrDefaultAsync(rr => rr.WorkspaceId == workspaceId && rr.Id == reportRunId, ct)
+            ?? throw new KeyNotFoundException();
     }
 
     public async Task<IReadOnlyList<ReportRun>> GetReportHistoryAsync(int userId, int workspaceId, int reportId, int take = 20, CancellationToken ct = default)
     {
-        var workspace = await this.workspaceRepository.FindAsync(userId, workspaceId) ?? throw new UnauthorizedAccessException();
+        var workspace = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId, ct)
+            ?? throw new UnauthorizedAccessException();
 
-        var report = await this.reporyRepository.FindAsync(workspaceId, reportId) ?? throw new KeyNotFoundException();
+        var report = await this.dbContext.Reports
+            .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Id == reportId, ct)
+            ?? throw new KeyNotFoundException();
 
-        return await this.reportRunRepository.ListForReportAsync(workspaceId, reportId, take);
+        var runs = await this.dbContext.ReportRuns
+            .Where(rr => rr.WorkspaceId == workspaceId && rr.ReportId == reportId)
+            .OrderByDescending(rr => rr.StartedAt)
+            .Take(take)
+            .ToListAsync(ct);
+
+        return runs;
     }
 }

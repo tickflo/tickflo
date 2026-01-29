@@ -44,32 +44,8 @@ var connectionString = $"Host={appConfig.PostgresHost};Port=5432;Database={appCo
 
 builder.Services.AddSingleton(appConfig);
 builder.Services.AddSingleton(settingsConfig);
-builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IPasswordHasher, Argon2idPasswordHasher>();
-builder.Services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
-builder.Services.AddScoped<IUserWorkspaceRepository, UserWorkspaceRepository>();
-builder.Services.AddScoped<IUserWorkspaceRoleRepository, UserWorkspaceRoleRepository>();
-builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-builder.Services.AddScoped<ILocationRepository, LocationRepository>();
-builder.Services.AddScoped<IReportRepository, ReportRepository>();
-builder.Services.AddScoped<IReportRunRepository, ReportRunRepository>();
-builder.Services.AddScoped<IContactRepository, ContactRepository>();
-builder.Services.AddScoped<ITicketRepository, TicketRepository>();
-builder.Services.AddScoped<ITicketCommentRepository, TicketCommentRepository>();
-builder.Services.AddScoped<ITicketStatusRepository, TicketStatusRepository>();
-builder.Services.AddScoped<ITicketPriorityRepository, TicketPriorityRepository>();
-builder.Services.AddScoped<ITicketTypeRepository, TicketTypeRepository>();
-builder.Services.AddScoped<ITicketHistoryRepository, TicketHistoryRepository>();
-builder.Services.AddScoped<ITeamRepository, TeamRepository>();
-builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
-builder.Services.AddScoped<IRolePermissionRepository, RolePermissionRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<IUserNotificationPreferenceRepository, UserNotificationPreferenceRepository>();
-builder.Services.AddScoped<IEmailTemplateRepository, EmailTemplateRepository>();
-builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 builder.Services.AddSignalR();
-builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
-builder.Services.AddScoped<IFileStorageRepository, FileStorageRepository>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IPasswordSetupService, PasswordSetupService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -154,6 +130,10 @@ builder.Services.AddScoped<IEmailSendService, EmailSendService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
 builder.Services.AddScoped<IAppContext, Tickflo.Web.AppContext>();
 builder.Services.AddScoped<IEmailLogService, EmailLogService>();
+
+// Temporary services (TODO: Move logic to Core)
+builder.Services.AddScoped<Tickflo.Web.Services.ITempTeamService, Tickflo.Web.Services.TempTeamService>();
+builder.Services.AddScoped<Tickflo.Web.Services.ITempRolePermissionService, Tickflo.Web.Services.TempRolePermissionService>();
 
 builder.Services.AddDbContext<TickfloDbContext>(options =>
     options.UseNpgsql(connectionString)

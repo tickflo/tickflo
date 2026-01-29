@@ -2,17 +2,20 @@ namespace Tickflo.Web.Pages.Users;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
 using Tickflo.Core.Services.Common;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 public class ProfileModel(
-    IUserRepository userRepository,
+    TickfloDbContext dbContext,
     ICurrentUserService currentUserService,
     INotificationPreferenceService notificationPreferenceService) : PageModel
 {
-    private readonly IUserRepository userRepository = userRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly ICurrentUserService currentUserService = currentUserService;
     private readonly INotificationPreferenceService notificationPreferenceService = notificationPreferenceService;
 
@@ -41,7 +44,7 @@ public class ProfileModel(
             return;
         }
 
-        var user = await this.userRepository.FindByIdAsync(uid);
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Id == uid);
         if (user == null)
         {
             return;
@@ -88,12 +91,12 @@ public class ProfileModel(
         }
 
         // Update user profile
-        var user = await this.userRepository.FindByIdAsync(uid);
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Id == uid);
         if (user != null)
         {
             user.Name = this.UserName;
             user.Email = this.Email;
-            await this.userRepository.UpdateAsync(user);
+            await this.dbContext.SaveChangesAsync();
         }
 
         // Collect and save preferences

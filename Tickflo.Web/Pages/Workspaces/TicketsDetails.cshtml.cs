@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Notifications;
@@ -11,8 +12,10 @@ using Tickflo.Core.Services.Tickets;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [Authorize]
-public class TicketsDetailsModel(IWorkspaceService workspaceService, ITicketRepository ticketRepository, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, ITeamRepository teamRepository, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService, INotificationTriggerService notificationTriggerService) : WorkspacePageModel
+public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbContext dbContext, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, Services.ITempTeamService teamService, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService, INotificationTriggerService notificationTriggerService) : WorkspacePageModel
 {
     #region Constants
     private const string DefaultTicketType = "Standard";
@@ -41,10 +44,10 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, ITicketRepo
         public decimal UnitPrice { get; set; }
     }
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly ITicketRepository ticketRepository = ticketRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly ITicketManagementService ticketManagementService = ticketManagementService;
     private readonly IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService = workspaceTicketDetailsViewService;
-    private readonly ITeamRepository teamRepository = teamRepository;
+    private readonly Services.ITempTeamService teamService = teamService;
     private readonly IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService = workspaceTicketsSaveViewService;
     private readonly ITicketCommentService ticketCommentService = ticketCommentService;
     private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
@@ -214,7 +217,8 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, ITicketRepo
                 this.NewCommentContent.Trim(),
                 this.NewCommentIsVisibleToClient);
 
-            var ticket = await this.ticketRepository.FindAsync(this.Workspace.Id, id);
+            var ticket = await this.dbContext.Tickets
+                .FirstOrDefaultAsync(t => t.WorkspaceId == this.Workspace.Id && t.Id == id);
             if (ticket != null)
             {
                 await this.notificationTriggerService.NotifyTicketCommentAddedAsync(
@@ -280,7 +284,8 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, ITicketRepo
         var inventories = this.ParseInventoriesFromJson();
         var resolvedId = this.ResolveTicketId(id);
         var isNew = resolvedId <= InvalidTicketId;
-        var existing = !isNew ? await this.ticketRepository.FindAsync(workspaceId, resolvedId) : null;
+        var existing = !isNew ? await this.dbContext.Tickets
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == resolvedId) : null;
 
         var saveViewData = await this.workspaceTicketsSaveViewService.BuildAsync(workspaceId, currentUserId, isNew, existing);
         var authCheck = this.ValidateTicketPermissions(isNew, saveViewData);
@@ -471,7 +476,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, ITicketRepo
             : null;
 
         var assignedTeamName = ticket.AssignedTeamId.HasValue
-            ? (await this.teamRepository.FindByIdAsync(ticket.AssignedTeamId.Value))?.Name
+            ? (await this.teamService.FindByIdAsync(ticket.AssignedTeamId.Value))?.Name
             : null;
 
         var (invSummary, invDetails) = await this.ticketManagementService.GenerateInventorySummaryAsync(

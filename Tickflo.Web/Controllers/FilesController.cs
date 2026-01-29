@@ -2,11 +2,14 @@ namespace Tickflo.Web.Controllers;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
 using Tickflo.Core.Services.Common;
 using Tickflo.Core.Services.Storage;
+
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
 
 /// <summary>
 /// REST API controller for file and image management using RustFS.
@@ -17,15 +20,13 @@ using Tickflo.Core.Services.Storage;
 public class FilesController(
     IFileStorageService fileStorageService,
     IImageStorageService imageStorageService,
-    IFileStorageRepository fileRepository,
-    IWorkspaceRepository workspaceRepository,
+    TickfloDbContext dbContext,
     ILogger<FilesController> logger,
     ICurrentUserService currentUserService) : ControllerBase
 {
     private readonly IFileStorageService fileStorageService = fileStorageService;
     private readonly IImageStorageService imageStorageService = imageStorageService;
-    private readonly IFileStorageRepository fileRepository = fileRepository;
-    private readonly IWorkspaceRepository workspaceRepository = workspaceRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly ILogger<FilesController> logger = logger;
     private readonly ICurrentUserService currentUserService = currentUserService;
 
@@ -46,7 +47,7 @@ public class FilesController(
             }
 
             // Verify workspace access
-            var workspace = await this.workspaceRepository.FindByIdAsync(workspaceId);
+            var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
             if (workspace == null)
             {
                 return this.NotFound();
@@ -86,7 +87,8 @@ public class FilesController(
                 CreatedByUserId = userId
             };
 
-            await this.fileRepository.CreateAsync(fileRecord);
+            this.dbContext.FileStorages.Add(fileRecord);
+            await this.dbContext.SaveChangesAsync();
 
             this.logger.LogInformation($"File uploaded by user {userId} to workspace {workspaceId}: {originalFileName}");
 
@@ -113,7 +115,7 @@ public class FilesController(
             }
 
             // Verify workspace access
-            var workspace = await this.workspaceRepository.FindByIdAsync(workspaceId);
+            var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
             if (workspace == null)
             {
                 return this.NotFound();
@@ -165,7 +167,8 @@ public class FilesController(
                 CreatedByUserId = userId
             };
 
-            await this.fileRepository.CreateAsync(imageRecord);
+            this.dbContext.FileStorages.Add(imageRecord);
+            await this.dbContext.SaveChangesAsync();
 
             this.logger.LogInformation($"Image uploaded by user {userId} to workspace {workspaceId}");
 
@@ -191,7 +194,7 @@ public class FilesController(
                 return this.Unauthorized();
             }
 
-            var file = await this.fileRepository.FindByIdAsync(fileId);
+            var file = await this.dbContext.FileStorages.FindAsync(fileId);
             if (file == null)
             {
                 return this.NotFound();
@@ -201,7 +204,10 @@ public class FilesController(
             await this.fileStorageService.DeleteFileAsync(file.Path);
 
             // Archive in database
-            await this.fileRepository.ArchiveAsync(fileId, userId);
+            file.IsArchived = true;
+            file.DeletedAt = DateTime.UtcNow;
+            file.DeletedByUserId = userId;
+            await this.dbContext.SaveChangesAsync();
 
             this.logger.LogInformation($"File {fileId} deleted by user {userId}");
 
@@ -222,7 +228,7 @@ public class FilesController(
     {
         try
         {
-            var file = await this.fileRepository.FindByIdAsync(fileId);
+            var file = await this.dbContext.FileStorages.FindAsync(fileId);
             if (file == null)
             {
                 return this.NotFound();
@@ -251,8 +257,23 @@ public class FilesController(
                 return this.Unauthorized();
             }
 
-            var files = await this.fileRepository.ListAsync(workspaceId, take, skip, category);
-            var total = await this.fileRepository.GetWorkspaceFileCountAsync(workspaceId);
+            var query = this.dbContext.FileStorages
+                .Where(f => f.WorkspaceId == workspaceId && !f.IsArchived);
+
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                query = query.Where(f => f.Category == category);
+            }
+
+            var files = await query
+                .OrderByDescending(f => f.CreatedAt)
+                .Skip(skip)
+                .Take(take)
+                .ToListAsync();
+
+            var total = await this.dbContext.FileStorages
+                .Where(f => f.WorkspaceId == workspaceId && !f.IsArchived)
+                .CountAsync();
 
             return this.Ok(new
             {
@@ -292,8 +313,12 @@ public class FilesController(
                 return this.Unauthorized();
             }
 
-            var usedBytes = await this.fileRepository.GetWorkspaceStorageUsedAsync(workspaceId);
-            var fileCount = await this.fileRepository.GetWorkspaceFileCountAsync(workspaceId);
+            var usedBytes = await this.dbContext.FileStorages
+                .Where(f => f.WorkspaceId == workspaceId && !f.IsArchived)
+                .SumAsync(f => f.Size);
+            var fileCount = await this.dbContext.FileStorages
+                .Where(f => f.WorkspaceId == workspaceId && !f.IsArchived)
+                .CountAsync();
 
             return this.Ok(new
             {

@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Users;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
@@ -56,20 +57,12 @@ public class UserInvitationResult
 }
 
 public class UserInvitationService(
-    IUserRepository userRepository,
-    IUserWorkspaceRepository userWorkspaceRepository,
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepository,
-    IRoleRepository roleRepository,
+    TickfloDbContext dbContext,
     IEmailSendService emailSendService,
-    IWorkspaceRepository workspaceRepository,
     TickfloConfig config) : IUserInvitationService
 {
-    private readonly IUserRepository userRepository = userRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepository;
-    private readonly IRoleRepository roleRepository = roleRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IEmailSendService emailSendService = emailSendService;
-    private readonly IWorkspaceRepository workspaceRepository = workspaceRepository;
     private readonly TickfloConfig config = config;
 
     public async Task InviteUserAsync(
@@ -91,10 +84,12 @@ public class UserInvitationService(
         email = email.Trim().ToLowerInvariant();
 
         // Get workspace for email template
-        var workspace = await this.workspaceRepository.FindByIdAsync(workspaceId) ?? throw new InvalidOperationException("Workspace not found");
+        var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId)
+            ?? throw new InvalidOperationException("Workspace not found");
 
         // Check if user already exists
-        var user = await this.userRepository.FindByEmailAsync(email);
+        var user = await this.dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
         var isNewUser = user == null;
 
         if (isNewUser)
@@ -104,13 +99,17 @@ public class UserInvitationService(
                 Name = email.Split('@')[0],
                 Email = email,
                 EmailConfirmationCode = SecureTokenGenerator.GenerateToken(16),
+                CreatedAt = DateTime.UtcNow
             };
 
-            await this.userRepository.AddAsync(user);
+            this.dbContext.Users.Add(user);
+            await this.dbContext.SaveChangesAsync();
         }
         else
         {
-            var existingMembership = await this.userWorkspaceRepository.FindAsync(user!.Id, workspaceId);
+            var existingMembership = await this.dbContext.UserWorkspaces
+                .FirstOrDefaultAsync(uw => uw.UserId == user!.Id && uw.WorkspaceId == workspaceId);
+
             if (existingMembership != null)
             {
                 throw new InvalidOperationException("User is already invited to this workspace");
@@ -122,29 +121,39 @@ public class UserInvitationService(
             throw new InvalidOperationException("Failed to create or retrieve user");
         }
 
-        await this.userWorkspaceRepository.AddAsync(new UserWorkspace
+        var membership = new UserWorkspace
         {
             UserId = user.Id,
             WorkspaceId = workspaceId,
             CreatedBy = invitedByUserId,
-        });
+            Accepted = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        this.dbContext.UserWorkspaces.Add(membership);
+        await this.dbContext.SaveChangesAsync();
 
         foreach (var roleId in roleIds)
         {
-            var role = await this.roleRepository.FindByIdAsync(roleId);
+            var role = await this.dbContext.Roles.FindAsync(roleId);
             if (role == null || role.WorkspaceId != workspaceId)
             {
                 throw new InvalidOperationException($"Role with ID {roleId} not found in this workspace");
             }
 
-            await this.userWorkspaceRoleRepository.AddAsync(new UserWorkspaceRole
+            var roleAssignment = new UserWorkspaceRole
             {
                 UserId = user.Id,
                 WorkspaceId = workspaceId,
                 RoleId = roleId,
-                CreatedBy = invitedByUserId,
-            });
+                CreatedBy = invitedByUserId
+            };
+
+            this.dbContext.UserWorkspaceRoles.Add(roleAssignment);
         }
+
+        await this.dbContext.SaveChangesAsync();
 
         if (isNewUser)
         {
@@ -158,13 +167,14 @@ public class UserInvitationService(
 
     public async Task ResendInvitationAsync(int workspaceId, int userId, int resentByUserId)
     {
-        var workspace = await this.workspaceRepository.FindByIdAsync(workspaceId)
+        var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId)
             ?? throw new InvalidOperationException("Workspace not found");
 
-        var membership = await this.userWorkspaceRepository.FindAsync(userId, workspaceId)
+        var membership = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId)
             ?? throw new InvalidOperationException("User is not invited to this workspace");
 
-        var user = await this.userRepository.FindByIdAsync(userId)
+        var user = await this.dbContext.Users.FindAsync(userId)
             ?? throw new InvalidOperationException("User not found");
 
         if (user.PasswordHash == null)
@@ -185,10 +195,12 @@ public class UserInvitationService(
 
     public async Task AcceptInvitationAsync(string slug, int userId)
     {
-        var workspace = await this.workspaceRepository.FindBySlugAsync(slug)
+        var workspace = await this.dbContext.Workspaces
+            .FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase))
             ?? throw new NotFoundException("Workspace not found");
 
-        var membership = await this.userWorkspaceRepository.FindAsync(userId, workspace.Id)
+        var membership = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspace.Id)
             ?? throw new InvalidOperationException("Invitation not found");
 
         if (membership.Accepted)
@@ -199,15 +211,17 @@ public class UserInvitationService(
         membership.Accepted = true;
         membership.UpdatedAt = DateTime.UtcNow;
         membership.UpdatedBy = userId;
-        await this.userWorkspaceRepository.UpdateAsync(membership);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task DeclineInvitationAsync(string slug, int userId)
     {
-        var workspace = await this.workspaceRepository.FindBySlugAsync(slug)
+        var workspace = await this.dbContext.Workspaces
+            .FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase))
             ?? throw new NotFoundException("Workspace not found");
 
-        var membership = await this.userWorkspaceRepository.FindAsync(userId, workspace.Id)
+        var membership = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspace.Id)
             ?? throw new InvalidOperationException("Invitation not found");
 
         if (membership.Accepted)
@@ -215,7 +229,8 @@ public class UserInvitationService(
             throw new InvalidOperationException("Cannot decline an accepted invitation");
         }
 
-        await this.userWorkspaceRepository.DeleteAsync(membership);
+        this.dbContext.UserWorkspaces.Remove(membership);
+        await this.dbContext.SaveChangesAsync();
     }
 
     private async Task SendNewUserInvitationEmailAsync(

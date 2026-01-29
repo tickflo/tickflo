@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Workspace;
 
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 
 /// <summary>
@@ -75,36 +76,105 @@ public interface IWorkspaceAccessService
     public Task EnsureWorkspaceAccessAsync(int userId, int workspaceId);
 }
 
-public class WorkspaceAccessService(
-    IUserWorkspaceRepository userWorkspaceRepository,
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepository,
-    IRolePermissionRepository rolePermissionRepository) : IWorkspaceAccessService
+public class WorkspaceAccessService(TickfloDbContext dbContext) : IWorkspaceAccessService
 {
     #region Constants
     private const string ViewAction = "view";
     private const string CreateAction = "create";
     private const string EditAction = "edit";
     private const string AllTicketsScope = "all";
+    private static readonly string[] ManagedSections = ["dashboard", "contacts", "inventory", "locations", "reports", "roles", "teams", "tickets", "users", "settings"];
     private static readonly CompositeFormat UserNotAdminErrorFormat = CompositeFormat.Parse("User {0} is not an admin of workspace {1}.");
     private static readonly CompositeFormat UserNoAccessErrorFormat = CompositeFormat.Parse("User {0} does not have access to workspace {1}.");
     #endregion
 
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepository;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<bool> UserHasAccessAsync(int userId, int workspaceId)
     {
-        var userWorkspace = await this.userWorkspaceRepository.FindAsync(userId, workspaceId);
+        var userWorkspace = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspaceId);
         return userWorkspace?.Accepted ?? false;
     }
 
-    public async Task<bool> UserIsWorkspaceAdminAsync(int userId, int workspaceId) => await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
+    public async Task<bool> UserIsWorkspaceAdminAsync(int userId, int workspaceId)
+    {
+        // Check if user has a role with admin permissions
+        var hasAdminRole = await this.dbContext.UserWorkspaceRoles
+            .Include(uwr => uwr.Role)
+            .AnyAsync(uwr => uwr.UserId == userId &&
+                            uwr.WorkspaceId == workspaceId &&
+                            uwr.Role.Admin);
+
+        return hasAdminRole;
+    }
 
     public async Task<Dictionary<string, EffectiveSectionPermission>> GetUserPermissionsAsync(int workspaceId, int userId)
     {
-        var permissions = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-        return permissions;
+        var isAdmin = await this.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        if (isAdmin)
+        {
+            return ManagedSections.ToDictionary(
+                section => section,
+                section => new EffectiveSectionPermission
+                {
+                    Section = section,
+                    CanView = true,
+                    CanCreate = true,
+                    CanEdit = true,
+                    CanDelete = false,
+                    TicketViewScope = section == "tickets" ? "all" : null
+                });
+        }
+
+        // Get user's role IDs
+        var userRoleIds = await this.dbContext.UserWorkspaceRoles
+            .Where(uwr => uwr.UserId == userId && uwr.WorkspaceId == workspaceId)
+            .Select(uwr => uwr.RoleId)
+            .ToListAsync();
+
+        if (userRoleIds.Count == 0)
+        {
+            return [];
+        }
+
+        // Get role permission links
+        var rolePermissionLinks = await this.dbContext.RolePermissions
+            .Where(rp => userRoleIds.Contains(rp.RoleId))
+            .ToListAsync();
+
+        // Get permission catalog entries
+        var permissionIds = rolePermissionLinks.Select(rp => rp.PermissionId).Distinct().ToList();
+        var permissions = await this.dbContext.Permissions
+            .Where(p => permissionIds.Contains(p.Id))
+            .ToListAsync();
+
+        // Build effective permissions by section
+        var effectivePermissions = new Dictionary<string, EffectiveSectionPermission>();
+        foreach (var section in ManagedSections)
+        {
+            var eff = new EffectiveSectionPermission
+            {
+                Section = section,
+                CanView = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("view", StringComparison.OrdinalIgnoreCase)),
+                CanEdit = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("edit", StringComparison.OrdinalIgnoreCase)),
+                CanCreate = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("create", StringComparison.OrdinalIgnoreCase)),
+                CanDelete = false
+            };
+
+            if (section == "tickets")
+            {
+                var scopes = permissions
+                    .Where(p => p.Resource.Equals("tickets_scope", StringComparison.OrdinalIgnoreCase))
+                    .Select(p => p.Action.ToLowerInvariant())
+                    .ToList();
+                eff.TicketViewScope = scopes.Contains("mine") ? "mine" : scopes.Contains("team") ? "team" : "all";
+            }
+
+            effectivePermissions[section] = eff;
+        }
+
+        return effectivePermissions;
     }
 
     public async Task<bool> CanUserPerformActionAsync(int workspaceId, int userId, string resourceType, string action)
@@ -130,7 +200,46 @@ public class WorkspaceAccessService(
             return AllTicketsScope;
         }
 
-        return await this.rolePermissionRepository.GetTicketViewScopeForUserAsync(workspaceId, userId, isAdmin);
+        // Get user's role IDs
+        var userRoleIds = await this.dbContext.UserWorkspaceRoles
+            .Where(uwr => uwr.UserId == userId && uwr.WorkspaceId == workspaceId)
+            .Select(uwr => uwr.RoleId)
+            .ToListAsync();
+
+        if (userRoleIds.Count == 0)
+        {
+            return "assigned";
+        }
+
+        // Get role permission links
+        var rolePermissionLinks = await this.dbContext.RolePermissions
+            .Where(rp => userRoleIds.Contains(rp.RoleId))
+            .ToListAsync();
+
+        // Get permission catalog entries for tickets_scope
+        var permissionIds = rolePermissionLinks.Select(rp => rp.PermissionId).Distinct().ToList();
+        var scopes = await this.dbContext.Permissions
+            .Where(p => permissionIds.Contains(p.Id) && p.Resource == "tickets_scope")
+            .Select(p => p.Action.ToLowerInvariant())
+            .ToListAsync();
+
+        // Return most permissive scope: all > team > mine
+        if (scopes.Contains("all"))
+        {
+            return AllTicketsScope;
+        }
+
+        if (scopes.Contains("team"))
+        {
+            return "team";
+        }
+
+        if (scopes.Contains("mine"))
+        {
+            return "mine";
+        }
+
+        return "assigned";
     }
 
     public async Task EnsureAdminAccessAsync(int userId, int workspaceId)

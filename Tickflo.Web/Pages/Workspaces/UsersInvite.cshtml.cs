@@ -3,17 +3,20 @@ namespace Tickflo.Web.Pages.Workspaces;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Users;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [Authorize]
-public class UsersInviteModel(IWorkspaceService workspaceService, IRoleRepository roleRepository, IUserInvitationService userInvitationService, IWorkspaceUsersInviteViewService workspaceUsersInviteViewService) : WorkspacePageModel
+public class UsersInviteModel(IWorkspaceService workspaceService, TickfloDbContext dbContext, IUserInvitationService userInvitationService, IWorkspaceUsersInviteViewService workspaceUsersInviteViewService) : WorkspacePageModel
 {
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly IRoleRepository roleRepository = roleRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IUserInvitationService userInvitationService = userInvitationService;
     private readonly IWorkspaceUsersInviteViewService workspaceUsersInviteViewService = workspaceUsersInviteViewService;
     public string WorkspaceSlug { get; private set; } = string.Empty;
@@ -104,16 +107,19 @@ public class UsersInviteModel(IWorkspaceService workspaceService, IRoleRepositor
             var selectedRoleName = this.Role?.Trim();
             if (!string.IsNullOrWhiteSpace(selectedRoleName))
             {
-                var role = await this.roleRepository.FindByNameAsync(workspace.Id, selectedRoleName);
+                var role = await this.dbContext.Roles
+                    .FirstOrDefaultAsync(r => r.WorkspaceId == workspace.Id && r.Name.Equals(selectedRoleName, StringComparison.OrdinalIgnoreCase));
                 if (role == null)
                 {
                     var adminFlag = string.Equals(selectedRoleName, "Admin", StringComparison.OrdinalIgnoreCase);
-                    role = await this.roleRepository.AddAsync(new Role
+                    role = new Role
                     {
                         WorkspaceId = workspace.Id,
                         Name = selectedRoleName,
                         Admin = adminFlag,
-                    });
+                    };
+                    this.dbContext.Roles.Add(role);
+                    await this.dbContext.SaveChangesAsync();
                 }
                 roleIds = [role.Id];
             }
