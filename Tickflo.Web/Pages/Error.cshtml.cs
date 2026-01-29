@@ -3,12 +3,15 @@ namespace Tickflo.Web.Pages;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Services.Common;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
 [IgnoreAntiforgeryToken]
-public class ErrorModel(ILogger<ErrorModel> logger, ICurrentUserService currentUserService, IUserRepository userRepository) : PageModel
+public class ErrorModel(ILogger<ErrorModel> logger, ICurrentUserService currentUserService, TickfloDbContext dbContext) : PageModel
 {
     public string? RequestId { get; set; }
     public string? ErrorMessage { get; set; }
@@ -19,7 +22,7 @@ public class ErrorModel(ILogger<ErrorModel> logger, ICurrentUserService currentU
 
     private readonly ILogger<ErrorModel> logger = logger;
     private readonly ICurrentUserService currentUserService = currentUserService;
-    private readonly IUserRepository userRepository = userRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task OnGetAsync()
     {
@@ -28,7 +31,7 @@ public class ErrorModel(ILogger<ErrorModel> logger, ICurrentUserService currentU
         // Check if user is a system admin
         if (this.currentUserService.TryGetUserId(this.User, out var userId))
         {
-            var user = await this.userRepository.FindByIdAsync(userId);
+            var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
             this.IsAdmin = user?.SystemAdmin ?? false;
         }
 

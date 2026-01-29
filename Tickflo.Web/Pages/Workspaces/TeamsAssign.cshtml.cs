@@ -2,21 +2,23 @@ namespace Tickflo.Web.Pages.Workspaces;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Tickflo.Core.Data;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Teams;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [Authorize]
-public class TeamsAssignModel(IWorkspaceService workspaceService, ITeamMemberRepository teamMemberRepository, ITeamManagementService teamManagementService, IWorkspaceTeamsAssignViewService workspaceTeamsAssignViewService) : WorkspacePageModel
+public class TeamsAssignModel(IWorkspaceService workspaceService, Services.ITempTeamService teamService, ITeamManagementService teamManagementService, IWorkspaceTeamsAssignViewService workspaceTeamsAssignViewService) : WorkspacePageModel
 {
     #region Constants
     private const string UserSelectionError = "Please select a user to add.";
     #endregion
 
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly ITeamMemberRepository teamMemberRepository = teamMemberRepository;
+    private readonly Services.ITempTeamService teamService = teamService;
     private readonly ITeamManagementService teamManagementService = teamManagementService;
     private readonly IWorkspaceTeamsAssignViewService workspaceTeamsAssignViewService = workspaceTeamsAssignViewService;
 
@@ -149,7 +151,7 @@ public class TeamsAssignModel(IWorkspaceService workspaceService, ITeamMemberRep
 
     private async Task AddUserToTeamAsync(int userId)
     {
-        var currentMembers = await this.teamMemberRepository.ListMembersAsync(this.TeamId);
+        var currentMembers = await this.teamService.ListMembersAsync(this.TeamId);
         var desired = currentMembers.Select(m => m.Id).ToList();
         desired.Add(userId);
         await this.teamManagementService.SyncTeamMembersAsync(this.TeamId, this.Workspace!.Id, [.. desired.Distinct()]);
@@ -157,7 +159,7 @@ public class TeamsAssignModel(IWorkspaceService workspaceService, ITeamMemberRep
 
     private async Task RemoveUserFromTeamAsync(int userId)
     {
-        var currentMembers = await this.teamMemberRepository.ListMembersAsync(this.TeamId);
+        var currentMembers = await this.teamService.ListMembersAsync(this.TeamId);
         var desired = currentMembers.Select(m => m.Id).Where(id => id != userId).ToList();
         await this.teamManagementService.SyncTeamMembersAsync(this.TeamId, this.Workspace!.Id, desired);
     }

@@ -1,7 +1,9 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Workspace;
 
 /// <summary>
 /// Implementation of tickets view service.
@@ -126,31 +128,11 @@ public class WorkspaceTicketsViewData
 }
 
 public class WorkspaceTicketsViewService(
-    ITicketRepository ticketRepository,
-    ITicketStatusRepository statusRepository,
-    ITicketPriorityRepository priorityRepository,
-    ITicketTypeRepository ticketTypeRepository,
-    ITeamRepository teamRepository,
-    IContactRepository contactRepository,
-    IUserWorkspaceRepository userWorkspaceRepository,
-    IUserRepository userRepository,
-    ILocationRepository locationRepository,
-    IRolePermissionRepository rolePermissionRepository,
-    ITeamMemberRepository teamMemberRepo,
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepository) : IWorkspaceTicketsViewService
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService) : IWorkspaceTicketsViewService
 {
-    private readonly ITicketRepository ticketRepository = ticketRepository;
-    private readonly ITicketStatusRepository statusRepository = statusRepository;
-    private readonly ITicketPriorityRepository priorityRepository = priorityRepository;
-    private readonly ITicketTypeRepository ticketTypeRepository = ticketTypeRepository;
-    private readonly ITeamRepository teamRepository = teamRepository;
-    private readonly IContactRepository contactRepository = contactRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly IUserRepository userRepository = userRepository;
-    private readonly ILocationRepository locationRepository = locationRepository;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
-    private readonly ITeamMemberRepository teamMemberRepository = teamMemberRepo;
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceTicketsViewData> BuildAsync(
         int workspaceId,
@@ -158,11 +140,14 @@ public class WorkspaceTicketsViewService(
         CancellationToken cancellationToken = default)
     {
         // Determine if user is admin
-        var isAdmin = userId > 0 && await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
+        var isAdmin = userId > 0 && await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
         var data = new WorkspaceTicketsViewData();
 
         // Load statuses with fallback defaults
-        var statuses = await this.statusRepository.ListAsync(workspaceId, cancellationToken);
+        var statuses = await this.dbContext.TicketStatuses
+            .AsNoTracking()
+            .Where(s => s.WorkspaceId == workspaceId)
+            .ToListAsync(cancellationToken);
         var statusList = statuses.Count > 0
             ? statuses
             :
@@ -177,7 +162,10 @@ public class WorkspaceTicketsViewService(
             .ToDictionary(g => g.Key, g => string.IsNullOrWhiteSpace(g.Last().Color) ? "neutral" : g.Last().Color);
 
         // Load priorities with fallback defaults
-        var priorities = await this.priorityRepository.ListAsync(workspaceId, cancellationToken);
+        var priorities = await this.dbContext.TicketPriorities
+            .AsNoTracking()
+            .Where(p => p.WorkspaceId == workspaceId)
+            .ToListAsync(cancellationToken);
         var priorityList = priorities.Count > 0
             ? priorities
             :
@@ -192,7 +180,10 @@ public class WorkspaceTicketsViewService(
             .ToDictionary(g => g.Key, g => string.IsNullOrWhiteSpace(g.Last().Color) ? "neutral" : g.Last().Color);
 
         // Load types with fallback defaults
-        var types = await this.ticketTypeRepository.ListAsync(workspaceId, cancellationToken);
+        var types = await this.dbContext.TicketTypes
+            .AsNoTracking()
+            .Where(t => t.WorkspaceId == workspaceId)
+            .ToListAsync(cancellationToken);
         var typeList = types.Count > 0
             ? types
             :
@@ -207,36 +198,43 @@ public class WorkspaceTicketsViewService(
             .ToDictionary(g => g.Key, g => string.IsNullOrWhiteSpace(g.Last().Color) ? "neutral" : g.Last().Color);
 
         // Load teams
-        var teams = await this.teamRepository.ListForWorkspaceAsync(workspaceId);
+        var teams = await this.dbContext.Teams
+            .AsNoTracking()
+            .Where(t => t.WorkspaceId == workspaceId)
+            .ToListAsync(cancellationToken);
         data.TeamsById = teams.ToDictionary(t => t.Id, t => t);
 
         // Load contacts
-        var contacts = await this.contactRepository.ListAsync(workspaceId, cancellationToken);
+        var contacts = await this.dbContext.Contacts
+            .AsNoTracking()
+            .Where(c => c.WorkspaceId == workspaceId)
+            .ToListAsync(cancellationToken);
         data.ContactsById = contacts.ToDictionary(c => c.Id, c => c);
 
-        // Load workspace members
-        var memberships = await this.userWorkspaceRepository.FindForWorkspaceAsync(workspaceId);
+        // Load workspace members (batch load users)
+        var memberships = await this.dbContext.UserWorkspaces
+            .AsNoTracking()
+            .Where(uw => uw.WorkspaceId == workspaceId)
+            .ToListAsync(cancellationToken);
         var userIds = memberships.Select(m => m.UserId).Distinct().ToList();
-        var users = new List<User>();
-        foreach (var id in userIds)
-        {
-            var user = await this.userRepository.FindByIdAsync(id);
-            if (user != null)
-            {
-                users.Add(user);
-            }
-        }
+        var users = await this.dbContext.Users
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToListAsync(cancellationToken);
         data.UsersById = users.ToDictionary(u => u.Id, u => u);
 
         // Load locations
-        var locations = await this.locationRepository.ListAsync(workspaceId);
+        var locations = await this.dbContext.Locations
+            .AsNoTracking()
+            .Where(l => l.WorkspaceId == workspaceId)
+            .ToListAsync(cancellationToken);
         data.LocationOptions = [.. locations];
         data.LocationsById = locations.ToDictionary(l => l.Id, l => l);
 
         // Determine permissions
         if (userId > 0)
         {
-            var permissions = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
+            var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
             if (permissions.TryGetValue("tickets", out var ticketPerms))
             {
                 data.CanCreateTickets = ticketPerms.CanCreate;
@@ -250,20 +248,37 @@ public class WorkspaceTicketsViewService(
         }
 
         // Determine scope and team IDs
-        var scope = await this.rolePermissionRepository.GetTicketViewScopeForUserAsync(workspaceId, userId, isAdmin);
+        var scope = await this.workspaceAccessService.GetTicketViewScopeAsync(workspaceId, userId, isAdmin);
         data.TicketViewScope = scope;
         if (scope == "team" && userId > 0)
         {
-            var userTeams = await this.teamMemberRepository.ListTeamsForUserAsync(workspaceId, userId);
-            data.UserTeamIds = [.. userTeams.Select(t => t.Id)];
+            var userTeamIds = await this.dbContext.TeamMembers
+                .AsNoTracking()
+                .Where(tm => tm.UserId == userId)
+                .Join(
+                    this.dbContext.Teams,
+                    tm => tm.TeamId,
+                    t => t.Id,
+                    (tm, t) => new { tm, t })
+                .Where(x => x.t.WorkspaceId == workspaceId)
+                .Select(x => x.t.Id)
+                .ToListAsync(cancellationToken);
+            data.UserTeamIds = [.. userTeamIds];
         }
 
         return data;
     }
 
-    public async Task<IEnumerable<Ticket>> GetAllTicketsAsync(int workspaceId, CancellationToken cancellationToken = default) => await this.ticketRepository.ListAsync(workspaceId, cancellationToken);
+    public async Task<IEnumerable<Ticket>> GetAllTicketsAsync(int workspaceId, CancellationToken cancellationToken = default) =>
+        await this.dbContext.Tickets
+            .AsNoTracking()
+            .Where(t => t.WorkspaceId == workspaceId)
+            .ToListAsync(cancellationToken);
 
-    public async Task<Ticket?> GetTicketAsync(int workspaceId, int ticketId, CancellationToken cancellationToken = default) => await this.ticketRepository.FindAsync(workspaceId, ticketId, cancellationToken);
+    public async Task<Ticket?> GetTicketAsync(int workspaceId, int ticketId, CancellationToken cancellationToken = default) =>
+        await this.dbContext.Tickets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId, cancellationToken);
 }
 
 

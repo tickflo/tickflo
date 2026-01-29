@@ -1,7 +1,9 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Workspace;
 
 public class WorkspaceRolesEditViewData
 {
@@ -17,19 +19,17 @@ public interface IWorkspaceRolesEditViewService
 
 
 public class WorkspaceRolesEditViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRoleRepository roleRepo,
-    IRolePermissionRepository rolePermissionRepository) : IWorkspaceRolesEditViewService
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService) : IWorkspaceRolesEditViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRoleRepository roleRepository = roleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceRolesEditViewData> BuildAsync(int workspaceId, int userId, int roleId = 0)
     {
         var data = new WorkspaceRolesEditViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
         data.IsAdmin = isAdmin;
 
         if (!isAdmin)
@@ -39,12 +39,26 @@ public class WorkspaceRolesEditViewService(
 
         if (roleId > 0)
         {
-            var role = await this.roleRepository.FindByIdAsync(roleId);
+            var role = await this.dbContext.Roles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.Id == roleId);
             if (role != null && role.WorkspaceId == workspaceId)
             {
                 data.ExistingRole = role;
-                var perms = await this.rolePermissionRepository.ListByRoleAsync(roleId);
-                data.ExistingPermissions = [.. perms];
+                var rolePermissions = await this.dbContext.RolePermissionsTable
+                    .AsNoTracking()
+                    .Where(rp => rp.RoleId == roleId)
+                    .ToListAsync();
+                data.ExistingPermissions = [.. rolePermissions
+                    .Select(rp => new EffectiveSectionPermission
+                    {
+                        Section = rp.Section,
+                        CanView = rp.CanView,
+                        CanCreate = rp.CanCreate,
+                        CanEdit = rp.CanEdit,
+                        CanDelete = false,
+                        TicketViewScope = rp.TicketViewScope
+                    })];
             }
         }
 

@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Views;
 
-using Tickflo.Core.Data;
+using Tickflo.Core.Services.Workspace;
+
 public class WorkspaceUsersInviteViewData
 {
     public bool CanViewUsers { get; set; }
@@ -13,21 +14,18 @@ public interface IWorkspaceUsersInviteViewService
 }
 
 
-public class WorkspaceUsersInviteViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository) : IWorkspaceUsersInviteViewService
+public class WorkspaceUsersInviteViewService(IWorkspaceAccessService workspaceAccessService) : IWorkspaceUsersInviteViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceUsersInviteViewData> BuildAsync(int workspaceId, int userId)
     {
         var data = new WorkspaceUsersInviteViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-        data.CanViewUsers = isAdmin || (eff.TryGetValue("users", out var up) && up.CanView);
-        data.CanCreateUsers = isAdmin || (eff.TryGetValue("users", out var up2) && up2.CanCreate);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
+        data.CanViewUsers = isAdmin || (permissions.TryGetValue("users", out var up) && up.CanView);
+        data.CanCreateUsers = isAdmin || (permissions.TryGetValue("users", out var up2) && up2.CanCreate);
 
         return data;
     }

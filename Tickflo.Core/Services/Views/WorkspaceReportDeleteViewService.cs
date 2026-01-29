@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Views;
 
-using Tickflo.Core.Data;
+using Tickflo.Core.Services.Workspace;
+
 public class WorkspaceReportDeleteViewData
 {
     public bool CanEditReports { get; set; }
@@ -12,19 +13,16 @@ public interface IWorkspaceReportDeleteViewService
 }
 
 
-public class WorkspaceReportDeleteViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository) : IWorkspaceReportDeleteViewService
+public class WorkspaceReportDeleteViewService(IWorkspaceAccessService workspaceAccessService) : IWorkspaceReportDeleteViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceReportDeleteViewData> BuildAsync(int workspaceId, int userId)
     {
         var data = new WorkspaceReportDeleteViewData();
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-        data.CanEditReports = isAdmin || (eff.TryGetValue("reports", out var rp) && rp.CanEdit);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
+        data.CanEditReports = isAdmin || (permissions.TryGetValue("reports", out var rp) && rp.CanEdit);
         return data;
     }
 }

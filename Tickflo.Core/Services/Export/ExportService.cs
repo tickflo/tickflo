@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Export;
 
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -91,16 +92,9 @@ public class ExportResult
     public DateTime ExportedAt { get; set; } = DateTime.UtcNow;
 }
 
-public class ExportService(
-    ITicketRepository ticketRepository,
-    IContactRepository contactRepository,
-    IInventoryRepository inventoryRepository,
-    IUserWorkspaceRepository userWorkspaceRepository) : IExportService
+public class ExportService(TickfloDbContext dbContext) : IExportService
 {
-    private readonly ITicketRepository ticketRepository = ticketRepository;
-    private readonly IContactRepository contactRepository = contactRepository;
-    private readonly IInventoryRepository inventoryRepository = inventoryRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<ExportResult> ExportTicketsAsync(
         int workspaceId,
@@ -108,13 +102,17 @@ public class ExportService(
         int exportingUserId)
     {
         // Validate access
-        var userAccess = await this.userWorkspaceRepository.FindAsync(exportingUserId, workspaceId);
+        var userAccess = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == exportingUserId && uw.WorkspaceId == workspaceId);
+
         if (userAccess == null || !userAccess.Accepted)
         {
             throw new InvalidOperationException("User does not have access to this workspace.");
         }
 
-        var tickets = (await this.ticketRepository.ListAsync(workspaceId)).ToList();
+        var tickets = await this.dbContext.Tickets
+            .Where(t => t.WorkspaceId == workspaceId)
+            .ToListAsync();
 
         return request.Format switch
         {
@@ -130,13 +128,17 @@ public class ExportService(
         ExportRequest request,
         int exportingUserId)
     {
-        var userAccess = await this.userWorkspaceRepository.FindAsync(exportingUserId, workspaceId);
+        var userAccess = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == exportingUserId && uw.WorkspaceId == workspaceId);
+
         if (userAccess == null || !userAccess.Accepted)
         {
             throw new InvalidOperationException("User does not have access to this workspace.");
         }
 
-        var contacts = (await this.contactRepository.ListAsync(workspaceId)).ToList();
+        var contacts = await this.dbContext.Contacts
+            .Where(c => c.WorkspaceId == workspaceId)
+            .ToListAsync();
 
         return request.Format switch
         {
@@ -152,13 +154,17 @@ public class ExportService(
         ExportRequest request,
         int exportingUserId)
     {
-        var userAccess = await this.userWorkspaceRepository.FindAsync(exportingUserId, workspaceId);
+        var userAccess = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == exportingUserId && uw.WorkspaceId == workspaceId);
+
         if (userAccess == null || !userAccess.Accepted)
         {
             throw new InvalidOperationException("User does not have access to this workspace.");
         }
 
-        var inventory = (await this.inventoryRepository.ListAsync(workspaceId)).ToList();
+        var inventory = await this.dbContext.Inventory
+            .Where(i => i.WorkspaceId == workspaceId)
+            .ToListAsync();
 
         return request.Format switch
         {
@@ -175,7 +181,9 @@ public class ExportService(
         DateTime toDate,
         int exportingUserId)
     {
-        var userAccess = await this.userWorkspaceRepository.FindAsync(exportingUserId, workspaceId);
+        var userAccess = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == exportingUserId && uw.WorkspaceId == workspaceId);
+
         if (userAccess == null || !userAccess.Accepted)
         {
             throw new InvalidOperationException("User does not have access to this workspace.");
@@ -200,7 +208,9 @@ public class ExportService(
         ExportRequest request,
         int requestingUserId)
     {
-        var userAccess = await this.userWorkspaceRepository.FindAsync(requestingUserId, workspaceId);
+        var userAccess = await this.dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == requestingUserId && uw.WorkspaceId == workspaceId);
+
         if (userAccess == null || !userAccess.Accepted)
         {
             return (false, "User does not have access to this workspace.");

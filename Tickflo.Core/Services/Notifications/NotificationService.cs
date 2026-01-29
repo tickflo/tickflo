@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Notifications;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -11,9 +12,9 @@ public interface INotificationService
     public Task SendPendingInAppAsync(int batchSize = 100);
 }
 
-public class NotificationService(INotificationRepository notificationRepository) : INotificationService
+public class NotificationService(TickfloDbContext dbContext) : INotificationService
 {
-    private readonly INotificationRepository notificationRepository = notificationRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task CreateAsync(int userId, string type, string subject, string body, string deliveryMethod = "email", int? workspaceId = null, string priority = "normal", int? createdBy = null, string? data = null)
     {
@@ -31,7 +32,8 @@ public class NotificationService(INotificationRepository notificationRepository)
             CreatedBy = createdBy
         };
 
-        await this.notificationRepository.AddAsync(notification);
+        this.dbContext.Notifications.Add(notification);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task CreateBatchAsync(List<int> userIds, string type, string subject, string body, string deliveryMethod = "email", int? workspaceId = null, string priority = "normal", int? createdBy = null)
@@ -54,13 +56,19 @@ public class NotificationService(INotificationRepository notificationRepository)
                 CreatedBy = createdBy
             };
 
-            await this.notificationRepository.AddAsync(notification);
+            this.dbContext.Notifications.Add(notification);
         }
+
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task SendPendingEmailsAsync(int batchSize = 100)
     {
-        var pending = await this.notificationRepository.ListPendingAsync("email", batchSize);
+        var pending = await this.dbContext.Notifications
+            .Where(n => n.Status == "pending" && n.DeliveryMethod == "email")
+            .OrderBy(n => n.CreatedAt)
+            .Take(batchSize)
+            .ToListAsync();
 
         foreach (var notification in pending)
         {
@@ -71,24 +79,36 @@ public class NotificationService(INotificationRepository notificationRepository)
                 //var toEmail = notification.Data ?? ""; // This should be properly resolved from user
 
                 //await this.emailSenderService.SendAsync(toEmail, notification.Subject, notification.Body);
-                await this.notificationRepository.MarkAsSentAsync(notification.Id);
+                notification.Status = "sent";
+                notification.SentAt = DateTime.UtcNow;
             }
             catch (Exception ex)
             {
-                await this.notificationRepository.MarkAsFailedAsync(notification.Id, ex.Message);
+                notification.Status = "failed";
+                notification.FailedAt = DateTime.UtcNow;
+                notification.FailureReason = ex.Message;
             }
         }
+
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task SendPendingInAppAsync(int batchSize = 100)
     {
-        var pending = await this.notificationRepository.ListPendingAsync("in_app", batchSize);
+        var pending = await this.dbContext.Notifications
+            .Where(n => n.Status == "pending" && n.DeliveryMethod == "in_app")
+            .OrderBy(n => n.CreatedAt)
+            .Take(batchSize)
+            .ToListAsync();
 
         foreach (var notification in pending)
         {
             // In-app notifications are just marked as sent since they're already in the database
             // The UI will query them directly
-            await this.notificationRepository.MarkAsSentAsync(notification.Id);
+            notification.Status = "sent";
+            notification.SentAt = DateTime.UtcNow;
         }
+
+        await this.dbContext.SaveChangesAsync();
     }
 }

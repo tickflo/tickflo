@@ -1,7 +1,9 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Workspace;
 
 public class WorkspaceTeamsAssignViewData
 {
@@ -19,52 +21,55 @@ public interface IWorkspaceTeamsAssignViewService
 
 
 public class WorkspaceTeamsAssignViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepository,
-    IRolePermissionRepository rolePermissionRepository,
-    ITeamRepository teamRepository,
-    ITeamMemberRepository teamMemberRepository,
-    IUserWorkspaceRepository userWorkspaceRepository,
-    IUserRepository userRepository) : IWorkspaceTeamsAssignViewService
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService) : IWorkspaceTeamsAssignViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepository;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
-    private readonly ITeamRepository teamRepository = teamRepository;
-    private readonly ITeamMemberRepository teamMemberRepository = teamMemberRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly IUserRepository userRepository = userRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceTeamsAssignViewData> BuildAsync(int workspaceId, int userId, int teamId)
     {
         var data = new WorkspaceTeamsAssignViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-        data.CanViewTeams = isAdmin || (eff.TryGetValue("teams", out var tp) && tp.CanView);
-        data.CanEditTeams = isAdmin || (eff.TryGetValue("teams", out var tp2) && tp2.CanEdit);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
+        data.CanViewTeams = isAdmin || (permissions.TryGetValue("teams", out var tp) && tp.CanView);
+        data.CanEditTeams = isAdmin || (permissions.TryGetValue("teams", out var tp2) && tp2.CanEdit);
         if (!data.CanViewTeams)
         {
             return data;
         }
 
-        data.Team = await this.teamRepository.FindByIdAsync(teamId);
+        data.Team = await this.dbContext.Teams
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == teamId);
         if (data.Team == null || data.Team.WorkspaceId != workspaceId)
         {
             return data;
         }
 
-        var members = await this.teamMemberRepository.ListMembersAsync(teamId);
-        data.Members = [.. members];
+        var memberUserIds = await this.dbContext.TeamMembers
+            .AsNoTracking()
+            .Where(tm => tm.TeamId == teamId)
+            .Select(tm => tm.UserId)
+            .ToListAsync();
 
-        var memberships = await this.userWorkspaceRepository.FindForWorkspaceAsync(workspaceId);
-        var userIds = memberships.Select(m => m.UserId).Distinct().ToList();
-        foreach (var id in userIds)
-        {
-            var user = await this.userRepository.FindByIdAsync(id);
-            if (user != null)
-            {
-                data.WorkspaceUsers.Add(user);
-            }
-        }
+        data.Members = await this.dbContext.Users
+            .AsNoTracking()
+            .Where(u => memberUserIds.Contains(u.Id))
+            .ToListAsync();
+
+        var workspaceUserIds = await this.dbContext.UserWorkspaces
+            .AsNoTracking()
+            .Where(uw => uw.WorkspaceId == workspaceId)
+            .Select(uw => uw.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        data.WorkspaceUsers = await this.dbContext.Users
+            .AsNoTracking()
+            .Where(u => workspaceUserIds.Contains(u.Id))
+            .ToListAsync();
 
         return data;
     }

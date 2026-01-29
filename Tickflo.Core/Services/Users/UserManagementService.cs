@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Users;
 
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Authentication;
@@ -60,13 +61,13 @@ public interface IUserManagementService
 }
 
 
-public class UserManagementService(IUserRepository userRepository, IPasswordHasher passwordHasher) : IUserManagementService
+public class UserManagementService(TickfloDbContext dbContext, IPasswordHasher passwordHasher) : IUserManagementService
 {
     private static readonly CompositeFormat ErrorEmailAlreadyExists = CompositeFormat.Parse("A user with email '{0}' already exists.");
     private static readonly CompositeFormat ErrorUserNotFound = CompositeFormat.Parse("User {0} not found.");
     private const string ErrorRecoveryEmailSame = "Recovery email must be different from your login email.";
 
-    private readonly IUserRepository userRepository = userRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IPasswordHasher passwordHasher = passwordHasher;
 
     public async Task<User> CreateUserAsync(string name, string email, string? recoveryEmail, string password, bool systemAdmin = false)
@@ -76,7 +77,8 @@ public class UserManagementService(IUserRepository userRepository, IPasswordHash
         await this.EnsureEmailNotInUseAsync(normalizedEmail, email);
 
         var user = new User(name, normalizedEmail, recoveryEmail, this.passwordHasher.Hash($"{normalizedEmail}{password}"));
-        await this.userRepository.AddAsync(user);
+        this.dbContext.Users.Add(user);
+        await this.dbContext.SaveChangesAsync();
 
         return user;
     }
@@ -89,7 +91,8 @@ public class UserManagementService(IUserRepository userRepository, IPasswordHash
 
         var user = await this.GetUserOrThrowAsync(userId);
         UpdateUserFields(user, name, normalizedEmail, recoveryEmail);
-        await this.userRepository.UpdateAsync(user);
+        this.dbContext.Users.Update(user);
+        await this.dbContext.SaveChangesAsync();
 
         return user;
     }
@@ -102,12 +105,13 @@ public class UserManagementService(IUserRepository userRepository, IPasswordHash
             return false;
         }
 
-        var existing = await this.userRepository.FindByEmailAsync(normalizedEmail);
+        var existing = await this.dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
 
         return existing != null && existing.Id != excludeUserId;
     }
 
-    public async Task<User?> GetUserAsync(int userId) => await this.userRepository.FindByIdAsync(userId);
+    public async Task<User?> GetUserAsync(int userId) => await this.dbContext.Users.FindAsync(userId);
 
     public string? ValidateRecoveryEmailDifference(string email, string recoveryEmail)
     {
@@ -123,7 +127,8 @@ public class UserManagementService(IUserRepository userRepository, IPasswordHash
 
     private async Task EnsureEmailNotInUseAsync(string normalizedEmail, string originalEmail, int? excludeUserId = null)
     {
-        var existing = await this.userRepository.FindByEmailAsync(normalizedEmail);
+        var existing = await this.dbContext.Users
+            .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
         if (existing != null && existing.Id != excludeUserId)
         {
             throw new InvalidOperationException(string.Format(null, ErrorEmailAlreadyExists, originalEmail));
@@ -132,7 +137,7 @@ public class UserManagementService(IUserRepository userRepository, IPasswordHash
 
     private async Task<User> GetUserOrThrowAsync(int userId)
     {
-        var user = await this.userRepository.FindByIdAsync(userId) ?? throw new InvalidOperationException(string.Format(null, ErrorUserNotFound, userId));
+        var user = await this.dbContext.Users.FindAsync(userId) ?? throw new InvalidOperationException(string.Format(null, ErrorUserNotFound, userId));
         return user;
     }
 

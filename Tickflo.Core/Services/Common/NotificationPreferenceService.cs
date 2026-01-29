@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Common;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -52,9 +53,9 @@ public interface INotificationPreferenceService
     public Task<List<UserNotificationPreference>> InitializeDefaultPreferencesAsync(int userId);
 }
 
-public class NotificationPreferenceService(IUserNotificationPreferenceRepository userNotificationPreferenceRepository) : INotificationPreferenceService
+public class NotificationPreferenceService(TickfloDbContext dbContext) : INotificationPreferenceService
 {
-    private readonly IUserNotificationPreferenceRepository userNotificationPreferenceRepository = userNotificationPreferenceRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     // Define all notification types as a constant to be reused
     private static readonly NotificationTypeDefinition[] DefaultNotificationTypes =
@@ -73,7 +74,9 @@ public class NotificationPreferenceService(IUserNotificationPreferenceRepository
 
     public async Task<List<UserNotificationPreference>> GetUserPreferencesAsync(int userId)
     {
-        var existing = await this.userNotificationPreferenceRepository.GetPreferencesForUserAsync(userId);
+        var existing = await this.dbContext.UserNotificationPreferences
+            .Where(p => p.UserId == userId)
+            .ToListAsync();
 
         if (existing.Count == 0)
         {
@@ -119,7 +122,16 @@ public class NotificationPreferenceService(IUserNotificationPreferenceRepository
             pref.UpdatedAt = DateTime.UtcNow;
         }
 
-        await this.userNotificationPreferenceRepository.SavePreferencesAsync(preferences);
+        // Remove existing preferences for this user
+        var existing = await this.dbContext.UserNotificationPreferences
+            .Where(p => p.UserId == userId)
+            .ToListAsync();
+        this.dbContext.UserNotificationPreferences.RemoveRange(existing);
+
+        // Add new preferences
+        this.dbContext.UserNotificationPreferences.AddRange(preferences);
+        await this.dbContext.SaveChangesAsync();
+
         return preferences;
     }
 
@@ -137,7 +149,9 @@ public class NotificationPreferenceService(IUserNotificationPreferenceRepository
             })
             .ToList();
 
-        await this.userNotificationPreferenceRepository.SavePreferencesAsync(preferences);
+        this.dbContext.UserNotificationPreferences.AddRange(preferences);
+        await this.dbContext.SaveChangesAsync();
+
         return preferences;
     }
 }

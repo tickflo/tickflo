@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Teams;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -62,14 +63,9 @@ public interface ITeamManagementService
     public Task<bool> ValidateMembersAsync(int workspaceId, List<int> userIds);
 }
 
-public class TeamManagementService(
-    ITeamRepository teamRepository,
-    ITeamMemberRepository teamMemberRepository,
-    IUserWorkspaceRepository userWorkspaceRepository) : ITeamManagementService
+public class TeamManagementService(TickfloDbContext dbContext) : ITeamManagementService
 {
-    private readonly ITeamRepository teamRepository = teamRepository;
-    private readonly ITeamMemberRepository teamMemberRepository = teamMemberRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<Team> CreateTeamAsync(int workspaceId, string name, string? description = null)
     {
@@ -85,16 +81,22 @@ public class TeamManagementService(
             throw new InvalidOperationException($"Team '{trimmedName}' already exists");
         }
 
-        // Use AddAsync which returns the created team with ID
-        var team = await this.teamRepository.AddAsync(workspaceId, trimmedName,
-            string.IsNullOrWhiteSpace(description) ? null : description.Trim(), 0);
+        var team = new Team
+        {
+            WorkspaceId = workspaceId,
+            Name = trimmedName,
+            Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim()
+        };
+
+        this.dbContext.Teams.Add(team);
+        await this.dbContext.SaveChangesAsync();
 
         return team;
     }
 
     public async Task<Team> UpdateTeamAsync(int teamId, string name, string? description = null)
     {
-        var team = await this.teamRepository.FindByIdAsync(teamId) ?? throw new InvalidOperationException("Team not found");
+        var team = await this.dbContext.Teams.FindAsync(teamId) ?? throw new InvalidOperationException("Team not found");
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -112,21 +114,22 @@ public class TeamManagementService(
         team.Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         team.UpdatedAt = DateTime.UtcNow;
 
-        await this.teamRepository.UpdateAsync(team);
+        await this.dbContext.SaveChangesAsync();
 
         return team;
     }
 
     public async Task DeleteTeamAsync(int teamId)
     {
-        var team = await this.teamRepository.FindByIdAsync(teamId) ?? throw new InvalidOperationException("Team not found");
+        var team = await this.dbContext.Teams.FindAsync(teamId) ?? throw new InvalidOperationException("Team not found");
 
-        await this.teamRepository.DeleteAsync(teamId);
+        this.dbContext.Teams.Remove(team);
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task SyncTeamMembersAsync(int teamId, int workspaceId, List<int> memberUserIds)
     {
-        var team = await this.teamRepository.FindByIdAsync(teamId) ?? throw new InvalidOperationException("Team not found");
+        var team = await this.dbContext.Teams.FindAsync(teamId) ?? throw new InvalidOperationException("Team not found");
 
         if (team.WorkspaceId != workspaceId)
         {
@@ -140,41 +143,50 @@ public class TeamManagementService(
         }
 
         // Get current members
-        var currentMembers = await this.teamMemberRepository.ListMembersAsync(teamId);
-        var currentUserIds = currentMembers.Select(m => m.Id).ToHashSet();
+        var currentMembers = await this.dbContext.TeamMembers
+            .Where(tm => tm.TeamId == teamId)
+            .ToListAsync();
+        var currentUserIds = currentMembers.Select(m => m.UserId).ToHashSet();
 
         var newUserIds = memberUserIds.ToHashSet();
 
         // Remove members not in new list
         var toRemove = currentUserIds.Except(newUserIds);
-        foreach (var userId in toRemove)
-        {
-            await this.teamMemberRepository.RemoveAsync(teamId, userId);
-        }
+        var membersToRemove = currentMembers.Where(m => toRemove.Contains(m.UserId));
+        this.dbContext.TeamMembers.RemoveRange(membersToRemove);
 
         // Add new members
         var toAdd = newUserIds.Except(currentUserIds);
         foreach (var userId in toAdd)
         {
-            await this.teamMemberRepository.AddAsync(teamId, userId);
+            this.dbContext.TeamMembers.Add(new TeamMember
+            {
+                TeamId = teamId,
+                UserId = userId
+            });
         }
+
+        await this.dbContext.SaveChangesAsync();
     }
 
     public async Task<bool> IsNameUniqueAsync(int workspaceId, string name, int? excludeTeamId = null)
     {
-        var teams = await this.teamRepository.ListForWorkspaceAsync(workspaceId);
-        var existing = teams.FirstOrDefault(t =>
-            string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase));
+        var existing = await this.dbContext.Teams
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
         return existing == null || (excludeTeamId.HasValue && existing.Id == excludeTeamId.Value);
     }
 
     public async Task<bool> ValidateMembersAsync(int workspaceId, List<int> userIds)
     {
-        var memberships = await this.userWorkspaceRepository.FindForWorkspaceAsync(workspaceId);
-        var validUserIds = memberships.Where(m => m.Accepted).Select(m => m.UserId).ToHashSet();
+        var validUserIds = await this.dbContext.UserWorkspaces
+            .Where(uw => uw.WorkspaceId == workspaceId && uw.Accepted)
+            .Select(uw => uw.UserId)
+            .ToListAsync();
 
-        return userIds.All(validUserIds.Contains);
+        var validUserIdSet = validUserIds.ToHashSet();
+
+        return userIds.All(validUserIdSet.Contains);
     }
 }
 

@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Roles;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -75,56 +76,70 @@ public interface IRoleManagementService
     public Task EnsureRoleCanBeDeletedAsync(int workspaceId, int roleId, string roleName);
 }
 
-public class RoleManagementService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepository,
-    IRoleRepository roleRepository) : IRoleManagementService
+public class RoleManagementService(TickfloDbContext dbContext) : IRoleManagementService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepository;
-    private readonly IRoleRepository roleRepository = roleRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<UserWorkspaceRole> AssignRoleToUserAsync(int userId, int workspaceId, int roleId, int assignedByUserId)
     {
         // Verify role belongs to workspace
-        var role = await this.roleRepository.FindByIdAsync(roleId);
+        var role = await this.dbContext.Roles.FindAsync(roleId);
         if (role == null || role.WorkspaceId != workspaceId)
         {
             throw new InvalidOperationException($"Role {roleId} does not belong to workspace {workspaceId}.");
         }
 
         // Add the assignment
-        return await this.userWorkspaceRoleRepository.AddAsync(new UserWorkspaceRole
+        var assignment = new UserWorkspaceRole
         {
             UserId = userId,
             WorkspaceId = workspaceId,
             RoleId = roleId,
-            CreatedBy = assignedByUserId,
-        });
+            CreatedBy = assignedByUserId
+        };
+
+        this.dbContext.UserWorkspaceRoles.Add(assignment);
+        await this.dbContext.SaveChangesAsync();
+
+        return assignment;
     }
 
     public async Task<bool> RemoveRoleFromUserAsync(int userId, int workspaceId, int roleId)
     {
-        try
-        {
-            await this.userWorkspaceRoleRepository.RemoveAsync(userId, workspaceId, roleId);
-            return true;
-        }
-        catch
+        var assignment = await this.dbContext.UserWorkspaceRoles
+            .FirstOrDefaultAsync(uwr => uwr.UserId == userId && uwr.WorkspaceId == workspaceId && uwr.RoleId == roleId);
+
+        if (assignment == null)
         {
             return false;
         }
+
+        this.dbContext.UserWorkspaceRoles.Remove(assignment);
+        await this.dbContext.SaveChangesAsync();
+        return true;
     }
 
-    public async Task<int> CountRoleAssignmentsAsync(int workspaceId, int roleId) => await this.userWorkspaceRoleRepository.CountAssignmentsForRoleAsync(workspaceId, roleId);
+    public async Task<int> CountRoleAssignmentsAsync(int workspaceId, int roleId) =>
+        await this.dbContext.UserWorkspaceRoles
+            .CountAsync(uwr => uwr.WorkspaceId == workspaceId && uwr.RoleId == roleId);
 
     public async Task<bool> RoleBelongsToWorkspaceAsync(int roleId, int workspaceId)
     {
-        var role = await this.roleRepository.FindByIdAsync(roleId);
+        var role = await this.dbContext.Roles.FindAsync(roleId);
         return role != null && role.WorkspaceId == workspaceId;
     }
 
-    public async Task<List<Role>> GetWorkspaceRolesAsync(int workspaceId) => await this.roleRepository.ListForWorkspaceAsync(workspaceId);
+    public async Task<List<Role>> GetWorkspaceRolesAsync(int workspaceId) =>
+        await this.dbContext.Roles
+            .Where(r => r.WorkspaceId == workspaceId)
+            .ToListAsync();
 
-    public async Task<List<Role>> GetUserRolesAsync(int userId, int workspaceId) => await this.userWorkspaceRoleRepository.GetRolesAsync(userId, workspaceId);
+    public async Task<List<Role>> GetUserRolesAsync(int userId, int workspaceId) =>
+        await this.dbContext.UserWorkspaceRoles
+            .Where(uwr => uwr.UserId == userId && uwr.WorkspaceId == workspaceId)
+            .Include(uwr => uwr.Role)
+            .Select(uwr => uwr.Role)
+            .ToListAsync();
 
     public async Task EnsureRoleCanBeDeletedAsync(int workspaceId, int roleId, string roleName)
     {

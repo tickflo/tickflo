@@ -144,7 +144,7 @@ public class DashboardService(TickfloDbContext db) : IDashboardService
     private const string MeFilter = "me";
     private const string OthersFilter = "others";
     private const string NoDataAvailable = "N/A";
-    private const string UserNameFormat = "User #{0}";
+    private static readonly System.Text.CompositeFormat UserNameFormat = System.Text.CompositeFormat.Parse("User #{0}");
     private const int DefaultTopMembersCount = 5;
     private const int DefaultActivityDaysBack = 30;
     #endregion
@@ -335,7 +335,7 @@ public class DashboardService(TickfloDbContext db) : IDashboardService
     }
 
     private async Task<HashSet<int>> GetClosedStatusIdsAsync(int workspaceId)
-        => (await this.db.TicketStatuses.Where(s => s.WorkspaceId == workspaceId && s.IsClosedState).Select(s => s.Id).ToListAsync()).ToHashSet();
+        => [.. await this.db.TicketStatuses.Where(s => s.WorkspaceId == workspaceId && s.IsClosedState).Select(s => s.Id).ToListAsync()];
 
     private static bool IsTicketClosed(Ticket ticket, HashSet<int> closedStatusIds) => ticket.StatusId.HasValue && closedStatusIds.Contains(ticket.StatusId.Value);
 
@@ -354,7 +354,7 @@ public class DashboardService(TickfloDbContext db) : IDashboardService
             topMembers.Add(new TopMember
             {
                 UserId = item.UserId,
-                Name = user?.Name ?? string.Format(UserNameFormat, item.UserId),
+                Name = user?.Name ?? string.Format(System.Globalization.CultureInfo.InvariantCulture, UserNameFormat, item.UserId),
                 ClosedCount = item.Count
             });
         }
@@ -365,8 +365,12 @@ public class DashboardService(TickfloDbContext db) : IDashboardService
     {
         if (userTeamIds == null || userTeamIds.Count == 0)
         {
-            var myTeams = await this.db.TeamMembers.Include(tm => tm.Team).Where(tm => tm.UserId == userId && tm.Team.WorkspaceId == workspaceId).ToListAsync();
-            userTeamIds = [.. myTeams.Select(t => t.TeamId)];
+            userTeamIds = await this.db.TeamMembers
+                .Where(tm => tm.UserId == userId)
+                .Join(this.db.Teams, tm => tm.TeamId, t => t.Id, (tm, t) => new { tm.TeamId, t.WorkspaceId })
+                .Where(x => x.WorkspaceId == workspaceId)
+                .Select(x => x.TeamId)
+                .ToListAsync();
         }
         return [.. userTeamIds];
     }

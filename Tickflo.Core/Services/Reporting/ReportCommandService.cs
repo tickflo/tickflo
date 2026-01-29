@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Reporting;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -11,15 +12,26 @@ public interface IReportCommandService
 }
 
 
-public class ReportCommandService(IReportRepository reporyRepository) : IReportCommandService
+public class ReportCommandService(TickfloDbContext dbContext) : IReportCommandService
 {
-    private readonly IReportRepository reporyRepository = reporyRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
-    public Task<Report?> FindAsync(int workspaceId, int reportId, CancellationToken ct = default) => this.reporyRepository.FindAsync(workspaceId, reportId);
+    public Task<Report?> FindAsync(int workspaceId, int reportId, CancellationToken ct = default) =>
+        this.dbContext.Reports.FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Id == reportId, ct);
 
-    public Task<Report> CreateAsync(Report report, CancellationToken ct = default) => this.reporyRepository.CreateAsync(report);
+    public async Task<Report> CreateAsync(Report report, CancellationToken ct = default)
+    {
+        this.dbContext.Reports.Add(report);
+        await this.dbContext.SaveChangesAsync(ct);
+        return report;
+    }
 
-    public Task<Report?> UpdateAsync(Report report, CancellationToken ct = default) => this.reporyRepository.UpdateAsync(report);
+    public async Task<Report?> UpdateAsync(Report report, CancellationToken ct = default)
+    {
+        this.dbContext.Reports.Update(report);
+        await this.dbContext.SaveChangesAsync(ct);
+        return report;
+    }
 }
 
 

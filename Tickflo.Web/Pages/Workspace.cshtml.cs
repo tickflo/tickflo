@@ -3,6 +3,7 @@ namespace Tickflo.Web.Pages;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
@@ -10,14 +11,13 @@ using Tickflo.Core.Services.Common;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [Authorize]
 public class WorkspaceModel : PageModel
 {
-    private readonly IWorkspaceRepository workspaceRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository;
-    private readonly IUserRepository userRepository;
+    private readonly TickfloDbContext dbContext;
     private readonly IWorkspaceDashboardViewService workspaceDashboardViewService;
-    private readonly ITeamMemberRepository teamMemberRepository;
     private readonly SettingsConfig settingsConfig;
     private readonly ICurrentUserService currentUserService;
     private readonly IWorkspaceCreationService workspaceCreationService;
@@ -67,20 +67,14 @@ public class WorkspaceModel : PageModel
     public bool ErrorIsHex { get; set; }
 
     public WorkspaceModel(
-        IWorkspaceRepository workspaceRepository,
-        IUserWorkspaceRepository userWorkspaceRepository,
-        IUserRepository users,
+        TickfloDbContext dbContext,
         IWorkspaceDashboardViewService dashboardViewService,
-        ITeamMemberRepository teamMembers,
         SettingsConfig settingsConfig,
         ICurrentUserService currentUserService,
         IWorkspaceCreationService workspaceCreationService)
     {
-        this.workspaceRepository = workspaceRepository;
-        this.userWorkspaceRepository = userWorkspaceRepository;
-        this.userRepository = users;
+        this.dbContext = dbContext;
         this.workspaceDashboardViewService = dashboardViewService;
-        this.teamMemberRepository = teamMembers;
         this.settingsConfig = settingsConfig;
         this.currentUserService = currentUserService;
         this.workspaceCreationService = workspaceCreationService;
@@ -118,7 +112,7 @@ public class WorkspaceModel : PageModel
             return this.Page();
         }
 
-        var found = await this.workspaceRepository.FindBySlugAsync(slug);
+        var found = await this.dbContext.Workspaces.FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
         if (found == null)
         {
             return this.NotFound();
@@ -126,7 +120,9 @@ public class WorkspaceModel : PageModel
 
         this.Workspace = found;
 
-        var userMemberships = await this.userWorkspaceRepository.FindForUserAsync(userId);
+        var userMemberships = await this.dbContext.UserWorkspaces
+            .Where(uw => uw.UserId == userId)
+            .ToListAsync();
         await this.LoadUserWorkspacesAsync(userId, userMemberships);
 
         this.IsMember = userMemberships.Any(m => m.WorkspaceId == found.Id && m.Accepted);
@@ -199,18 +195,20 @@ public class WorkspaceModel : PageModel
             return null;
         }
 
-        var user = await this.userRepository.FindByIdAsync(userId);
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
         return user == null ? null : (userId, user);
     }
 
     private async Task LoadUserWorkspacesAsync(int userId, List<UserWorkspace>? memberships)
     {
         this.Workspaces.Clear();
-        var membershipList = memberships ?? await this.userWorkspaceRepository.FindForUserAsync(userId);
+        var membershipList = memberships ?? await this.dbContext.UserWorkspaces
+            .Where(uw => uw.UserId == userId)
+            .ToListAsync();
 
         foreach (var membership in membershipList)
         {
-            var workspace = await this.workspaceRepository.FindByIdAsync(membership.WorkspaceId);
+            var workspace = await this.dbContext.Workspaces.FindAsync(membership.WorkspaceId);
             if (workspace == null)
             {
                 continue;
@@ -241,9 +239,16 @@ public class WorkspaceModel : PageModel
         // If scope is team, rebuild with actual team IDs
         if (view.TicketViewScope == "team")
         {
-            var myTeams = await this.teamMemberRepository.ListTeamsForUserAsync(workspaceId, userId);
-            var teamIds = myTeams.Select(t => t.Id).ToList();
-            view = await this.workspaceDashboardViewService.BuildAsync(workspaceId, userId, view.TicketViewScope, teamIds, rangeDays, assignmentFilter);
+            var myTeamIds = await this.dbContext.TeamMembers
+                .Where(tm => tm.UserId == userId)
+                .Join(this.dbContext.Teams,
+                    tm => tm.TeamId,
+                    t => t.Id,
+                    (tm, t) => new { tm, t })
+                .Where(x => x.t.WorkspaceId == workspaceId)
+                .Select(x => x.tm.TeamId)
+                .ToListAsync();
+            view = await this.workspaceDashboardViewService.BuildAsync(workspaceId, userId, view.TicketViewScope, myTeamIds, rangeDays, assignmentFilter);
         }
         else if (view.TicketViewScope != "all")
         {

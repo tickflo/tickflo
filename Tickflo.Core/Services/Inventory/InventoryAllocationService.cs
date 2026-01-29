@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Inventory;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using InventoryEntity = Entities.Inventory;
 
@@ -49,19 +50,18 @@ public interface IInventoryAllocationService
     public Task RemoveInventoryItemAsync(int workspaceId, int inventoryId);
 }
 
-public class InventoryAllocationService(
-    IInventoryRepository inventoryRepository,
-    ILocationRepository locationRepository) : IInventoryAllocationService
+public class InventoryAllocationService(TickfloDbContext dbContext) : IInventoryAllocationService
 {
-    private readonly IInventoryRepository inventoryRepository = inventoryRepository;
-    private readonly ILocationRepository locationRepository = locationRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     /// <summary>
     /// Validates that a location exists and is active.
     /// </summary>
     private async Task ValidateLocationAsync(int workspaceId, int locationId)
     {
-        var location = await this.locationRepository.FindAsync(workspaceId, locationId) ?? throw new InvalidOperationException("Location not found");
+        var location = await this.dbContext.Locations
+            .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId)
+            ?? throw new InvalidOperationException("Location not found");
 
         if (!location.Active)
         {
@@ -91,8 +91,11 @@ public class InventoryAllocationService(
         var sku = request.Sku.Trim();
 
         // Enforce uniqueness
-        var existingItems = await this.inventoryRepository.ListAsync(workspaceId);
-        if (existingItems.Any(i => string.Equals(i.Sku, sku, StringComparison.OrdinalIgnoreCase)))
+        var existingWithSku = await this.dbContext.Inventory
+            .Where(i => i.WorkspaceId == workspaceId)
+            .AnyAsync(i => i.Sku.Equals(sku, StringComparison.OrdinalIgnoreCase));
+
+        if (existingWithSku)
         {
             throw new InvalidOperationException($"SKU '{sku}' already exists in this workspace");
         }
@@ -121,7 +124,8 @@ public class InventoryAllocationService(
             Status = string.IsNullOrWhiteSpace(request.Status) ? "active" : request.Status.Trim(),
         };
 
-        await this.inventoryRepository.CreateAsync(inventory);
+        this.dbContext.Inventory.Add(inventory);
+        await this.dbContext.SaveChangesAsync();
 
         return inventory;
     }
@@ -135,7 +139,9 @@ public class InventoryAllocationService(
         int locationId,
         int allocatedByUserId)
     {
-        var inventory = await this.inventoryRepository.FindAsync(workspaceId, inventoryId) ?? throw new InvalidOperationException("Inventory item not found");
+        var inventory = await this.dbContext.Inventory
+            .FirstOrDefaultAsync(i => i.WorkspaceId == workspaceId && i.Id == inventoryId)
+            ?? throw new InvalidOperationException("Inventory item not found");
 
         // Validate location
         await this.ValidateLocationAsync(workspaceId, locationId);
@@ -146,7 +152,7 @@ public class InventoryAllocationService(
         inventory.LocationId = locationId;
         inventory.UpdatedAt = DateTime.UtcNow;
 
-        await this.inventoryRepository.UpdateAsync(inventory);
+        await this.dbContext.SaveChangesAsync();
 
         // Could add: Log allocation change, notify location manager, etc.
 
@@ -164,7 +170,9 @@ public class InventoryAllocationService(
         InventoryDetailsUpdateRequest request,
         int updatedByUserId)
     {
-        var inventory = await this.inventoryRepository.FindAsync(workspaceId, inventoryId) ?? throw new InvalidOperationException("Inventory item not found");
+        var inventory = await this.dbContext.Inventory
+            .FirstOrDefaultAsync(i => i.WorkspaceId == workspaceId && i.Id == inventoryId)
+            ?? throw new InvalidOperationException("Inventory item not found");
 
         // Update SKU if changed
         if (!string.IsNullOrWhiteSpace(request.Sku))
@@ -174,9 +182,11 @@ public class InventoryAllocationService(
             if (!string.Equals(inventory.Sku, sku, StringComparison.OrdinalIgnoreCase))
             {
                 // Check uniqueness
-                var existingItems = await this.inventoryRepository.ListAsync(workspaceId);
-                if (existingItems.Any(i => i.Id != inventoryId &&
-                    string.Equals(i.Sku, sku, StringComparison.OrdinalIgnoreCase)))
+                var existingWithSku = await this.dbContext.Inventory
+                    .Where(i => i.WorkspaceId == workspaceId && i.Id != inventoryId)
+                    .AnyAsync(i => i.Sku.Equals(sku, StringComparison.OrdinalIgnoreCase));
+
+                if (existingWithSku)
                 {
                     throw new InvalidOperationException($"SKU '{sku}' already exists in this workspace");
                 }
@@ -228,7 +238,7 @@ public class InventoryAllocationService(
 
         inventory.UpdatedAt = DateTime.UtcNow;
 
-        await this.inventoryRepository.UpdateAsync(inventory);
+        await this.dbContext.SaveChangesAsync();
 
         return inventory;
     }
@@ -238,12 +248,15 @@ public class InventoryAllocationService(
     /// </summary>
     public async Task RemoveInventoryItemAsync(int workspaceId, int inventoryId)
     {
-        var inventory = await this.inventoryRepository.FindAsync(workspaceId, inventoryId) ?? throw new InvalidOperationException("Inventory item not found");
+        var inventory = await this.dbContext.Inventory
+            .FirstOrDefaultAsync(i => i.WorkspaceId == workspaceId && i.Id == inventoryId)
+            ?? throw new InvalidOperationException("Inventory item not found");
 
         // Business rule: Could check if item is referenced by tickets
         // Business rule: Could require zero quantity before deletion
 
-        await this.inventoryRepository.DeleteAsync(workspaceId, inventoryId);
+        this.dbContext.Inventory.Remove(inventory);
+        await this.dbContext.SaveChangesAsync();
     }
 }
 

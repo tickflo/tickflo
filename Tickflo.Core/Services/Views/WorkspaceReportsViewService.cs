@@ -1,8 +1,8 @@
 namespace Tickflo.Core.Services.Views;
 
-using Tickflo.Core.Data;
-
 using Tickflo.Core.Services.Reporting;
+using Tickflo.Core.Services.Workspace;
+
 public interface IWorkspaceReportsViewService
 {
     public Task<WorkspaceReportsViewData> BuildAsync(int workspaceId, int userId);
@@ -25,10 +25,10 @@ public class ReportSummary
 
 
 public class WorkspaceReportsViewService(
-    IRolePermissionRepository rolePermissionRepository,
+    IWorkspaceAccessService workspaceAccessService,
     IReportQueryService reportQueryService) : IWorkspaceReportsViewService
 {
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
     private readonly IReportQueryService reportQueryService = reportQueryService;
 
     public async Task<WorkspaceReportsViewData> BuildAsync(int workspaceId, int userId)
@@ -36,7 +36,7 @@ public class WorkspaceReportsViewService(
         var data = new WorkspaceReportsViewData();
 
         // Get user's effective permissions for reports
-        var permissions = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
 
         if (permissions.TryGetValue("reports", out var reportPermissions))
         {

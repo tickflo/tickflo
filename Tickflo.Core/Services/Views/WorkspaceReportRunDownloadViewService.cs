@@ -1,8 +1,8 @@
 namespace Tickflo.Core.Services.Views;
 
-using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Reporting;
+using Tickflo.Core.Services.Workspace;
 
 public class WorkspaceReportRunDownloadViewData
 {
@@ -17,20 +17,18 @@ public interface IWorkspaceReportRunDownloadViewService
 
 
 public class WorkspaceReportRunDownloadViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository,
+    IWorkspaceAccessService workspaceAccessService,
     IReportRunService reportRunService) : IWorkspaceReportRunDownloadViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
     private readonly IReportRunService reportRunService = reportRunService;
 
     public async Task<WorkspaceReportRunDownloadViewData> BuildAsync(int workspaceId, int userId, int reportId, int runId)
     {
         var data = new WorkspaceReportRunDownloadViewData();
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-        data.CanViewReports = isAdmin || (eff.TryGetValue("reports", out var rp) && rp.CanView);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
+        data.CanViewReports = isAdmin || (permissions.TryGetValue("reports", out var rp) && rp.CanView);
         if (!data.CanViewReports)
         {
             return data;

@@ -1,8 +1,10 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Reporting;
+using Tickflo.Core.Services.Workspace;
 
 public class ReportRunPageData
 {
@@ -32,31 +34,29 @@ public interface IWorkspaceReportRunViewService
 
 
 public class WorkspaceReportRunViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository,
-    IReportRepository reporyRepository,
-    IReportRunRepository reportRunRepository,
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService,
     IReportingService reportingService) : IWorkspaceReportRunViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
-    private readonly IReportRepository reporyRepository = reporyRepository;
-    private readonly IReportRunRepository reportRunRepository = reportRunRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
     private readonly IReportingService reportingService = reportingService;
 
     public async Task<WorkspaceReportRunViewData> BuildAsync(int workspaceId, int userId, int reportId, int runId, int page, int take)
     {
         var data = new WorkspaceReportRunViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
-        data.CanViewReports = isAdmin || (eff.TryGetValue("reports", out var rp) && rp.CanView);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
+        data.CanViewReports = isAdmin || (permissions.TryGetValue("reports", out var rp) && rp.CanView);
         if (!data.CanViewReports)
         {
             return data;
         }
 
-        var rep = await this.reporyRepository.FindAsync(workspaceId, reportId);
+        var rep = await this.dbContext.Reports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Id == reportId);
         if (rep == null)
         {
             return data;
@@ -64,7 +64,9 @@ public class WorkspaceReportRunViewService(
 
         data.Report = rep;
 
-        var run = await this.reportRunRepository.FindAsync(workspaceId, runId);
+        var run = await this.dbContext.ReportRuns
+            .AsNoTracking()
+            .FirstOrDefaultAsync(rr => rr.WorkspaceId == workspaceId && rr.Id == runId);
         if (run == null || run.ReportId != reportId)
         {
             return data;

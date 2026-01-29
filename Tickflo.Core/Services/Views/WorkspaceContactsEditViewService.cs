@@ -1,7 +1,9 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Workspace;
 
 public class WorkspaceContactsEditViewData
 {
@@ -19,40 +21,41 @@ public interface IWorkspaceContactsEditViewService
 
 
 public class WorkspaceContactsEditViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository,
-    IContactRepository contactRepository,
-    ITicketPriorityRepository priorityRepository) : IWorkspaceContactsEditViewService
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService) : IWorkspaceContactsEditViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
-    private readonly IContactRepository contactRepository = contactRepository;
-    private readonly ITicketPriorityRepository priorityRepository = priorityRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceContactsEditViewData> BuildAsync(int workspaceId, int userId, int contactId = 0)
     {
         var data = new WorkspaceContactsEditViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
 
         if (isAdmin)
         {
             data.CanViewContacts = data.CanEditContacts = data.CanCreateContacts = true;
         }
-        else if (eff.TryGetValue("contacts", out var cp))
+        else if (permissions.TryGetValue("contacts", out var cp))
         {
             data.CanViewContacts = cp.CanView;
             data.CanEditContacts = cp.CanEdit;
             data.CanCreateContacts = cp.CanCreate;
         }
 
-        var priorities = await this.priorityRepository.ListAsync(workspaceId);
-        data.Priorities = priorities != null ? [.. priorities] : [];
+        var priorities = await this.dbContext.TicketPriorities
+            .AsNoTracking()
+            .Where(p => p.WorkspaceId == workspaceId)
+            .ToListAsync();
+        data.Priorities = [.. priorities];
 
         if (contactId > 0)
         {
-            data.ExistingContact = await this.contactRepository.FindAsync(workspaceId, contactId);
+            data.ExistingContact = await this.dbContext.Contacts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == contactId);
         }
 
         return data;

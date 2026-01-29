@@ -24,10 +24,12 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
     public DbSet<TicketPriority> TicketPriorities => this.Set<TicketPriority>();
     public DbSet<TicketType> TicketTypes => this.Set<TicketType>();
     public DbSet<TicketHistory> TicketHistory => this.Set<TicketHistory>();
+    public DbSet<TicketHistory> TicketHistories => this.Set<TicketHistory>();
     public DbSet<TicketComment> TicketComments => this.Set<TicketComment>();
     public DbSet<Team> Teams => this.Set<Team>();
     public DbSet<TeamMember> TeamMembers => this.Set<TeamMember>();
     public DbSet<Permission> Permissions => this.Set<Permission>();
+    public DbSet<RolePermission> RolePermissionsTable => this.Set<RolePermission>();
     public DbSet<RolePermissionLink> RolePermissions => this.Set<RolePermissionLink>();
     public DbSet<Notification> Notifications => this.Set<Notification>();
     public DbSet<UserNotificationPreference> UserNotificationPreferences => this.Set<UserNotificationPreference>();

@@ -3,8 +3,11 @@ namespace Tickflo.Web.Pages.Workspaces;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
 
 /// <summary>
 /// Result from workspace and user validation operations.
@@ -124,12 +127,12 @@ public abstract class WorkspacePageModel : PageModel
     /// Loads a workspace by slug and validates the current user.
     /// Returns NotFound if workspace doesn't exist, or Forbid if user ID cannot be extracted.
     /// </summary>
-    /// <param name="workspaceRepository">The workspace repository</param>
+    /// <param name="dbContext">The database context</param>
     /// <param name="slug">The workspace slug</param>
     /// <returns>WorkspaceUserLoadResult on success, or IActionResult (NotFound/Forbid) on failure</returns>
-    protected async Task<object> LoadWorkspaceAndUserOrExitAsync(IWorkspaceRepository workspaceRepository, string slug)
+    protected async Task<object> LoadWorkspaceAndUserOrExitAsync(TickfloDbContext dbContext, string slug)
     {
-        var workspace = await workspaceRepository.FindBySlugAsync(slug);
+        var workspace = await dbContext.Workspaces.FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
         if (workspace == null)
         {
             return this.NotFound();
@@ -148,16 +151,14 @@ public abstract class WorkspacePageModel : PageModel
     /// Loads a workspace by slug and validates both that it exists and that the current user is a member.
     /// Returns NotFound if workspace doesn't exist, Forbid if user is not a member or cannot be identified.
     /// </summary>
-    /// <param name="workspaceRepository">The workspace repository</param>
-    /// <param name="userWorkspaceRepository">The user workspace repository for membership validation</param>
+    /// <param name="dbContext">The database context</param>
     /// <param name="slug">The workspace slug</param>
     /// <returns>WorkspaceUserLoadResult on success, or IActionResult (NotFound/Forbid) on failure</returns>
     protected async Task<object> LoadWorkspaceAndValidateUserMembershipAsync(
-        IWorkspaceRepository workspaceRepository,
-        IUserWorkspaceRepository userWorkspaceRepository,
+        TickfloDbContext dbContext,
         string slug)
     {
-        var workspace = await workspaceRepository.FindBySlugAsync(slug);
+        var workspace = await dbContext.Workspaces.FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
         if (workspace == null)
         {
             return this.NotFound();
@@ -169,7 +170,8 @@ public abstract class WorkspacePageModel : PageModel
         }
 
         // Validate that the user is a member of this workspace
-        var membership = await userWorkspaceRepository.FindAsync(userId, workspace.Id);
+        var membership = await dbContext.UserWorkspaces
+            .FirstOrDefaultAsync(uw => uw.UserId == userId && uw.WorkspaceId == workspace.Id);
         if (membership == null)
         {
             return this.Forbid();

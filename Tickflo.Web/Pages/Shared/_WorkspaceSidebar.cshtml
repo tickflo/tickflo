@@ -1,8 +1,9 @@
+@using Microsoft.EntityFrameworkCore
 @model string
 @inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
-@inject Tickflo.Core.Data.IUserRepository userRepository
-@inject Tickflo.Core.Data.IWorkspaceRepository WorkspaceRepo
-@inject Tickflo.Core.Data.IRolePermissionRepository RolePermsRepo
+@inject Tickflo.Core.Data.TickfloDbContext dbContext
+@inject Tickflo.Web.Services.ITempRolePermissionService RolePermsService
+@* TODO: This view should NOT be using TickfloDbContext directly. The logic needs moved into a Tickflo.Core service *@
 @{
     var slug = Model ?? string.Empty;
     var path = ViewContext?.HttpContext?.Request?.Path.Value ?? "";
@@ -15,20 +16,20 @@
     var perms = new Dictionary<string, Tickflo.Core.Data.EffectiveSectionPermission>(StringComparer.OrdinalIgnoreCase);
     if (int.TryParse(uidStr, out var uid))
     {
-        var meTask = userRepository.FindByIdAsync(uid);
+        var meTask = dbContext.Users.FirstOrDefaultAsync(u => u.Id == uid);
         meTask.Wait();
         var me = meTask.Result;
         isAdmin = me?.SystemAdmin == true;
 
         if (!string.IsNullOrWhiteSpace(slug))
         {
-            var wsTask = WorkspaceRepo.FindBySlugAsync(slug);
+            var wsTask = dbContext.Workspaces.FirstOrDefaultAsync(w => w.Slug.ToLower() == slug.ToLower());
             wsTask.Wait();
             var ws = wsTask.Result;
             if (ws != null)
             {
                 workspaceId = ws.Id;
-                var pTask = RolePermsRepo.GetEffectivePermissionsForUserAsync(workspaceId, uid);
+                var pTask = RolePermsService.GetEffectivePermissionsForUserAsync(workspaceId, uid);
                 pTask.Wait();
                 perms = pTask.Result ?? perms;
             }

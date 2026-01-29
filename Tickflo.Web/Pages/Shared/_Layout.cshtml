@@ -1,5 +1,8 @@
-@inject Tickflo.Core.Data.INotificationRepository NotificationRepository
+@using Microsoft.EntityFrameworkCore
+@inject Tickflo.Core.Data.TickfloDbContext dbContext
 @inject Tickflo.Core.Services.Common.ICurrentUserService CurrentUserService
+
+@* TODO: This view should NOT be using TickfloDbContext directly. The logic needs moved into a Tickflo.Core service *@
 
 @{
     var theme = Context.Request.Cookies["theme"] ?? "dark";
@@ -56,7 +59,9 @@
         // Get unread notification count
         if (CurrentUserService.TryGetUserId(User, out var userId))
         {
-            unreadNotificationCount = await NotificationRepository.CountUnreadForUserAsync(userId);
+            unreadNotificationCount = await dbContext.Notifications
+                .Where(n => n.UserId == userId && n.ReadAt == null)
+                .CountAsync();
         }
     }
 }

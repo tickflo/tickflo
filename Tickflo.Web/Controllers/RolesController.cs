@@ -2,30 +2,31 @@ namespace Tickflo.Web.Controllers;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Services.Common;
 using Tickflo.Core.Services.Roles;
 using Tickflo.Core.Services.Workspace;
 
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+
 [Authorize]
 [Route("workspaces/{slug}/users/roles/{id:int}")]
 public class RolesController(
-    IWorkspaceRepository workspaceRepository,
+    TickfloDbContext dbContext,
     ICurrentUserService currentUserService,
     IWorkspaceAccessService workspaceAccessService,
-    IRoleManagementService roleManagementService,
-    IRoleRepository roleRepository) : Controller
+    IRoleManagementService roleManagementService) : Controller
 {
-    private readonly IWorkspaceRepository workspaceRepository = workspaceRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly ICurrentUserService currentUserService = currentUserService;
     private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
     private readonly IRoleManagementService roleManagementService = roleManagementService;
-    private readonly IRoleRepository roleRepository = roleRepository;
 
     [HttpPost("delete")]
     public async Task<IActionResult> Delete(string slug, int id)
     {
-        var workspace = await this.workspaceRepository.FindBySlugAsync(slug);
+        var workspace = await this.dbContext.Workspaces.FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
         if (workspace == null)
         {
             return this.NotFound();
@@ -42,7 +43,7 @@ public class RolesController(
             return this.Forbid();
         }
 
-        var role = await this.roleRepository.FindByIdAsync(id);
+        var role = await this.dbContext.Roles.FindAsync(id);
         if (role == null || role.WorkspaceId != workspace.Id)
         {
             return this.NotFound();
@@ -59,7 +60,8 @@ public class RolesController(
             return this.Redirect($"/workspaces/{slug}/roles");
         }
 
-        await this.roleRepository.DeleteAsync(id);
+        this.dbContext.Roles.Remove(role);
+        await this.dbContext.SaveChangesAsync();
         return this.Redirect($"/workspaces/{slug}/roles");
     }
 }

@@ -4,9 +4,12 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Common;
+
+// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
 
 public class NotificationTicketData
 {
@@ -18,10 +21,10 @@ public class NotificationTicketData
 
 [Authorize]
 public class NotificationsModel(
-    INotificationRepository notificationRepository,
+    TickfloDbContext dbContext,
     ICurrentUserService currentUserService) : PageModel
 {
-    private readonly INotificationRepository notificationRepository = notificationRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly ICurrentUserService currentUserService = currentUserService;
 
     public List<Notification> Notifications { get; set; } = [];
@@ -50,7 +53,10 @@ public class NotificationsModel(
             return this.Forbid();
         }
 
-        this.Notifications = await this.notificationRepository.ListForUserAsync(userId);
+        this.Notifications = await this.dbContext.Notifications
+            .Where(n => n.UserId == userId && n.ReadAt == null)
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
         return this.Page();
     }
 
@@ -61,13 +67,14 @@ public class NotificationsModel(
             return this.Forbid();
         }
 
-        var notification = await this.notificationRepository.FindByIdAsync(id);
+        var notification = await this.dbContext.Notifications.FindAsync(id);
         if (notification == null || notification.UserId != userId)
         {
             return this.NotFound();
         }
 
-        await this.notificationRepository.MarkAsReadAsync(id);
+        notification.ReadAt = DateTime.UtcNow;
+        await this.dbContext.SaveChangesAsync();
         return this.RedirectToPage();
     }
 
@@ -78,12 +85,15 @@ public class NotificationsModel(
             return this.Forbid();
         }
 
-        var notifications = await this.notificationRepository.ListForUserAsync(userId, unreadOnly: true);
+        var notifications = await this.dbContext.Notifications
+            .Where(n => n.UserId == userId && n.ReadAt == null)
+            .ToListAsync();
         foreach (var notification in notifications)
         {
-            await this.notificationRepository.MarkAsReadAsync(notification.Id);
+            notification.ReadAt = DateTime.UtcNow;
         }
 
+        await this.dbContext.SaveChangesAsync();
         return this.RedirectToPage();
     }
 }

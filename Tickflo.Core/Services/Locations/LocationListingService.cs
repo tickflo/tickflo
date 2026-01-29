@@ -1,5 +1,6 @@
 namespace Tickflo.Core.Services.Locations;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using static Tickflo.Core.Services.Locations.ILocationListingService;
 public interface ILocationListingService
@@ -21,20 +22,32 @@ public interface ILocationListingService
 }
 
 
-public class LocationListingService(ILocationRepository locationRepository) : ILocationListingService
+public class LocationListingService(TickfloDbContext dbContext) : ILocationListingService
 {
-    private readonly ILocationRepository locationRepository = locationRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<IReadOnlyList<LocationItem>> GetListAsync(int workspaceId)
     {
-        var list = await this.locationRepository.ListAsync(workspaceId);
+        var list = await this.dbContext.Locations
+            .Where(l => l.WorkspaceId == workspaceId)
+            .ToListAsync();
+
         var items = new List<LocationItem>();
 
         foreach (var location in list)
         {
-            var contactIds = await this.locationRepository.ListContactIdsAsync(workspaceId, location.Id);
+            var contactIds = await this.dbContext.ContactLocations
+                .Where(cl => cl.WorkspaceId == workspaceId && cl.LocationId == location.Id)
+                .Select(cl => cl.ContactId)
+                .ToListAsync();
+
             var contactCount = contactIds.Count;
-            var previewNames = await this.locationRepository.ListContactNamesAsync(workspaceId, location.Id, 3);
+
+            var previewNames = await this.dbContext.Contacts
+                .Where(c => c.WorkspaceId == workspaceId && contactIds.Take(3).Contains(c.Id))
+                .Select(c => c.Name)
+                .ToListAsync();
+
             var preview = string.Join(", ", previewNames);
 
             items.Add(new LocationItem

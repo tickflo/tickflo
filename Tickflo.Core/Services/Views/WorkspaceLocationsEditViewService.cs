@@ -1,7 +1,9 @@
 namespace Tickflo.Core.Services.Views;
 
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Workspace;
 
 public class WorkspaceLocationsEditViewData
 {
@@ -21,32 +23,24 @@ public interface IWorkspaceLocationsEditViewService
 
 
 public class WorkspaceLocationsEditViewService(
-    IUserWorkspaceRoleRepository userWorkspaceRoleRepo,
-    IRolePermissionRepository rolePermissionRepository,
-    ILocationRepository locationRepository,
-    IUserWorkspaceRepository userWorkspaceRepository,
-    IUserRepository userRepository,
-    IContactRepository contactRepository) : IWorkspaceLocationsEditViewService
+    TickfloDbContext dbContext,
+    IWorkspaceAccessService workspaceAccessService) : IWorkspaceLocationsEditViewService
 {
-    private readonly IUserWorkspaceRoleRepository userWorkspaceRoleRepository = userWorkspaceRoleRepo;
-    private readonly IRolePermissionRepository rolePermissionRepository = rolePermissionRepository;
-    private readonly ILocationRepository locationRepository = locationRepository;
-    private readonly IUserWorkspaceRepository userWorkspaceRepository = userWorkspaceRepository;
-    private readonly IUserRepository userRepository = userRepository;
-    private readonly IContactRepository contactRepository = contactRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IWorkspaceAccessService workspaceAccessService = workspaceAccessService;
 
     public async Task<WorkspaceLocationsEditViewData> BuildAsync(int workspaceId, int userId, int locationId = 0)
     {
         var data = new WorkspaceLocationsEditViewData();
 
-        var isAdmin = await this.userWorkspaceRoleRepository.IsAdminAsync(userId, workspaceId);
-        var eff = await this.rolePermissionRepository.GetEffectivePermissionsForUserAsync(workspaceId, userId);
+        var isAdmin = await this.workspaceAccessService.UserIsWorkspaceAdminAsync(userId, workspaceId);
+        var permissions = await this.workspaceAccessService.GetUserPermissionsAsync(workspaceId, userId);
 
         if (isAdmin)
         {
             data.CanViewLocations = data.CanEditLocations = data.CanCreateLocations = true;
         }
-        else if (eff.TryGetValue("locations", out var lp))
+        else if (permissions.TryGetValue("locations", out var lp))
         {
             data.CanViewLocations = lp.CanView;
             data.CanEditLocations = lp.CanEdit;
@@ -54,30 +48,39 @@ public class WorkspaceLocationsEditViewService(
         }
 
         // Load members for default assignee selection
-        var memberships = await this.userWorkspaceRepository.FindForWorkspaceAsync(workspaceId);
-        if (memberships != null)
-        {
-            foreach (var memberUserId in memberships.Select(m => m.UserId).Distinct())
-            {
-                var user = await this.userRepository.FindByIdAsync(memberUserId);
-                if (user != null)
-                {
-                    data.MemberOptions.Add(user);
-                }
-            }
-        }
+        var memberships = await this.dbContext.UserWorkspaces
+            .AsNoTracking()
+            .Where(uw => uw.WorkspaceId == workspaceId)
+            .Select(uw => uw.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        var users = await this.dbContext.Users
+            .AsNoTracking()
+            .Where(u => memberships.Contains(u.Id))
+            .ToListAsync();
+        data.MemberOptions = users;
 
         // Load all contacts
-        var contacts = await this.contactRepository.ListAsync(workspaceId);
-        data.ContactOptions = contacts != null ? [.. contacts] : [];
+        var contacts = await this.dbContext.Contacts
+            .AsNoTracking()
+            .Where(c => c.WorkspaceId == workspaceId)
+            .ToListAsync();
+        data.ContactOptions = [.. contacts];
 
         if (locationId > 0)
         {
-            data.ExistingLocation = await this.locationRepository.FindAsync(workspaceId, locationId);
+            data.ExistingLocation = await this.dbContext.Locations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.WorkspaceId == workspaceId && l.Id == locationId);
             if (data.ExistingLocation != null)
             {
-                var selected = await this.locationRepository.ListContactIdsAsync(workspaceId, locationId);
-                data.SelectedContactIds = [.. selected];
+                var selectedContactIds = await this.dbContext.ContactLocations
+                    .AsNoTracking()
+                    .Where(cl => cl.WorkspaceId == workspaceId && cl.LocationId == locationId)
+                    .Select(cl => cl.ContactId)
+                    .ToListAsync();
+                data.SelectedContactIds = [.. selectedContactIds];
             }
         }
         else

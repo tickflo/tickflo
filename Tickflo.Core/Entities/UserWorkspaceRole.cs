@@ -7,4 +7,7 @@ public class UserWorkspaceRole
     public int RoleId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public int CreatedBy { get; set; }
+
+    // Navigation properties
+    public Role Role { get; set; } = null!;
 }

@@ -1,6 +1,7 @@
 namespace Tickflo.Core.Services.Contacts;
 
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
@@ -37,7 +38,7 @@ public interface IContactRegistrationService
 }
 
 
-public class ContactRegistrationService(IContactRepository contactRepository) : IContactRegistrationService
+public class ContactRegistrationService(TickfloDbContext dbContext) : IContactRegistrationService
 {
     #region Constants
     private const string ContactNameRequiredError = "Contact name is required";
@@ -46,7 +47,7 @@ public class ContactRegistrationService(IContactRepository contactRepository) : 
     private const string ContactNotFoundError = "Contact not found";
     #endregion
 
-    private readonly IContactRepository contactRepository = contactRepository;
+    private readonly TickfloDbContext dbContext = dbContext;
 
     public async Task<Contact> RegisterContactAsync(int workspaceId, ContactRegistrationRequest request, int createdByUserId)
     {
@@ -55,7 +56,8 @@ public class ContactRegistrationService(IContactRepository contactRepository) : 
         ValidateEmailIfProvided(request.Email);
 
         var contact = CreateContactEntity(workspaceId, request, name);
-        await this.contactRepository.CreateAsync(contact);
+        this.dbContext.Contacts.Add(contact);
+        await this.dbContext.SaveChangesAsync();
         return contact;
     }
 
@@ -78,11 +80,21 @@ public class ContactRegistrationService(IContactRepository contactRepository) : 
         UpdateContactCompany(contact, request.Company);
         UpdateContactNotes(contact, request.Notes);
 
-        await this.contactRepository.UpdateAsync(contact);
+        await this.dbContext.SaveChangesAsync();
         return contact;
     }
 
-    public async Task RemoveContactAsync(int workspaceId, int contactId) => await this.contactRepository.DeleteAsync(workspaceId, contactId);
+    public async Task RemoveContactAsync(int workspaceId, int contactId)
+    {
+        var contact = await this.dbContext.Contacts
+            .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == contactId);
+
+        if (contact != null)
+        {
+            this.dbContext.Contacts.Remove(contact);
+            await this.dbContext.SaveChangesAsync();
+        }
+    }
 
     private static string ValidateAndGetContactName(string? name)
     {
@@ -96,10 +108,15 @@ public class ContactRegistrationService(IContactRepository contactRepository) : 
 
     private async Task EnsureContactNameIsUniqueAsync(int workspaceId, string name, int? excludeContactId = null)
     {
-        var existingContacts = await this.contactRepository.ListAsync(workspaceId);
-        var isDuplicate = existingContacts.Any(c =>
-            (excludeContactId == null || c.Id != excludeContactId) &&
-            string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        var query = this.dbContext.Contacts
+            .Where(c => c.WorkspaceId == workspaceId);
+
+        if (excludeContactId.HasValue)
+        {
+            query = query.Where(c => c.Id != excludeContactId.Value);
+        }
+
+        var isDuplicate = await query.AnyAsync(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
         if (isDuplicate)
         {
@@ -128,7 +145,9 @@ public class ContactRegistrationService(IContactRepository contactRepository) : 
 
     private async Task<Contact> GetContactOrThrowAsync(int workspaceId, int contactId)
     {
-        var contact = await this.contactRepository.FindAsync(workspaceId, contactId) ?? throw new InvalidOperationException(ContactNotFoundError);
+        var contact = await this.dbContext.Contacts
+            .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == contactId)
+            ?? throw new InvalidOperationException(ContactNotFoundError);
 
         return contact;
     }
