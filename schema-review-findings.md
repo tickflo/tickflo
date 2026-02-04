@@ -1,0 +1,765 @@
+# Database Schema Review - Comprehensive Findings
+
+**Review Date:** 2026-01-29  
+**Schema:** `db/schema.sql` (1812 lines, 30 tables)  
+**DbContext:** `Tickflo.Core/Data/TickfloDbContext.cs` (38 DbSet properties)
+
+---
+
+## Executive Summary
+
+This review identified **27 distinct issues** across 7 categories, ranging from Critical to Low severity. The most significant findings include:
+
+- **1 Critical:** Duplicate table definitions causing schema corruption
+- **1 Critical:** Missing table for active entity in codebase
+- **2 High:** Duplicate DbSet declarations and inconsistent identity strategies
+- **10 Medium:** Index inconsistencies, timestamp type variations, missing foreign keys
+- **13 Low:** Naming convention violations, orphaned tables
+
+**Immediate Action Required:**
+1. Resolve duplicate `ticket_inventory`/`ticket_inventories` tables
+2. Create missing `ticket_comments` table or remove TicketComment entity
+3. Fix duplicate TicketHistory DbSet declaration
+4. Standardize identity generation strategy
+
+---
+
+## CRITICAL ISSUES (2)
+
+### C1: Duplicate Table Definitions - ticket_inventory vs ticket_inventories
+
+**Severity:** 🔴 CRITICAL
+
+**Description:**  
+The schema contains TWO separate tables with identical structure:
+- `ticket_inventories` (line 551)
+- `ticket_inventory` (line 578)
+
+Both tables have:
+- Identical columns: `id`, `ticket_id`, `inventory_id`, `quantity`, `unit_price`
+- Separate identity sequences
+- Separate indexes (4 indexes total - 2 per table)
+
+**Impact:**
+- Data fragmentation risk
+- Index bloat (redundant indexes)
+- Developer confusion about which table to use
+- Potential data loss if queries target wrong table
+
+**Entity Mapping:**
+- DbContext has `DbSet<TicketInventory>` (singular)
+- No explicit `[Table]` attribute found in TicketInventory.cs
+- EF Core likely maps to `ticket_inventory` (singular) by convention
+
+**Remediation:**
+```sql
+-- 1. Determine which table is actively used
+SELECT COUNT(*) FROM ticket_inventory;
+SELECT COUNT(*) FROM ticket_inventories;
+
+-- 2. Migrate data if needed
+INSERT INTO ticket_inventory SELECT * FROM ticket_inventories;
+
+-- 3. Drop duplicate table
+DROP TABLE ticket_inventories CASCADE;
+
+-- 4. Remove duplicate indexes
+DROP INDEX idx_ticket_inventories_ticket_id;
+DROP INDEX idx_ticket_inventories_inventory_id;
+```
+
+**Recommendation:** Create a new dbmate migration to resolve this immediately.
+
+---
+
+### C2: Missing Table for Active Entity - ticket_comments
+
+**Severity:** 🔴 CRITICAL
+
+**Description:**  
+DbContext declares `DbSet<TicketComment>` but no `ticket_comments` table exists in schema.
+
+**Evidence:**
+- `Tickflo.Core/Entities/TicketComment.cs` exists
+- DbContext line 28: `public DbSet<TicketComment> TicketComments => this.Set<TicketComment>();`
+- DbContext lines 121-132: Configures indexes and foreign keys for TicketComment
+- Schema search for `ticket_comment`: **No results**
+
+**Impact:**
+- Runtime errors when accessing TicketComments DbSet
+- Migration/seeding failures
+- Application crashes on any ticket comment operations
+
+**Remediation:**
+
+**Option A:** If TicketComment is needed (recommended):
+```sql
+-- Create missing table via new migration
+CREATE TABLE public.ticket_comments (
+    id integer NOT NULL GENERATED ALWAYS AS IDENTITY,
+    workspace_id integer NOT NULL,
+    ticket_id integer NOT NULL,
+    comment_text text NOT NULL,
+    created_by_user_id integer NOT NULL,
+    updated_by_user_id integer,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone,
+    PRIMARY KEY (id),
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_ticket_comments_ws_ticket_time 
+    ON ticket_comments(workspace_id, ticket_id, created_at);
+```
+
+**Option B:** If TicketComment was added prematurely:
+- Remove `TicketComment.cs` entity
+- Remove DbSet declaration from DbContext (line 28)
+- Remove configuration (lines 121-132)
+
+---
+
+## HIGH SEVERITY ISSUES (2)
+
+### H1: Duplicate DbSet Declaration - TicketHistory
+
+**Severity:** 🟠 HIGH
+
+**Description:**  
+DbContext declares TicketHistory **twice** with different property names:
+
+```csharp
+Line 26: public DbSet<TicketHistory> TicketHistory => this.Set<TicketHistory>();
+Line 27: public DbSet<TicketHistory> TicketHistories => this.Set<TicketHistory>();
+```
+
+**Impact:**
+- Ambiguous API usage
+- Potential compilation warnings
+- Developer confusion
+
+**Remediation:**
+```csharp
+// Remove line 26, keep line 27 (plural form preferred)
+public DbSet<TicketHistory> TicketHistories => this.Set<TicketHistory>();
+```
+
+---
+
+### H2: Inconsistent Identity Generation Strategy
+
+**Severity:** 🟠 HIGH
+
+**Description:**  
+Most tables use `GENERATED ALWAYS AS IDENTITY` but two tables use `GENERATED BY DEFAULT`:
+- `email_templates` (BY DEFAULT)
+- `ticket_history` (BY DEFAULT)
+
+**All other 18 tables use:** GENERATED ALWAYS
+
+**Impact:**
+- `BY DEFAULT` allows manual ID insertion, potentially causing sequence conflicts
+- Inconsistent behavior across entities
+- No apparent business reason for these two tables to differ
+
+**Recommendation:**
+```sql
+-- Migration to standardize (unless there's a specific reason)
+-- For email_templates
+ALTER TABLE email_templates ALTER COLUMN id 
+    DROP IDENTITY, 
+    ADD GENERATED ALWAYS AS IDENTITY;
+
+-- For ticket_history
+ALTER TABLE ticket_history ALTER COLUMN id 
+    DROP IDENTITY, 
+    ADD GENERATED ALWAYS AS IDENTITY;
+```
+
+**Alternative:** If BY DEFAULT is intentional, document WHY in code comments.
+
+---
+
+## MEDIUM SEVERITY ISSUES (10)
+
+### M1: Inconsistent Timestamp Type Usage
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+Most columns use `timestamp with time zone`, but 3 exceptions use `timestamp without time zone`:
+
+1. **contacts.last_interaction** - `timestamp without time zone`
+2. **file_storage.created_at** - `timestamp without time zone`  
+3. **file_storage.updated_at** - `timestamp without time zone`
+
+**All other ~40 timestamp columns use:** `timestamp with time zone`
+
+**Impact:**
+- Timezone ambiguity for these 3 columns
+- Inconsistent date handling logic required
+- Potential bugs in multi-timezone environments
+
+**Recommendation:**
+```sql
+-- Standardize to timestamptz
+ALTER TABLE contacts 
+    ALTER COLUMN last_interaction TYPE timestamp with time zone;
+
+ALTER TABLE file_storage 
+    ALTER COLUMN created_at TYPE timestamp with time zone,
+    ALTER COLUMN updated_at TYPE timestamp with time zone;
+```
+
+---
+
+### M2: Entity-Table Naming Mismatch - priorities
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+- Schema table: `priorities`
+- Entity class: `TicketPriority` with explicit `[Table("priorities")]` attribute
+- DbSet property: `TicketPriorities` (plural)
+
+**Inconsistency:** Other ticket-related tables use full prefix:
+- `ticket_statuses` → `TicketStatus`
+- `ticket_types` → `TicketType`
+
+But priorities doesn't follow pattern:
+- Should be: `ticket_priorities` (not `priorities`)
+
+**Impact:**
+- Naming inconsistency reduces codebase clarity
+- Developer confusion when navigating between schema and code
+
+**Recommendation:**
+```sql
+-- Rename table to match pattern
+ALTER TABLE priorities RENAME TO ticket_priorities;
+
+-- Update [Table] attribute in TicketPriority.cs
+[Table("ticket_priorities")]
+public class TicketPriority
+```
+
+---
+
+### M3: Index Redundancy - Both Index Formats Present
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+Schema uses inconsistent index naming and duplicate coverage:
+
+**Index Naming Styles:**
+1. `idx_*` prefix (21 indexes) - e.g., `idx_tickets_ws_assigned`
+2. `ix_*` prefix (3 indexes) - e.g., `ix_contact_locations_workspace_contact`
+3. Descriptive names (3 indexes) - e.g., `teams_workspace_id_name_idx`
+
+**Duplicate Coverage Example:**
+- `ux_ticket_types_workspace_name` (UNIQUE index on workspace_id, name)
+- `idx_ticket_types_ws_order_name` (index on workspace_id, sort_order, name)
+
+The UNIQUE index makes the second index partially redundant for queries filtering by workspace_id.
+
+**Recommendation:**
+1. Standardize on `idx_` prefix
+2. Review overlapping indexes and remove redundant ones
+3. Document index strategy in migration comments
+
+---
+
+### M4: DbContext Index Configuration Mismatch
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+DbContext configures indexes that may not match schema exactly:
+
+**Example 1 - ReportRun:**
+- DbContext line 81: Index on `{WorkspaceId, ReportId, StartedAt}`
+- Schema: `report_runs_workspace_report_idx` on `(workspace_id, report_id, started_at DESC)`
+  - **Mismatch:** DbContext doesn't specify DESC order
+
+**Example 2 - FileStorage:**
+- DbContext lines 154-161: Configures 4 indexes
+- Schema: Only 3 indexes exist (`idx_file_storage_*`)
+- DbContext configures: `fs.Path` (line 161)
+- Schema: **No index on path column**
+
+**Impact:**
+- EF migrations may generate incorrect alter statements
+- Performance expectations may not match reality
+
+**Recommendation:**
+- Add missing `path` index to schema if needed
+- Update DbContext to specify DESC order where appropriate
+- Audit all DbContext index configurations against actual schema
+
+---
+
+### M5: Missing Foreign Key in Schema - ticket_history
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+The `ticket_history` table has no foreign key constraints in schema, but logically should reference:
+- `tickets(id)` via `ticket_id` column
+- `users(id)` via potential created_by/user columns
+
+**Evidence:**
+```sql
+-- Schema shows ticket_history with ticket_id column
+-- But no FOREIGN KEY constraints found
+```
+
+**Impact:**
+- Data integrity not enforced at database level
+- Orphaned records possible
+- Inconsistent with other ticket-related tables
+
+**Recommendation:**
+```sql
+ALTER TABLE ticket_history
+    ADD CONSTRAINT fk_ticket_history_ticket 
+        FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    ADD CONSTRAINT fk_ticket_history_workspace 
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE;
+```
+
+---
+
+### M6: Missing Foreign Keys - file_storage
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+`file_storage` table has workspace_id and user_id columns but no foreign key constraints.
+
+**Current State:**
+- Has columns: workspace_id, user_id, created_by, updated_by
+- **No foreign keys to users or workspaces tables**
+
+**Other tables properly constrain these relationships.**
+
+**Recommendation:**
+```sql
+ALTER TABLE file_storage
+    ADD CONSTRAINT fk_file_storage_workspace 
+        FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+    ADD CONSTRAINT fk_file_storage_user 
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_file_storage_created_by 
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    ADD CONSTRAINT fk_file_storage_updated_by 
+        FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
+```
+
+---
+
+### M7: Missing Index in DbContext - FileStorage.Path
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+DbContext line 161 configures index on FileStorage.Path:
+```csharp
+.HasIndex(fs => fs.Path);
+```
+
+But schema has **no corresponding index**. File paths are likely frequently queried for retrieval.
+
+**Recommendation:**
+Add to schema:
+```sql
+CREATE INDEX idx_file_storage_path ON file_storage(path);
+```
+
+Or remove from DbContext if not needed.
+
+---
+
+### M8: Missing Index in DbContext - FileStorage RelatedEntity
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+DbContext line 159 configures:
+```csharp
+.HasIndex(fs => new { fs.RelatedEntityType, fs.RelatedEntityId });
+```
+
+Schema has **no corresponding index**.
+
+**Recommendation:**
+Add to schema:
+```sql
+CREATE INDEX idx_file_storage_related_entity 
+    ON file_storage(related_entity_type, related_entity_id);
+```
+
+---
+
+### M9: Premature Indexes on file_storage
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+`file_storage` table has 3 indexes:
+1. `idx_file_storage_workspace` (workspace_id)
+2. `idx_file_storage_user` (user_id)
+3. `idx_file_storage_category` (category)
+
+**Questions:**
+- Are file queries common enough to warrant 3 indexes?
+- Is category filtering a frequent operation?
+- Are these covering common queries or premature optimization?
+
+**Recommendation:**
+- If file storage is low-volume, consider removing category index
+- Monitor query patterns before expanding file_storage indexes
+- The workspace and user indexes are likely reasonable
+
+---
+
+### M10: Premature Indexes on inventory
+
+**Severity:** 🟡 MEDIUM
+
+**Description:**  
+`inventory` table has 3 indexes beyond the unique SKU constraint:
+1. `idx_inventory_ws_location` (workspace_id, location_id)
+2. `idx_inventory_ws_name` (workspace_id, name)
+3. `idx_inventory_ws_status` (workspace_id, status)
+
+**Analysis:**
+- All start with workspace_id (good for multi-tenant)
+- Status index may be premature if most items are 'active'
+- Name index may be redundant if name searches use full-text search
+
+**Recommendation:**
+- Keep ws_location (likely joins to locations)
+- Review usage of status and name indexes
+- Consider removing name index if not heavily used
+- Add compound index for common filters if needed
+
+---
+
+## LOW SEVERITY ISSUES (13)
+
+### L1: Orphaned Schema Tables (Not in DbContext)
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+Three tables exist in schema but have no corresponding DbSet in DbContext:
+
+1. **meta** - Key-value store (likely for migrations/app state)
+2. **schema_migrations** - Migration tracking (dbmate standard)
+3. **user_email_changes** - Email change tracking system
+
+**Analysis:**
+- `meta` and `schema_migrations` are infrastructure tables (OK to exclude)
+- `user_email_changes` appears functional but unused in code
+
+**Impact:**
+- If user_email_changes has data: No way to access via EF Core
+- If it's abandoned: Dead table cluttering schema
+
+**Recommendation:**
+- **meta & schema_migrations:** No action (infrastructure)
+- **user_email_changes:** 
+  - If active: Add `DbSet<UserEmailChange>` entity
+  - If abandoned: Drop table
+
+---
+
+### L2: Singular vs Plural Table Naming Inconsistency
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+Most tables use plural form, but these use singular:
+- `file_storage` (most tables end in 's')
+- `inventory` (vs inventories)
+- `ticket_history` (vs ticket_histories)
+
+**Standard:** 26 tables use plural, 4 use singular
+
+**Impact:**
+- Minor developer confusion
+- Inconsistent querying patterns
+
+**Recommendation:**
+- Accept current state (too disruptive to rename)
+- Standardize future tables as plural
+- Document exception in schema docs
+
+---
+
+### L3: DbSet Property Naming - Token vs Tokens
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+DbContext line 10:
+```csharp
+public DbSet<Token> Tokens => this.Set<Token>();
+```
+
+Table name: `tokens` (plural)  
+Entity name: `Token` (singular)  
+Property name: `Tokens` (plural)
+
+This follows EF Core conventions (correct), but worth noting for consistency.
+
+**No action needed** - this is standard practice.
+
+---
+
+### L4-L8: Mixed text vs varchar Usage
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+Schema uses both `text` and `character varying(N)`:
+- 45 `text` columns
+- 38 `varchar` columns
+
+**Examples:**
+- **text:** Most description, notes, body fields
+- **varchar:** emails, names, status fields with known max lengths
+
+**Pattern:** Generally appropriate - text for unbounded, varchar for constrained
+
+**Minor Issues:**
+- Some name fields use `text` when `varchar(200)` might be more appropriate
+- No CHECK constraints on varchar lengths in code
+
+**Recommendation:**
+- Generally acceptable pattern
+- Consider varchar for fields with business length limits
+- No immediate action required
+
+---
+
+### L9: Missing UNIQUE Constraint in DbContext - Teams
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+Schema has:
+```sql
+CREATE UNIQUE INDEX teams_workspace_id_name_idx ON teams(workspace_id, name);
+```
+
+But DbContext (line 134-136) only has:
+```csharp
+modelBuilder.Entity<Team>()
+    .HasIndex(t => new { t.WorkspaceId, t.Name })
+    .IsUnique();
+```
+
+**This is actually correct!** DbContext properly declares it as unique.
+
+**No issue** - marked for completeness.
+
+---
+
+### L10: Composite Key Documentation
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+Seven tables use composite primary keys. All are properly configured in both schema and DbContext:
+
+1. contact_locations (contact_id, location_id)
+2. role_permissions (role_id, permission_id)
+3. team_members (team_id, user_id)
+4. user_notification_preferences (user_id, notification_type)
+5. user_workspace_roles (user_id, workspace_id, role_id)
+6. user_workspaces (user_id, workspace_id)
+7. tokens (user_id, value)
+
+**No issues** - properly implemented. Good junction table design.
+
+---
+
+### L11: Cascade Delete Inconsistency
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+Foreign key ON DELETE behaviors are inconsistent across similar relationships:
+
+**Examples:**
+- contact_locations → contacts: ON DELETE CASCADE
+- team_members → users: ON DELETE CASCADE
+- roles → users (created_by): ON DELETE (no action specified - defaults to NO ACTION)
+
+**Some relationships use:**
+- CASCADE (14 instances)
+- RESTRICT (2 instances: ticket_comment created_by if table existed)
+- SET NULL (5 instances)
+- NO ACTION (default, many cases)
+
+**Impact:**
+- Not necessarily wrong, but should be intentional
+- Deleting a workspace may have unpredictable cascade effects
+
+**Recommendation:**
+- Audit cascade behaviors align with business rules
+- Document intended cascade strategy
+- Consider if workspace deletion should cascade or be prevented
+
+---
+
+### L12: Missing CHECK Constraints
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+Schema has **zero CHECK constraints**. Opportunities:
+
+1. Email format validation (users.email, contacts.email)
+2. Quantity >= 0 (inventory.quantity, ticket_inventory.quantity)
+3. Price/cost >= 0 (inventory.cost, inventory.price)
+4. Status enum values (ticket.status, inventory.status, etc.)
+
+**Current State:** All validation in application layer
+
+**Recommendation:**
+- Generally acceptable for modern ORMs
+- Consider CHECK constraints for critical invariants (quantities, prices)
+- Status enums better handled via reference tables (already done for tickets)
+
+---
+
+### L13: Index Naming Convention Inconsistency
+
+**Severity:** 🔵 LOW
+
+**Description:**  
+Three different naming patterns:
+1. **idx_*** (21 indexes) - modern snake_case
+2. **ix_*** (3 indexes) - older EF convention
+3. **descriptive** (3 indexes) - e.g., report_runs_workspace_report_idx
+
+**Recommendation:**
+- Standardize future indexes on `idx_` prefix
+- No need to rename existing (too disruptive)
+- Update migration templates to use `idx_` pattern
+
+---
+
+## Summary Statistics
+
+### Tables
+- **Total in schema:** 30 (31 if counting duplicate ticket_inventory)
+- **Total DbSet properties:** 38
+- **Mapped correctly:** ~25
+- **Orphaned in schema:** 3 (meta, schema_migrations, user_email_changes)
+- **Missing in schema:** 1 (ticket_comments) ❌
+
+### Indexes
+- **Total in schema:** 27 (25 regular + 2 UNIQUE with CREATE INDEX)
+- **Configured in DbContext:** ~18
+- **Potentially premature:** 4-6 (file_storage, inventory status/name)
+- **Missing in schema:** 2 (file_storage path, related_entity)
+
+### Foreign Keys
+- **Total in schema:** ~30
+- **Missing:** 2+ (ticket_history, file_storage)
+
+### Identity Strategy
+- **GENERATED ALWAYS:** 18 tables ✓
+- **GENERATED BY DEFAULT:** 2 tables (inconsistent)
+
+### Timestamp Types
+- **timestamp with time zone:** ~40 columns ✓
+- **timestamp without time zone:** 3 columns (inconsistent)
+
+---
+
+## Prioritized Remediation Roadmap
+
+### Immediate (Sprint 1)
+1. ✅ **C1:** Resolve duplicate ticket_inventory tables
+2. ✅ **C2:** Create ticket_comments table OR remove entity
+3. ✅ **H1:** Remove duplicate TicketHistory DbSet
+
+### High Priority (Sprint 2)
+4. **H2:** Standardize identity generation to ALWAYS
+5. **M1:** Standardize all timestamps to timestamptz
+6. **M5, M6:** Add missing foreign keys (ticket_history, file_storage)
+
+### Medium Priority (Sprint 3)
+7. **M2:** Rename priorities to ticket_priorities
+8. **M4:** Sync DbContext indexes with schema
+9. **M7, M8:** Add missing file_storage indexes
+
+### Low Priority (Backlog)
+10. **M3, M9, M10:** Index audit and optimization
+11. **L11:** Document cascade delete strategy
+12. **L13:** Standardize index naming in templates
+13. **L1:** Remove user_email_changes if abandoned
+
+---
+
+## Appendix: Full Table Mapping
+
+| Schema Table | DbContext Entity | DbSet Property | Status |
+|--------------|------------------|----------------|--------|
+| contact_locations | ContactLocation | ContactLocations | ✅ |
+| contacts | Contact | Contacts | ✅ |
+| email_templates | EmailTemplate | EmailTemplates | ✅ |
+| emails | Email | Emails | ✅ |
+| file_storage | FileStorage | FileStorages | ✅ |
+| inventory | Inventory | Inventory | ✅ |
+| locations | Location | Locations | ✅ |
+| **meta** | - | - | ⚠️ Orphaned |
+| notifications | Notification | Notifications | ✅ |
+| permissions | Permission | Permissions | ✅ |
+| priorities | TicketPriority | TicketPriorities | ✅ (with [Table] attr) |
+| report_runs | ReportRun | ReportRuns | ✅ |
+| reports | Report | Reports | ✅ |
+| role_permissions | RolePermission | RolePermissions | ✅ |
+| roles | Role | Roles | ✅ |
+| **schema_migrations** | - | - | ⚠️ Infrastructure |
+| team_members | TeamMember | TeamMembers | ✅ |
+| teams | Team | Teams | ✅ |
+| ticket_history | TicketHistory | TicketHistory**ies** | ✅ (duplicate DbSet!) |
+| **ticket_inventories** | TicketInventory | TicketInventories | ❌ DUPLICATE TABLE |
+| **ticket_inventory** | TicketInventory | TicketInventories | ✅ (likely maps here) |
+| ticket_statuses | TicketStatus | TicketStatuses | ✅ |
+| ticket_types | TicketType | TicketTypes | ✅ |
+| tickets | Ticket | Tickets | ✅ |
+| tokens | Token | Tokens | ✅ |
+| **user_email_changes** | - | - | ⚠️ Orphaned |
+| user_notification_preferences | UserNotificationPreference | UserNotificationPreferences | ✅ |
+| user_workspace_roles | UserWorkspaceRole | UserWorkspaceRoles | ✅ |
+| user_workspaces | UserWorkspace | UserWorkspaces | ✅ |
+| users | User | Users | ✅ |
+| workspaces | Workspace | Workspaces | ✅ |
+| **(missing)** | **TicketComment** | **TicketComments** | ❌ TABLE MISSING |
+
+---
+
+## Conclusion
+
+The schema is generally well-structured with proper normalization and relationships. However, the critical issues around duplicate tables and missing tables require immediate attention to prevent runtime errors and data inconsistency. The medium and low priority issues are largely maintainability concerns that can be addressed incrementally.
+
+Most concerning patterns:
+1. **Duplicate table definitions** (unexpected in production schema)
+2. **DbContext-Schema drift** (missing tables, mismatched indexes)
+3. **Inconsistent conventions** (identity strategy, timestamps, naming)
+
+Positive observations:
+- Good use of composite keys for junction tables
+- Comprehensive foreign key coverage (with noted exceptions)
+- Reasonable index strategy (though some may be premature)
+- Proper workspace isolation via multi-tenant pattern
