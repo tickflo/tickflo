@@ -88,8 +88,9 @@ public class UserInvitationService(
             ?? throw new InvalidOperationException("Workspace not found");
 
         // Check if user already exists
+        var emailLower = email.ToLower(System.Globalization.CultureInfo.CurrentCulture);
         var user = await this.dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefaultAsync(u => u.Email.Equals(emailLower, StringComparison.OrdinalIgnoreCase));
         var isNewUser = user == null;
 
         if (isNewUser)
@@ -195,8 +196,9 @@ public class UserInvitationService(
 
     public async Task AcceptInvitationAsync(string slug, int userId)
     {
+        var slugLower = slug.ToLower(System.Globalization.CultureInfo.CurrentCulture);
         var workspace = await this.dbContext.Workspaces
-            .FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefaultAsync(w => w.Slug.Equals(slugLower, StringComparison.OrdinalIgnoreCase))
             ?? throw new NotFoundException("Workspace not found");
 
         var membership = await this.dbContext.UserWorkspaces
@@ -216,8 +218,9 @@ public class UserInvitationService(
 
     public async Task DeclineInvitationAsync(string slug, int userId)
     {
+        var slugLower = slug.ToLower(System.Globalization.CultureInfo.CurrentCulture);
         var workspace = await this.dbContext.Workspaces
-            .FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefaultAsync(w => w.Slug.Equals(slugLower, StringComparison.OrdinalIgnoreCase))
             ?? throw new NotFoundException("Workspace not found");
 
         var membership = await this.dbContext.UserWorkspaces

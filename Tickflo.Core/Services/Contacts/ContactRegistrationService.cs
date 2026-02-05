@@ -116,7 +116,8 @@ public class ContactRegistrationService(TickfloDbContext dbContext) : IContactRe
             query = query.Where(c => c.Id != excludeContactId.Value);
         }
 
-        var isDuplicate = await query.AnyAsync(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        var nameLower = name.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var isDuplicate = await query.AnyAsync(c => c.Name.Equals(nameLower, StringComparison.OrdinalIgnoreCase));
 
         if (isDuplicate)
         {

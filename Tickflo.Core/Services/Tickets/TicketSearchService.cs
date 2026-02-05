@@ -186,7 +186,8 @@ public class TicketSearchService(TickfloDbContext dbContext) : ITicketSearchServ
 
         if (!string.IsNullOrEmpty(statusFilter))
         {
-            var statusId = (await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusFilter, StringComparison.OrdinalIgnoreCase)))?.Id;
+            var statusFilterLower = statusFilter.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            var statusId = (await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusFilterLower, StringComparison.OrdinalIgnoreCase)))?.Id;
             if (statusId.HasValue)
             {
                 myTickets = [.. myTickets.Where(t => t.StatusId == statusId.Value)];

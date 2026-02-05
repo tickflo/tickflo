@@ -163,7 +163,8 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
     {
         if (!string.IsNullOrWhiteSpace(typeName))
         {
-            var type = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(typeName.Trim(), StringComparison.OrdinalIgnoreCase));
+            var typeNameLower = typeName.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            var type = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(typeNameLower, StringComparison.OrdinalIgnoreCase));
             if (type != null)
             {
                 return type.Id;
@@ -178,7 +179,8 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
     {
         if (!string.IsNullOrWhiteSpace(priorityName))
         {
-            var priority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(priorityName.Trim(), StringComparison.OrdinalIgnoreCase));
+            var priorityNameLower = priorityName.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            var priority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(priorityNameLower, StringComparison.OrdinalIgnoreCase));
             if (priority != null)
             {
                 return priority.Id;
@@ -193,7 +195,8 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
     {
         if (!string.IsNullOrWhiteSpace(statusName))
         {
-            var status = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusName.Trim(), StringComparison.OrdinalIgnoreCase));
+            var statusNameLower = statusName.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            var status = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusNameLower, StringComparison.OrdinalIgnoreCase));
             if (status != null)
             {
                 return status.Id;
@@ -278,7 +281,10 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
 
         if (!string.IsNullOrWhiteSpace(request.Type))
         {
-            var type = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == request.WorkspaceId && t.Name.Equals(request.Type.Trim(), StringComparison.OrdinalIgnoreCase));
+            var typeName = request.Type.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            var type = await this.dbContext.TicketTypes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.WorkspaceId == request.WorkspaceId && t.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
             if (type != null)
             {
                 ticket.TicketTypeId = type.Id;
@@ -287,7 +293,10 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
 
         if (!string.IsNullOrWhiteSpace(request.Priority))
         {
-            var priority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == request.WorkspaceId && p.Name.Equals(request.Priority.Trim(), StringComparison.OrdinalIgnoreCase));
+            var priorityName = request.Priority.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            var priority = await this.dbContext.TicketPriorities
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.WorkspaceId == request.WorkspaceId && p.Name.Equals(priorityName, StringComparison.OrdinalIgnoreCase));
             if (priority != null)
             {
                 ticket.PriorityId = priority.Id;
@@ -296,7 +305,10 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
 
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
-            var status = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == request.WorkspaceId && s.Name.Equals(request.Status.Trim(), StringComparison.OrdinalIgnoreCase));
+            var statusName = request.Status.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            var status = await this.dbContext.TicketStatuses
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.WorkspaceId == request.WorkspaceId && s.Name.Equals(statusName, StringComparison.OrdinalIgnoreCase));
             if (status != null)
             {
                 ticket.StatusId = status.Id;

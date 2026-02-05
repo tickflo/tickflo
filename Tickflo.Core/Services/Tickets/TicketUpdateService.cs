@@ -201,7 +201,8 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
 
     private async Task<TicketPriority> GetPriorityOrThrowAsync(int workspaceId, string priorityName)
     {
-        var priority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(priorityName.Trim(), StringComparison.OrdinalIgnoreCase)) ?? throw new InvalidOperationException(string.Format(null, ErrorPriorityNotFound, priorityName));
+        var priorityNameLower = priorityName.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var priority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(priorityNameLower, StringComparison.OrdinalIgnoreCase)) ?? throw new InvalidOperationException(string.Format(null, ErrorPriorityNotFound, priorityName));
 
         return priority;
     }
@@ -253,7 +254,8 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
 
     private async Task<TicketStatus> GetStatusOrThrowAsync(int workspaceId, string statusName)
     {
-        var status = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusName.Trim(), StringComparison.OrdinalIgnoreCase)) ?? throw new InvalidOperationException(string.Format(null, ErrorStatusNotFound, statusName));
+        var statusNameLower = statusName.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var status = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusNameLower, StringComparison.OrdinalIgnoreCase)) ?? throw new InvalidOperationException(string.Format(null, ErrorStatusNotFound, statusName));
 
         return status;
     }

@@ -124,7 +124,7 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.TypeId;
         }
 
-        var typeName = string.IsNullOrWhiteSpace(request.Type) ? DefaultTicketType : request.Type.Trim();
+        var typeName = (string.IsNullOrWhiteSpace(request.Type) ? DefaultTicketType : request.Type.Trim()).ToLower(System.Globalization.CultureInfo.CurrentCulture);
         var type = await this.dbContext.TicketTypes
             .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
         return type?.Id;
@@ -137,7 +137,7 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.PriorityId;
         }
 
-        var priorityName = string.IsNullOrWhiteSpace(request.Priority) ? DefaultPriority : request.Priority.Trim();
+        var priorityName = (string.IsNullOrWhiteSpace(request.Priority) ? DefaultPriority : request.Priority.Trim()).ToLower(System.Globalization.CultureInfo.CurrentCulture);
         var priority = await this.dbContext.TicketPriorities
             .FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(priorityName, StringComparison.OrdinalIgnoreCase));
         return priority?.Id;
@@ -150,7 +150,7 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.StatusId;
         }
 
-        var statusName = string.IsNullOrWhiteSpace(request.Status) ? DefaultStatus : request.Status.Trim();
+        var statusName = (string.IsNullOrWhiteSpace(request.Status) ? DefaultStatus : request.Status.Trim()).ToLower(System.Globalization.CultureInfo.CurrentCulture);
         var status = await this.dbContext.TicketStatuses
             .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusName, StringComparison.OrdinalIgnoreCase));
         return status?.Id;

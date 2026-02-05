@@ -502,12 +502,13 @@
             });
             // Live updates: connect SignalR and join workspace group
             const slug = '@Model.WorkspaceSlug';
-            try {
-                const connection = new signalR.HubConnectionBuilder()
-                    .withUrl('/hubs/tickets')
-                    .withAutomaticReconnect()
-                    .build();
-                connection.on('ticketCreated', function(t){
+            (async function() {
+                try {
+                    const connection = new signalR.HubConnectionBuilder()
+                        .withUrl('/hubs/tickets')
+                        .withAutomaticReconnect()
+                        .build();
+                    connection.on('ticketCreated', function(t){
                     const tbody = document.querySelector('table tbody');
                     if (!tbody) return;
                     const tr = document.createElement('tr');
@@ -579,8 +580,9 @@
             } catch (err) {
                 console.warn('SignalR connection failed', err);
             }
+            })();
         })();
-    </script>
+        </script>
 
     <!-- Pagination -->
     <div class="card bg-neutral-900/60 backdrop-blur rounded-2xl">

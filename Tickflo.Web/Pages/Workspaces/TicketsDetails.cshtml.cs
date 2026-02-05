@@ -305,14 +305,59 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
                 return this.NotFound();
             }
 
-            await this.BroadcastTicketChangeAsync(hub, ticket, isNew, workspaceId);
-            this.SetSuccessMessage(SuccessTicketSaved);
+            // Broadcast to SignalR - wrap in try-catch to prevent rollback if broadcast fails
+            try
+            {
+                await this.BroadcastTicketChangeAsync(hub, ticket, isNew, workspaceId);
+            }
+            catch (Exception broadcastEx)
+            {
+                // Log the error but don't fail the ticket save
+                Console.Error.WriteLine($"SignalR broadcast failed for ticket {ticket.Id}: {broadcastEx.Message}");
+            }
+
+            this.SetSuccessMessage($"{SuccessTicketSaved} (ID: {ticket.Id}, Subject: {ticket.Subject})");
             return this.RedirectToTicketsWithPreservedFilters(slug);
         }
         catch (InvalidOperationException ex)
         {
             this.SetErrorMessage(ex.Message);
-            return this.RedirectToPage("/Workspaces/Tickets", new { slug });
+            Console.Error.WriteLine($"Ticket save validation error: {ex}");
+
+            // Reload view data to display the form again with error message
+            await this.ReloadViewDataForErrorAsync(workspaceId, resolvedId, currentUserId);
+            return this.Page();
+        }
+        catch (Exception ex)
+        {
+            this.SetErrorMessage($"Failed to save ticket: {ex.Message}");
+            Console.Error.WriteLine($"Ticket save error: {ex}");
+
+            // Reload view data to display the form again with error message
+            await this.ReloadViewDataForErrorAsync(workspaceId, resolvedId, currentUserId);
+            return this.Page();
+        }
+    }
+
+    private async Task ReloadViewDataForErrorAsync(int workspaceId, int ticketId, int currentUserId)
+    {
+        try
+        {
+            var viewData = await this.workspaceTicketDetailsViewService.BuildAsync(workspaceId, ticketId, currentUserId, this.LocationId);
+            if (viewData != null)
+            {
+                this.LoadViewDataFromService(viewData);
+            }
+
+            if (this.Ticket != null && this.Ticket.Id > InvalidTicketId)
+            {
+                this.Comments = await this.ticketCommentService.GetCommentsAsync(workspaceId, this.Ticket.Id, isClientView: false);
+            }
+        }
+        catch
+        {
+            // If we can't reload view data, at least preserve what we have
+            // The error message will still be shown
         }
     }
 
@@ -420,6 +465,9 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
 
     private async Task<Ticket?> HandleTicketUpdateAsync(int workspaceId, int ticketId, int userId, Ticket? existing, List<TicketInventory> inventories)
     {
+        Console.WriteLine($"[HandleTicketUpdateAsync] Starting - TicketId: {ticketId}, WorkspaceId: {workspaceId}");
+        Console.WriteLine($"[HandleTicketUpdateAsync] Form values - Subject: '{this.EditSubject}', Type: '{this.EditType}', Priority: '{this.EditPriority}', Status: '{this.EditStatus}'");
+
         if (this.EnsureEntityExistsOrNotFound(existing) is IActionResult result)
         {
             throw new InvalidOperationException(ErrorTicketNotFound);
@@ -446,7 +494,10 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             Inventories = inventories
         };
 
+        Console.WriteLine($"[HandleTicketUpdateAsync] Calling UpdateTicketAsync...");
         var ticket = await this.ticketManagementService.UpdateTicketAsync(updateReq);
+        Console.WriteLine($"[HandleTicketUpdateAsync] UpdateTicketAsync returned - Ticket ID: {ticket.Id}, Subject: '{ticket.Subject}'");
+
         await this.NotifyTicketChangesAsync(workspaceId, ticket, userId, oldAssignedUserId, oldAssignedTeamId, oldStatusId);
         return ticket;
     }
