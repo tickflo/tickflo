@@ -244,7 +244,7 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
     }
 

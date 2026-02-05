@@ -104,7 +104,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         // Could add: Send notifications, update SLA metrics, trigger surveys, etc.
@@ -161,7 +161,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         // Could add: Notify original assignee, reset SLA timers, etc.
@@ -214,7 +214,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         // Could add: Start auto-close timer, request feedback, etc.
@@ -267,7 +267,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         return ticket;

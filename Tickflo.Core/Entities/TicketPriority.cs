@@ -2,7 +2,7 @@ namespace Tickflo.Core.Entities;
 
 using System.ComponentModel.DataAnnotations.Schema;
 
-[Table("priorities")]
+[Table("ticket_priorities")]
 public class TicketPriority
 {
     public int Id { get; set; }
