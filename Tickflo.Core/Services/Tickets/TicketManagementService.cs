@@ -349,13 +349,13 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
     private async Task UpdateTicketAssignmentsAsync(Ticket ticket, UpdateTicketRequest request)
     {
         Console.WriteLine($"[UpdateTicketAssignmentsAsync] AssignedUserId: {request.AssignedUserId}, AssignedTeamId: {request.AssignedTeamId}");
-        
+
         if (request.AssignedUserId.HasValue)
         {
             Console.WriteLine($"[UpdateTicketAssignmentsAsync] Validating user assignment: {request.AssignedUserId.Value}");
             var isValid = await this.ValidateUserAssignmentAsync(request.AssignedUserId.Value, request.WorkspaceId);
             Console.WriteLine($"[UpdateTicketAssignmentsAsync] User validation result: {isValid}");
-            
+
             if (isValid)
             {
                 ticket.AssignedUserId = request.AssignedUserId.Value;
@@ -372,7 +372,7 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             Console.WriteLine($"[UpdateTicketAssignmentsAsync] Validating team assignment: {request.AssignedTeamId.Value}");
             var isValid = await this.ValidateTeamAssignmentAsync(request.AssignedTeamId.Value, request.WorkspaceId);
             Console.WriteLine($"[UpdateTicketAssignmentsAsync] Team validation result: {isValid}");
-            
+
             if (isValid)
             {
                 ticket.AssignedTeamId = request.AssignedTeamId.Value;
