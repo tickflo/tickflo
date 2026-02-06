@@ -91,9 +91,10 @@ public class InventoryAllocationService(TickfloDbContext dbContext) : IInventory
         var sku = request.Sku.Trim();
 
         // Enforce uniqueness
+        var skuLower = sku.ToLower();
         var existingWithSku = await this.dbContext.Inventory
             .Where(i => i.WorkspaceId == workspaceId)
-            .AnyAsync(i => i.Sku.Equals(sku, StringComparison.OrdinalIgnoreCase));
+            .AnyAsync(i => i.Sku.ToLower() == skuLower);
 
         if (existingWithSku)
         {
@@ -182,9 +183,10 @@ public class InventoryAllocationService(TickfloDbContext dbContext) : IInventory
             if (!string.Equals(inventory.Sku, sku, StringComparison.OrdinalIgnoreCase))
             {
                 // Check uniqueness
+                var skuLower = sku.ToLower();
                 var existingWithSku = await this.dbContext.Inventory
                     .Where(i => i.WorkspaceId == workspaceId && i.Id != inventoryId)
-                    .AnyAsync(i => i.Sku.Equals(sku, StringComparison.OrdinalIgnoreCase));
+                    .AnyAsync(i => i.Sku.ToLower() == skuLower);
 
                 if (existingWithSku)
                 {

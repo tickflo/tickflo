@@ -104,7 +104,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         // Could add: Send notifications, update SLA metrics, trigger surveys, etc.
@@ -142,7 +142,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
         }
 
         var openStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals("open", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == "open")
             ?? throw new InvalidOperationException("'Open' status not found in workspace");
 
         ticket.StatusId = openStatus.Id;
@@ -161,7 +161,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         // Could add: Notify original assignee, reset SLA timers, etc.
@@ -186,7 +186,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.IsClosedState);
 
         var resolvedStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals("resolved", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == "resolved")
             ?? throw new InvalidOperationException("'Resolved' status not found in workspace");
 
         if (closedStatus != null && ticket.StatusId == closedStatus.Id)
@@ -214,7 +214,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         // Could add: Start auto-close timer, request feedback, etc.
@@ -239,7 +239,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.IsClosedState);
 
         var cancelledStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals("cancelled", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == "cancelled")
             ?? throw new InvalidOperationException("'Cancelled' status not found in workspace");
 
         if (closedStatus != null && ticket.StatusId == closedStatus.Id)
@@ -267,7 +267,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         return ticket;

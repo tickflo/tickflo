@@ -417,4 +417,12 @@ dotnet_naming_rule.parameters_rule.severity             = warning
 dotnet_diagnostic.CA1305.severity = none
 dotnet_diagnostic.CA1848.severity = none
 dotnet_diagnostic.CA1873.severity = none
+
+# CA1304, CA1311 & CA1862: Culture-specific string operations - Disabled for EF Core LINQ queries
+# EF Core can only translate parameterless .ToLower() to SQL LOWER() function.
+# Adding CultureInfo or StringComparison parameters breaks SQL translation.
+# We use .ToLower() == comparison for case-insensitive matching in database queries.
+dotnet_diagnostic.CA1304.severity = none
+dotnet_diagnostic.CA1311.severity = none
+dotnet_diagnostic.CA1862.severity = none
 dotnet_diagnostic.CA2254.severity = none

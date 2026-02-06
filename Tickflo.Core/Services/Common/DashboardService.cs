@@ -289,7 +289,7 @@ public class DashboardService(TickfloDbContext db) : IDashboardService
     {
         var filtered = tickets;
 
-        switch (assignmentFilter?.ToLowerInvariant())
+        switch (assignmentFilter?.ToLower())
         {
             case UnassignedFilter:
                 filtered = filtered.Where(t => !t.AssignedUserId.HasValue);
@@ -317,7 +317,7 @@ public class DashboardService(TickfloDbContext db) : IDashboardService
     {
         IEnumerable<Ticket> visibleTickets = tickets;
 
-        var scope = ticketViewScope?.ToLowerInvariant() ?? AllScope;
+        var scope = ticketViewScope?.ToLower() ?? AllScope;
 
         if (scope == MineScope)
         {

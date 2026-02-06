@@ -1,22 +1,19 @@
 namespace Tickflo.Web.Pages.Workspaces;
 
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Locations;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
-using ContactLocation = Core.Entities.ContactLocation;
 
-// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
+// Thin PageModel - orchestrates UI and delegates to Core services
 
 [Authorize]
 public class LocationsEditModel(
     IWorkspaceService workspaceService,
-    TickfloDbContext dbContext,
     IWorkspaceLocationsEditViewService workspaceLocationsEditViewService,
     ILocationSetupService locationSetupService) : WorkspacePageModel
 {
@@ -27,7 +24,6 @@ public class LocationsEditModel(
     #endregion
 
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IWorkspaceLocationsEditViewService workspaceLocationsEditViewService = workspaceLocationsEditViewService;
     private readonly ILocationSetupService locationSetupService = locationSetupService;
     public string WorkspaceSlug { get; private set; } = string.Empty;
@@ -35,17 +31,27 @@ public class LocationsEditModel(
 
     [BindProperty]
     public int LocationId { get; set; }
+
     [BindProperty]
+    [Required(ErrorMessage = "Location name is required")]
+    [StringLength(200, ErrorMessage = "Name cannot exceed 200 characters")]
     public string Name { get; set; } = string.Empty;
+
     [BindProperty]
+    [StringLength(500, ErrorMessage = "Address cannot exceed 500 characters")]
     public string Address { get; set; } = string.Empty;
+
     [BindProperty]
     public bool Active { get; set; } = true;
+
     [BindProperty]
     public int? DefaultAssigneeUserId { get; set; }
+
     public List<User> MemberOptions { get; private set; } = [];
+
     [BindProperty]
     public List<int> SelectedContactIds { get; set; } = [];
+
     public List<Contact> ContactOptions { get; private set; } = [];
     public bool CanViewLocations { get; private set; }
     public bool CanEditLocations { get; private set; }
@@ -130,43 +136,35 @@ public class LocationsEditModel(
 
         if (!this.ModelState.IsValid)
         {
+            this.MemberOptions = viewData.MemberOptions;
+            this.ContactOptions = viewData.ContactOptions;
+            this.CanViewLocations = viewData.CanViewLocations;
+            this.CanEditLocations = viewData.CanEditLocations;
+            this.CanCreateLocations = viewData.CanCreateLocations;
             return this.Page();
         }
 
-        var effectiveLocationId = this.LocationId;
         try
         {
             if (this.LocationId == NewLocationId)
             {
-                effectiveLocationId = await this.CreateAndSaveLocationAsync(workspaceId, uid);
+                await this.CreateLocationAsync(workspaceId, uid);
             }
             else
             {
-                effectiveLocationId = await this.UpdateAndSaveLocationAsync(workspaceId, uid);
+                await this.UpdateLocationAsync(workspaceId, uid);
             }
         }
         catch (InvalidOperationException ex)
         {
             this.SetErrorMessage(ex.Message);
+            this.MemberOptions = viewData.MemberOptions;
+            this.ContactOptions = viewData.ContactOptions;
+            this.CanViewLocations = viewData.CanViewLocations;
+            this.CanEditLocations = viewData.CanEditLocations;
+            this.CanCreateLocations = viewData.CanCreateLocations;
             return this.Page();
         }
-
-        // Update location contacts
-        var existingContacts = await this.dbContext.ContactLocations
-            .Where(lc => lc.LocationId == effectiveLocationId)
-            .ToListAsync();
-        this.dbContext.ContactLocations.RemoveRange(existingContacts);
-
-        foreach (var contactId in this.SelectedContactIds ?? [])
-        {
-            this.dbContext.ContactLocations.Add(new ContactLocation
-            {
-                LocationId = effectiveLocationId,
-                ContactId = contactId,
-                WorkspaceId = workspaceId
-            });
-        }
-        await this.dbContext.SaveChangesAsync();
 
         return this.RedirectToLocationsWithPreservedFilters(slug);
     }
@@ -196,40 +194,32 @@ public class LocationsEditModel(
         this.SelectedContactIds = [];
     }
 
-    private async Task<int> CreateAndSaveLocationAsync(int workspaceId, int userId)
+    private async Task CreateLocationAsync(int workspaceId, int userId)
     {
         var created = await this.locationSetupService.CreateLocationAsync(workspaceId, new LocationCreationRequest
         {
             Name = this.Name?.Trim() ?? string.Empty,
-            Address = this.Address?.Trim() ?? string.Empty
+            Address = this.Address?.Trim() ?? string.Empty,
+            Active = this.Active,
+            DefaultAssigneeUserId = this.DefaultAssigneeUserId,
+            ContactIds = this.SelectedContactIds ?? []
         }, userId);
 
-        this.ApplyLocationSettings(created);
-        await this.dbContext.SaveChangesAsync();
         this.SetSuccessMessage(string.Format(null, LocationCreatedSuccessfully, created.Name));
-
-        return created.Id;
     }
 
-    private async Task<int> UpdateAndSaveLocationAsync(int workspaceId, int userId)
+    private async Task UpdateLocationAsync(int workspaceId, int userId)
     {
         var updated = await this.locationSetupService.UpdateLocationDetailsAsync(workspaceId, this.LocationId, new LocationUpdateRequest
         {
             Name = this.Name?.Trim() ?? string.Empty,
-            Address = this.Address?.Trim() ?? string.Empty
+            Address = this.Address?.Trim() ?? string.Empty,
+            Active = this.Active,
+            DefaultAssigneeUserId = this.DefaultAssigneeUserId,
+            ContactIds = this.SelectedContactIds ?? []
         }, userId);
 
-        this.ApplyLocationSettings(updated);
-        await this.dbContext.SaveChangesAsync();
         this.SetSuccessMessage(string.Format(null, LocationUpdatedSuccessfully, updated.Name));
-
-        return updated.Id;
-    }
-
-    private void ApplyLocationSettings(Location location)
-    {
-        location.DefaultAssigneeUserId = this.DefaultAssigneeUserId;
-        location.Active = this.Active;
     }
 
     private RedirectToPageResult RedirectToLocationsWithPreservedFilters(string slug)

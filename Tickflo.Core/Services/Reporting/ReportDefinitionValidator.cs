@@ -63,7 +63,7 @@ public class ReportDefinitionValidator : IReportDefinitionValidator
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToArray();
         var filtersPart = string.IsNullOrWhiteSpace(filtersJson) ? "\"filters\":[]" : $"\"filters\":{filtersJson}";
-        var json = $"{{\"source\":\"{(source ?? "tickets").ToLowerInvariant()}\",\"fields\":[{string.Join(',', fields.Select(f => $"\"{f}\""))}],{filtersPart}}}";
+        var json = $"{{\"source\":\"{(source ?? "tickets").ToLower()}\",\"fields\":[{string.Join(',', fields.Select(f => $"\"{f}\""))}],{filtersPart}}}";
         return json;
     }
 

@@ -24,7 +24,6 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
     public DbSet<TicketPriority> TicketPriorities => this.Set<TicketPriority>();
     public DbSet<TicketType> TicketTypes => this.Set<TicketType>();
     public DbSet<TicketHistory> TicketHistory => this.Set<TicketHistory>();
-    public DbSet<TicketHistory> TicketHistories => this.Set<TicketHistory>();
     public DbSet<TicketComment> TicketComments => this.Set<TicketComment>();
     public DbSet<Team> Teams => this.Set<Team>();
     public DbSet<TeamMember> TeamMembers => this.Set<TeamMember>();
@@ -78,7 +77,8 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
             .IsUnique();
 
         modelBuilder.Entity<ReportRun>()
-            .HasIndex(rr => new { rr.WorkspaceId, rr.ReportId, rr.StartedAt });
+            .HasIndex(rr => new { rr.WorkspaceId, rr.ReportId, rr.StartedAt })
+            .IsDescending(false, false, true);
 
         modelBuilder.Entity<Contact>()
             .HasIndex(c => new { c.WorkspaceId, c.Email })

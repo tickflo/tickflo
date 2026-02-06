@@ -52,7 +52,7 @@ public partial class WorkspaceCreationService(
             throw new BadRequestException($"Invalid workspace name: {workspaceName}");
         }
 
-        var slug = workspaceName.Trim().ToLowerInvariant().Replace(' ', '-').Trim('-');
+        var slug = workspaceName.Trim().ToLower().Replace(' ', '-').Trim('-');
         if (string.IsNullOrWhiteSpace(slug)
             || slug.Length < this.config.Workspace.MinNameLength
             || slug.Length > this.config.Workspace.MaxSlugLength)
@@ -61,7 +61,7 @@ public partial class WorkspaceCreationService(
         }
 
         var existingWorkspace = await this.dbContext.Workspaces
-            .FirstOrDefaultAsync(w => w.Slug.Equals(slug, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefaultAsync(w => w.Slug.ToLower() == slug);
 
         if (existingWorkspace != null)
         {

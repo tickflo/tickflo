@@ -81,7 +81,7 @@ public partial class ValidationService(TickfloDbContext dbContext) : IValidation
     private async Task<bool> IsEmailAlreadyInUseAsync(string email)
     {
         var existing = await this.dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == email);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
         return existing != null;
     }
 
@@ -170,7 +170,7 @@ public partial class ValidationService(TickfloDbContext dbContext) : IValidation
     private async Task<bool> IsRoleNameDuplicateAsync(int workspaceId, string roleName, int? excludeRoleId)
     {
         var existing = await this.dbContext.Roles
-            .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Name == roleName);
+            .FirstOrDefaultAsync(r => r.WorkspaceId == workspaceId && r.Name.ToLower() == roleName);
         return existing != null && (excludeRoleId == null || existing.Id != excludeRoleId.Value);
     }
 

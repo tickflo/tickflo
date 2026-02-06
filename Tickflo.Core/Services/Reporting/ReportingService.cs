@@ -65,7 +65,7 @@ public class ReportingService(TickfloDbContext dbContext) : IReportingService
         var def = ParseDefinition(report.DefinitionJson);
         def.Fields = this.NormalizeFields(def.Source, def.Fields);
 
-        var rows = def.Source.ToLowerInvariant() switch
+        var rows = def.Source.ToLower() switch
         {
             "tickets" => await this.QueryTickets(workspaceId, def, ct),
             "contacts" => await this.QueryContacts(workspaceId, def, ct),
@@ -161,7 +161,7 @@ public class ReportingService(TickfloDbContext dbContext) : IReportingService
     private List<string> NormalizeFields(string source, List<string> fields)
     {
         var map = this.GetAvailableSources();
-        if (!map.TryGetValue(source.ToLowerInvariant(), out var allowed))
+        if (!map.TryGetValue(source.ToLower(), out var allowed))
         {
             source = "tickets";
             allowed = map[source];
@@ -524,7 +524,7 @@ public class ReportingService(TickfloDbContext dbContext) : IReportingService
                 case "Priority":
                     if (filter.Op == "eq" && filter.Value.ValueKind == JsonValueKind.String)
                     {
-                        q = q.Where(c => c.Priority == filter.Value.GetString());
+                        q = q.Where(c => c.Priority.ToLower() == filter.Value.GetString());
                     }
 
                     break;

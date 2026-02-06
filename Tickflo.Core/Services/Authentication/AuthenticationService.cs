@@ -32,7 +32,7 @@ public partial class AuthenticationService(
 
     public async Task<AuthenticationResult> AuthenticateAsync(string email, string password)
     {
-        var user = await this.db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        var user = await this.db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
         if (user == null)
         {
             this.PreventTimingAttack();
@@ -63,7 +63,7 @@ public partial class AuthenticationService(
 
     public async Task<AuthenticationResult> SignupAsync(string name, string email, string recoveryEmail, string workspaceName, string password)
     {
-        if (await this.db.Users.AnyAsync(user => user.Email == email))
+        if (await this.db.Users.AnyAsync(user => user.Email.ToLower() == email))
         {
             throw new BadRequestException("User with this email already exists");
         }
@@ -103,7 +103,7 @@ public partial class AuthenticationService(
 
     public async Task<AuthenticationResult> SignupInviteeAsync(string name, string email, string recoveryEmail, string password)
     {
-        var user = await this.db.Users.FirstOrDefaultAsync(u => u.Email == email)
+        var user = await this.db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email)
             ?? throw new NotFoundException("User not found");
 
         var pendingInvites = await this.db.UserWorkspaces.Where(uw => uw.UserId == user.Id && !uw.Accepted).ToListAsync();

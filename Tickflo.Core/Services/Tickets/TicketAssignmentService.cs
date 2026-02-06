@@ -118,7 +118,7 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         // Could add: Send notification to assignee, update team assignment, etc.
@@ -167,7 +167,7 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         // Could add: Notify team members, round-robin assign within team, etc.
@@ -209,7 +209,7 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
         return ticket;
@@ -246,7 +246,7 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
                 CreatedAt = DateTime.UtcNow
             };
 
-            this.dbContext.TicketHistories.Add(history);
+            this.dbContext.TicketHistory.Add(history);
             await this.dbContext.SaveChangesAsync();
         }
 

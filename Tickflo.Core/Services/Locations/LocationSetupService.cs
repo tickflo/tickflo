@@ -51,7 +51,7 @@ public interface ILocationSetupService
     public Task<Location> DeactivateLocationAsync(int workspaceId, int locationId, int deactivatedByUserId);
 
     /// <summary>
-    /// Assigns contacts to a location.
+    /// Assigns contacts to a location, replacing any existing assignments.
     /// </summary>
     /// <param name="workspaceId">Workspace context</param>
     /// <param name="locationId">Location to assign contacts to</param>
@@ -87,12 +87,29 @@ public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupSe
 
         var name = request.Name.Trim();
 
+        var nameLower = name.ToLower();
         var exists = await this.dbContext.Locations
-            .AnyAsync(l => l.WorkspaceId == workspaceId && l.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            .AnyAsync(l => l.WorkspaceId == workspaceId && l.Name.ToLower() == nameLower);
 
         if (exists)
         {
             throw new InvalidOperationException($"Location '{name}' already exists in this workspace");
+        }
+
+        // Business rule: Validate all contacts exist in the workspace if provided
+        if (request.ContactIds.Count != 0)
+        {
+            var validContactIds = await this.dbContext.Contacts
+                .Where(c => c.WorkspaceId == workspaceId)
+                .Select(c => c.Id)
+                .ToListAsync();
+
+            var invalidContacts = request.ContactIds.Except(validContactIds).ToList();
+
+            if (invalidContacts.Count != 0)
+            {
+                throw new InvalidOperationException($"Invalid contact IDs: {string.Join(", ", invalidContacts)}");
+            }
         }
 
         var location = new Location
@@ -100,11 +117,27 @@ public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupSe
             WorkspaceId = workspaceId,
             Name = name,
             Address = string.IsNullOrWhiteSpace(request.Address) ? "" : request.Address.Trim(),
-            Active = true // Business rule: New locations are active by default
+            Active = request.Active,
+            DefaultAssigneeUserId = request.DefaultAssigneeUserId
         };
 
         this.dbContext.Locations.Add(location);
         await this.dbContext.SaveChangesAsync();
+
+        // Assign contacts if provided
+        if (request.ContactIds.Count != 0)
+        {
+            foreach (var contactId in request.ContactIds)
+            {
+                this.dbContext.ContactLocations.Add(new ContactLocation
+                {
+                    WorkspaceId = workspaceId,
+                    LocationId = location.Id,
+                    ContactId = contactId
+                });
+            }
+            await this.dbContext.SaveChangesAsync();
+        }
 
         return location;
     }
@@ -130,8 +163,9 @@ public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupSe
             // Check uniqueness if name is changing
             if (!string.Equals(location.Name, name, StringComparison.OrdinalIgnoreCase))
             {
+                var nameLower = name.ToLower();
                 var exists = await this.dbContext.Locations
-                    .AnyAsync(l => l.WorkspaceId == workspaceId && l.Id != locationId && l.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                    .AnyAsync(l => l.WorkspaceId == workspaceId && l.Id != locationId && l.Name.ToLower() == nameLower);
 
                 if (exists)
                 {
@@ -147,7 +181,56 @@ public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupSe
             location.Address = string.IsNullOrWhiteSpace(request.Address) ? "" : request.Address.Trim();
         }
 
+        if (request.Active.HasValue)
+        {
+            location.Active = request.Active.Value;
+        }
+
+        if (request.DefaultAssigneeUserId.HasValue)
+        {
+            location.DefaultAssigneeUserId = request.DefaultAssigneeUserId.Value;
+        }
+
         await this.dbContext.SaveChangesAsync();
+
+        // Update contacts if provided
+        if (request.ContactIds != null)
+        {
+            // Business rule: Validate all contacts exist in the workspace
+            if (request.ContactIds.Count != 0)
+            {
+                var validContactIds = await this.dbContext.Contacts
+                    .Where(c => c.WorkspaceId == workspaceId)
+                    .Select(c => c.Id)
+                    .ToListAsync();
+
+                var invalidContacts = request.ContactIds.Except(validContactIds).ToList();
+
+                if (invalidContacts.Count != 0)
+                {
+                    throw new InvalidOperationException($"Invalid contact IDs: {string.Join(", ", invalidContacts)}");
+                }
+            }
+
+            // Remove existing contact assignments
+            var existingAssignments = await this.dbContext.ContactLocations
+                .Where(cl => cl.WorkspaceId == workspaceId && cl.LocationId == locationId)
+                .ToListAsync();
+            this.dbContext.ContactLocations.RemoveRange(existingAssignments);
+
+            // Add new contact assignments
+            foreach (var contactId in request.ContactIds)
+            {
+                this.dbContext.ContactLocations.Add(new ContactLocation
+                {
+                    WorkspaceId = workspaceId,
+                    LocationId = locationId,
+                    ContactId = contactId
+                });
+            }
+
+            await this.dbContext.SaveChangesAsync();
+        }
 
         return location;
     }
@@ -201,7 +284,7 @@ public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupSe
     }
 
     /// <summary>
-    /// Assigns contacts to a location.
+    /// Assigns contacts to a location, replacing any existing assignments.
     /// </summary>
     public async Task AssignContactsToLocationAsync(
         int workspaceId,
@@ -229,8 +312,22 @@ public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupSe
             }
         }
 
-        // TODO: Implement contact assignment logic when schema supports it
-        // This might involve a location_contacts join table
+        // Remove existing contact assignments
+        var existingAssignments = await this.dbContext.ContactLocations
+            .Where(cl => cl.WorkspaceId == workspaceId && cl.LocationId == locationId)
+            .ToListAsync();
+        this.dbContext.ContactLocations.RemoveRange(existingAssignments);
+
+        // Add new contact assignments
+        foreach (var contactId in contactIds)
+        {
+            this.dbContext.ContactLocations.Add(new ContactLocation
+            {
+                WorkspaceId = workspaceId,
+                LocationId = locationId,
+                ContactId = contactId
+            });
+        }
 
         await this.dbContext.SaveChangesAsync();
     }
@@ -258,6 +355,9 @@ public class LocationCreationRequest
 {
     public string Name { get; set; } = string.Empty;
     public string? Address { get; set; }
+    public bool Active { get; set; } = true;
+    public int? DefaultAssigneeUserId { get; set; }
+    public List<int> ContactIds { get; set; } = [];
 }
 
 /// <summary>
@@ -267,4 +367,7 @@ public class LocationUpdateRequest
 {
     public string? Name { get; set; }
     public string? Address { get; set; }
+    public bool? Active { get; set; }
+    public int? DefaultAssigneeUserId { get; set; }
+    public List<int>? ContactIds { get; set; }
 }

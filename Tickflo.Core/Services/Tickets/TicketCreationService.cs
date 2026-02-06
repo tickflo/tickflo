@@ -124,9 +124,9 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.TypeId;
         }
 
-        var typeName = string.IsNullOrWhiteSpace(request.Type) ? DefaultTicketType : request.Type.Trim();
+        var typeName = (string.IsNullOrWhiteSpace(request.Type) ? DefaultTicketType : request.Type.Trim()).ToLower();
         var type = await this.dbContext.TicketTypes
-            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == typeName);
         return type?.Id;
     }
 
@@ -137,9 +137,9 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.PriorityId;
         }
 
-        var priorityName = string.IsNullOrWhiteSpace(request.Priority) ? DefaultPriority : request.Priority.Trim();
+        var priorityName = (string.IsNullOrWhiteSpace(request.Priority) ? DefaultPriority : request.Priority.Trim()).ToLower();
         var priority = await this.dbContext.TicketPriorities
-            .FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(priorityName, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == priorityName);
         return priority?.Id;
     }
 
@@ -150,9 +150,9 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.StatusId;
         }
 
-        var statusName = string.IsNullOrWhiteSpace(request.Status) ? DefaultStatus : request.Status.Trim();
+        var statusName = (string.IsNullOrWhiteSpace(request.Status) ? DefaultStatus : request.Status.Trim()).ToLower();
         var status = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusName, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == statusName);
         return status?.Id;
     }
 
@@ -244,7 +244,7 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             CreatedAt = DateTime.UtcNow
         };
 
-        this.dbContext.TicketHistories.Add(history);
+        this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
     }
 
