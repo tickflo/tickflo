@@ -106,6 +106,10 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
     public string? EditInventoryRef { get; set; }
     [BindProperty]
     public int? EditContactId { get; set; }
+    [BindProperty]
+    public int? EditAssignedUserId { get; set; }
+    [BindProperty]
+    public int? EditAssignedTeamId { get; set; }
 
     public IReadOnlyList<TicketComment> Comments { get; private set; } = [];
     [BindProperty]
@@ -450,8 +454,8 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             PriorityId = this.EditPriorityId,
             StatusId = this.EditStatusId,
             ContactId = this.EditContactId,
-            AssignedUserId = null,
-            AssignedTeamId = null,
+            AssignedUserId = this.EditAssignedUserId,
+            AssignedTeamId = this.EditAssignedTeamId,
             LocationId = null,
             Inventories = inventories
         };
@@ -465,6 +469,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
     {
         Console.WriteLine($"[HandleTicketUpdateAsync] Starting - TicketId: {ticketId}, WorkspaceId: {workspaceId}");
         Console.WriteLine($"[HandleTicketUpdateAsync] Form values - Subject: '{this.EditSubject}', TypeId: {this.EditTicketTypeId}, PriorityId: {this.EditPriorityId}, StatusId: {this.EditStatusId}");
+        Console.WriteLine($"[HandleTicketUpdateAsync] Assignment values - AssignedUserId: {this.EditAssignedUserId}, AssignedTeamId: {this.EditAssignedTeamId}");
 
         if (this.EnsureEntityExistsOrNotFound(existing) is IActionResult result)
         {
@@ -486,8 +491,8 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             PriorityId = this.EditPriorityId,
             StatusId = this.EditStatusId,
             ContactId = this.EditContactId,
-            AssignedUserId = null,
-            AssignedTeamId = null,
+            AssignedUserId = this.EditAssignedUserId,
+            AssignedTeamId = this.EditAssignedTeamId,
             LocationId = null,
             Inventories = inventories
         };

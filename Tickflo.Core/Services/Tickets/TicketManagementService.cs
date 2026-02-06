@@ -348,14 +348,40 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
 
     private async Task UpdateTicketAssignmentsAsync(Ticket ticket, UpdateTicketRequest request)
     {
-        if (request.AssignedUserId.HasValue && await this.ValidateUserAssignmentAsync(request.AssignedUserId.Value, request.WorkspaceId))
+        Console.WriteLine($"[UpdateTicketAssignmentsAsync] AssignedUserId: {request.AssignedUserId}, AssignedTeamId: {request.AssignedTeamId}");
+        
+        if (request.AssignedUserId.HasValue)
         {
-            ticket.AssignedUserId = request.AssignedUserId.Value;
+            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Validating user assignment: {request.AssignedUserId.Value}");
+            var isValid = await this.ValidateUserAssignmentAsync(request.AssignedUserId.Value, request.WorkspaceId);
+            Console.WriteLine($"[UpdateTicketAssignmentsAsync] User validation result: {isValid}");
+            
+            if (isValid)
+            {
+                ticket.AssignedUserId = request.AssignedUserId.Value;
+                Console.WriteLine($"[UpdateTicketAssignmentsAsync] Updated AssignedUserId to: {request.AssignedUserId.Value}");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"[UpdateTicketAssignmentsAsync] No AssignedUserId provided (value is null)");
         }
 
-        if (request.AssignedTeamId.HasValue && await this.ValidateTeamAssignmentAsync(request.AssignedTeamId.Value, request.WorkspaceId))
+        if (request.AssignedTeamId.HasValue)
         {
-            ticket.AssignedTeamId = request.AssignedTeamId.Value;
+            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Validating team assignment: {request.AssignedTeamId.Value}");
+            var isValid = await this.ValidateTeamAssignmentAsync(request.AssignedTeamId.Value, request.WorkspaceId);
+            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Team validation result: {isValid}");
+            
+            if (isValid)
+            {
+                ticket.AssignedTeamId = request.AssignedTeamId.Value;
+                Console.WriteLine($"[UpdateTicketAssignmentsAsync] Updated AssignedTeamId to: {request.AssignedTeamId.Value}");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"[UpdateTicketAssignmentsAsync] No AssignedTeamId provided (value is null)");
         }
     }
 

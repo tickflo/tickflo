@@ -279,7 +279,7 @@
                       <i class="fa fa-user mr-1"></i>Assignee
                     </span>
                   </label>
-                  <input type="hidden" id="assignedUserId" name="assignedUserId" value="@Model.Ticket!.AssignedUserId" />
+                  <input type="hidden" id="EditAssignedUserId" name="EditAssignedUserId" value="@Model.Ticket!.AssignedUserId" />
                   <input id="assignee-search" class="input input-bordered w-full bg-neutral-900/70 focus:bg-neutral-900" list="assignees-list" placeholder="Search by name or email..." />
                   <datalist id="assignees-list">
                     <option value="Unassigned" data-id=""></option>
@@ -295,7 +295,7 @@
                       <i class="fa fa-users mr-1"></i>Team
                     </span>
                   </label>
-                  <input type="hidden" id="assignedTeamId" name="assignedTeamId" value="@Model.Ticket!.AssignedTeamId" />
+                  <input type="hidden" id="EditAssignedTeamId" name="EditAssignedTeamId" value="@Model.Ticket!.AssignedTeamId" />
                   <input id="team-search" class="input input-bordered w-full bg-neutral-900/70 focus:bg-neutral-900" list="teams-list" placeholder="Search team..." />
                   <datalist id="teams-list">
                     <option value="None" data-id=""></option>
@@ -737,7 +737,7 @@
               }
             });
             // Wire assignee datalist to hidden field
-            const hidden = document.getElementById('assignedUserId');
+            const hidden = document.getElementById('EditAssignedUserId');
             const input = document.getElementById('assignee-search');
             const list = document.getElementById('assignees-list');
             if (hidden && input && list){
@@ -773,7 +773,7 @@
               }
             }
             // Wire team datalist to hidden field
-            const th = document.getElementById('assignedTeamId');
+            const th = document.getElementById('EditAssignedTeamId');
             const ti = document.getElementById('team-search');
             const tl = document.getElementById('teams-list');
             if (th && ti && tl){
