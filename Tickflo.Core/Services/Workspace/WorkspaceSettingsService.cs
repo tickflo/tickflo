@@ -228,9 +228,9 @@ public class WorkspaceSettingsService(TickfloDbContext dbContext) : IWorkspaceSe
         var trimmedName = ValidateAndTrimName(name, "Status");
         var trimmedColor = TrimColorOrDefault(color);
 
-        var trimmedNameLower = trimmedName.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var trimmedNameLower = trimmedName.ToLower();
         var exists = await this.dbContext.TicketStatuses
-            .AnyAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(trimmedNameLower, StringComparison.OrdinalIgnoreCase));
+            .AnyAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == trimmedNameLower);
 
         if (exists)
         {
@@ -293,9 +293,9 @@ public class WorkspaceSettingsService(TickfloDbContext dbContext) : IWorkspaceSe
         var trimmedName = ValidateAndTrimName(name, "Priority");
         var trimmedColor = TrimColorOrDefault(color);
 
-        var trimmedNameLower = trimmedName.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var trimmedNameLower = trimmedName.ToLower();
         var exists = await this.dbContext.TicketPriorities
-            .AnyAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(trimmedNameLower, StringComparison.OrdinalIgnoreCase));
+            .AnyAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == trimmedNameLower);
 
         if (exists)
         {
@@ -355,9 +355,9 @@ public class WorkspaceSettingsService(TickfloDbContext dbContext) : IWorkspaceSe
         var trimmedName = ValidateAndTrimName(name, "Type");
         var trimmedColor = TrimColorOrDefault(color);
 
-        var trimmedNameLower = trimmedName.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var trimmedNameLower = trimmedName.ToLower();
         var exists = await this.dbContext.TicketTypes
-            .AnyAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(trimmedNameLower, StringComparison.OrdinalIgnoreCase));
+            .AnyAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == trimmedNameLower);
 
         if (exists)
         {
@@ -628,9 +628,9 @@ public class WorkspaceSettingsService(TickfloDbContext dbContext) : IWorkspaceSe
 
     private async Task ValidateSlugIsAvailableAsync(string slug, int workspaceId)
     {
-        var slugLower = slug.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var slugLower = slug.ToLower();
         var existing = await this.dbContext.Workspaces
-            .FirstOrDefaultAsync(w => w.Slug.Equals(slugLower, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefaultAsync(w => w.Slug.ToLower() == slugLower);
 
         if (existing != null && existing.Id != workspaceId)
         {

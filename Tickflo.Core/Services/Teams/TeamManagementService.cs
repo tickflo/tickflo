@@ -171,9 +171,9 @@ public class TeamManagementService(TickfloDbContext dbContext) : ITeamManagement
 
     public async Task<bool> IsNameUniqueAsync(int workspaceId, string name, int? excludeTeamId = null)
     {
-        var nameLower = name.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var nameLower = name.ToLower();
         var existing = await this.dbContext.Teams
-            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(nameLower, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == nameLower);
 
         return existing == null || (excludeTeamId.HasValue && existing.Id == excludeTeamId.Value);
     }

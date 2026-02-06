@@ -138,7 +138,7 @@ public class TicketFilterService : ITicketFilterService
         // Text search filter
         if (!string.IsNullOrWhiteSpace(filter.Query))
         {
-            var query = filter.Query.Trim().ToLowerInvariant();
+            var query = filter.Query.Trim().ToLower();
             filtered = filtered.Where(t =>
                 (t.Subject ?? string.Empty).Contains(query, StringComparison.InvariantCultureIgnoreCase) ||
                 (t.Description ?? string.Empty).Contains(query, StringComparison.InvariantCultureIgnoreCase));
@@ -202,7 +202,7 @@ public class TicketFilterService : ITicketFilterService
     {
         var filtered = tickets;
 
-        var normalizedScope = scope?.ToLowerInvariant() ?? "all";
+        var normalizedScope = scope?.ToLower() ?? "all";
 
         switch (normalizedScope)
         {
@@ -227,12 +227,12 @@ public class TicketFilterService : ITicketFilterService
 
     public int? ResolveStatusId(string? statusName, IReadOnlyList<TicketStatus> statuses)
     {
-        if (string.IsNullOrWhiteSpace(statusName) || statusName.Equals(TicketFilterConstants.OpenStatusFilter, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(statusName) || statusName == TicketFilterConstants.OpenStatusFilter)
         {
             return null;
         }
 
-        return statuses.FirstOrDefault(s => s.Name.Equals(statusName.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+        return statuses.FirstOrDefault(s => s.Name.ToLower() == statusName.Trim().ToLower())?.Id;
     }
 
     public int? ResolvePriorityId(string? priorityName, IReadOnlyList<TicketPriority> priorities)
@@ -242,7 +242,7 @@ public class TicketFilterService : ITicketFilterService
             return null;
         }
 
-        return priorities.FirstOrDefault(p => p.Name.Equals(priorityName.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+        return priorities.FirstOrDefault(p => p.Name.ToLower() == priorityName.Trim().ToLower())?.Id;
     }
 
     public int? ResolveTypeId(string? typeName, IReadOnlyList<TicketType> types)
@@ -252,7 +252,7 @@ public class TicketFilterService : ITicketFilterService
             return null;
         }
 
-        return types.FirstOrDefault(t => t.Name.Equals(typeName.Trim(), StringComparison.OrdinalIgnoreCase))?.Id;
+        return types.FirstOrDefault(t => t.Name.ToLower() == typeName.Trim().ToLower())?.Id;
     }
 
     public List<Ticket> ApplyOpenStatusFilter(IEnumerable<Ticket> tickets, IReadOnlyList<TicketStatus> statuses)

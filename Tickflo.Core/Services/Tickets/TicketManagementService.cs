@@ -91,6 +91,9 @@ public class CreateTicketRequest
     public string Type { get; set; } = "Standard";
     public string Priority { get; set; } = "Normal";
     public string Status { get; set; } = "New";
+    public int? TicketTypeId { get; set; }
+    public int? PriorityId { get; set; }
+    public int? StatusId { get; set; }
     public int? ContactId { get; set; }
     public int? AssignedUserId { get; set; }
     public int? AssignedTeamId { get; set; }
@@ -111,6 +114,9 @@ public class UpdateTicketRequest
     public string? Type { get; set; }
     public string? Priority { get; set; }
     public string? Status { get; set; }
+    public int? TicketTypeId { get; set; }
+    public int? PriorityId { get; set; }
+    public int? StatusId { get; set; }
     public int? ContactId { get; set; }
     public int? AssignedUserId { get; set; }
     public int? AssignedTeamId { get; set; }
@@ -131,9 +137,10 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
 
     public async Task<Ticket> CreateTicketAsync(CreateTicketRequest request)
     {
-        var typeId = await this.ResolveTicketTypeIdAsync(request.WorkspaceId, request.Type);
-        var priorityId = await this.ResolvePriorityIdAsync(request.WorkspaceId, request.Priority);
-        var statusId = await this.ResolveStatusIdAsync(request.WorkspaceId, request.Status);
+        // Prefer direct IDs if provided, otherwise lookup by name
+        var typeId = request.TicketTypeId ?? await this.ResolveTicketTypeIdAsync(request.WorkspaceId, request.Type);
+        var priorityId = request.PriorityId ?? await this.ResolvePriorityIdAsync(request.WorkspaceId, request.Priority);
+        var statusId = request.StatusId ?? await this.ResolveStatusIdAsync(request.WorkspaceId, request.Status);
 
         var ticket = new Ticket
         {
@@ -163,15 +170,15 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
     {
         if (!string.IsNullOrWhiteSpace(typeName))
         {
-            var typeNameLower = typeName.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
-            var type = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(typeNameLower, StringComparison.OrdinalIgnoreCase));
+            var typeNameLower = typeName.Trim().ToLower();
+            var type = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == typeNameLower);
             if (type != null)
             {
                 return type.Id;
             }
         }
 
-        var defaultType = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.Equals(DefaultTicketType, StringComparison.OrdinalIgnoreCase));
+        var defaultType = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == DefaultTicketType);
         return defaultType?.Id;
     }
 
@@ -179,15 +186,15 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
     {
         if (!string.IsNullOrWhiteSpace(priorityName))
         {
-            var priorityNameLower = priorityName.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
-            var priority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(priorityNameLower, StringComparison.OrdinalIgnoreCase));
+            var priorityNameLower = priorityName.Trim().ToLower();
+            var priority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == priorityNameLower);
             if (priority != null)
             {
                 return priority.Id;
             }
         }
 
-        var defaultPriority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.Equals(DefaultPriority, StringComparison.OrdinalIgnoreCase));
+        var defaultPriority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == DefaultPriority);
         return defaultPriority?.Id;
     }
 
@@ -195,15 +202,15 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
     {
         if (!string.IsNullOrWhiteSpace(statusName))
         {
-            var statusNameLower = statusName.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
-            var status = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusNameLower, StringComparison.OrdinalIgnoreCase));
+            var statusNameLower = statusName.Trim().ToLower();
+            var status = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == statusNameLower);
             if (status != null)
             {
                 return status.Id;
             }
         }
 
-        var defaultStatus = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(DefaultStatus, StringComparison.OrdinalIgnoreCase));
+        var defaultStatus = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == DefaultStatus);
         return defaultStatus?.Id;
     }
 
@@ -279,36 +286,49 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             ticket.Description = request.Description.Trim();
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Type))
+        // Prefer direct ID if provided, otherwise lookup by name
+        if (request.TicketTypeId.HasValue)
         {
-            var typeName = request.Type.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            ticket.TicketTypeId = request.TicketTypeId;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Type))
+        {
+            var typeName = request.Type.Trim().ToLower();
             var type = await this.dbContext.TicketTypes
                 .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.WorkspaceId == request.WorkspaceId && t.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefaultAsync(t => t.WorkspaceId == request.WorkspaceId && t.Name.ToLower() == typeName);
             if (type != null)
             {
                 ticket.TicketTypeId = type.Id;
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Priority))
+        if (request.PriorityId.HasValue)
         {
-            var priorityName = request.Priority.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            ticket.PriorityId = request.PriorityId;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Priority))
+        {
+            var priorityName = request.Priority.Trim().ToLower();
             var priority = await this.dbContext.TicketPriorities
                 .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.WorkspaceId == request.WorkspaceId && p.Name.Equals(priorityName, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefaultAsync(p => p.WorkspaceId == request.WorkspaceId && p.Name.ToLower() == priorityName);
             if (priority != null)
             {
                 ticket.PriorityId = priority.Id;
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Status))
+        if (request.StatusId.HasValue)
         {
-            var statusName = request.Status.Trim().ToLower(System.Globalization.CultureInfo.CurrentCulture);
+            ticket.StatusId = request.StatusId;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            var statusName = request.Status.Trim().ToLower();
             var status = await this.dbContext.TicketStatuses
                 .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.WorkspaceId == request.WorkspaceId && s.Name.Equals(statusName, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefaultAsync(s => s.WorkspaceId == request.WorkspaceId && s.Name.ToLower() == statusName);
             if (status != null)
             {
                 ticket.StatusId = status.Id;
@@ -399,7 +419,7 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             return false;
         }
 
-        return scope.ToLower(System.Globalization.CultureInfo.CurrentCulture) switch
+        return scope.ToLower() switch
         {
             "all" => true,
             "mine" => ticket.AssignedUserId == userId,

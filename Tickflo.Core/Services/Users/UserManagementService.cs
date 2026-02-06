@@ -106,7 +106,7 @@ public class UserManagementService(TickfloDbContext dbContext, IPasswordHasher p
         }
 
         var existing = await this.dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
 
         return existing != null && existing.Id != excludeUserId;
     }
@@ -120,7 +120,7 @@ public class UserManagementService(TickfloDbContext dbContext, IPasswordHasher p
             return null;
         }
 
-        return email.Equals(recoveryEmail, StringComparison.OrdinalIgnoreCase)
+        return email == recoveryEmail
             ? ErrorRecoveryEmailSame
             : null;
     }
@@ -128,7 +128,7 @@ public class UserManagementService(TickfloDbContext dbContext, IPasswordHasher p
     private async Task EnsureEmailNotInUseAsync(string normalizedEmail, string originalEmail, int? excludeUserId = null)
     {
         var existing = await this.dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
         if (existing != null && existing.Id != excludeUserId)
         {
             throw new InvalidOperationException(string.Format(null, ErrorEmailAlreadyExists, originalEmail));
@@ -149,7 +149,7 @@ public class UserManagementService(TickfloDbContext dbContext, IPasswordHasher p
         user.UpdatedAt = DateTime.UtcNow;
     }
 
-    private static string? NormalizeEmail(string? email) => string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLowerInvariant();
+    private static string? NormalizeEmail(string? email) => string.IsNullOrWhiteSpace(email) ? null : email.Trim().ToLower();
 }
 
 

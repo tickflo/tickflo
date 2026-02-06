@@ -205,7 +205,7 @@ public class WorkspaceTicketDetailsViewService(
             // Enforce scope for details
             if (!data.IsWorkspaceAdmin && userId > 0)
             {
-                var scope = data.TicketViewScope.ToLowerInvariant();
+                var scope = data.TicketViewScope.ToLower();
                 if (scope == "mine")
                 {
                     if (data.Ticket.AssignedUserId != userId)
@@ -247,13 +247,13 @@ public class WorkspaceTicketDetailsViewService(
             // Load default IDs from database
             var defaultType = await this.dbContext.TicketTypes
                 .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name == "Standard", cancellationToken);
+                .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == "Standard", cancellationToken);
             var defaultPriority = await this.dbContext.TicketPriorities
                 .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name == "Normal", cancellationToken);
+                .FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == "Normal", cancellationToken);
             var defaultStatus = await this.dbContext.TicketStatuses
                 .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name == "New", cancellationToken);
+                .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == "New", cancellationToken);
 
             data.Ticket = new Ticket
             {

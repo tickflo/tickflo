@@ -81,16 +81,16 @@ public class UserInvitationService(
             throw new InvalidOperationException("At least one role is required");
         }
 
-        email = email.Trim().ToLowerInvariant();
+        email = email.Trim().ToLower();
 
         // Get workspace for email template
         var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId)
             ?? throw new InvalidOperationException("Workspace not found");
 
         // Check if user already exists
-        var emailLower = email.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var emailLower = email.ToLower();
         var user = await this.dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email.Equals(emailLower, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower);
         var isNewUser = user == null;
 
         if (isNewUser)
@@ -196,9 +196,9 @@ public class UserInvitationService(
 
     public async Task AcceptInvitationAsync(string slug, int userId)
     {
-        var slugLower = slug.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var slugLower = slug.ToLower();
         var workspace = await this.dbContext.Workspaces
-            .FirstOrDefaultAsync(w => w.Slug.Equals(slugLower, StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefaultAsync(w => w.Slug.ToLower() == slugLower)
             ?? throw new NotFoundException("Workspace not found");
 
         var membership = await this.dbContext.UserWorkspaces
@@ -218,9 +218,9 @@ public class UserInvitationService(
 
     public async Task DeclineInvitationAsync(string slug, int userId)
     {
-        var slugLower = slug.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var slugLower = slug.ToLower();
         var workspace = await this.dbContext.Workspaces
-            .FirstOrDefaultAsync(w => w.Slug.Equals(slugLower, StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefaultAsync(w => w.Slug.ToLower() == slugLower)
             ?? throw new NotFoundException("Workspace not found");
 
         var membership = await this.dbContext.UserWorkspaces

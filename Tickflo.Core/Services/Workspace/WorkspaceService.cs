@@ -78,7 +78,7 @@ public class WorkspaceService(TickfloDbContext dbContext) : IWorkspaceService
 
     public async Task<WorkspaceEntity?> GetWorkspaceBySlugAsync(string slug) =>
         await this.dbContext.Workspaces
-            .FirstOrDefaultAsync(w => w.Slug == slug);
+            .FirstOrDefaultAsync(w => w.Slug.ToLower() == slug);
 
     public async Task<WorkspaceEntity?> GetWorkspaceAsync(int workspaceId) =>
         await this.dbContext.Workspaces.FindAsync(workspaceId);

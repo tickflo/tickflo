@@ -220,10 +220,10 @@
                       <i class="fa fa-tag mr-1"></i>Type
                     </span>
                   </label>
-                  <select name="EditType" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
+                  <select name="EditTicketTypeId" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
                     @foreach (var ticketType in Model.Types)
                     {
-                      if (Model.Ticket!.TicketTypeId == ticketType.Id) {<option value="@ticketType.Name" selected>@ticketType.Name</option>} else {<option value="@ticketType.Name">@ticketType.Name</option>}
+                      if (Model.Ticket!.TicketTypeId == ticketType.Id) {<option value="@ticketType.Id" selected>@ticketType.Name</option>} else {<option value="@ticketType.Id">@ticketType.Name</option>}
                     }
                   </select>
                 </div>
@@ -233,10 +233,10 @@
                       <i class="fa fa-circle mr-1"></i>Status
                     </span>
                   </label>
-                  <select name="EditStatus" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
+                  <select name="EditStatusId" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
                     @foreach (var status in Model.Statuses)
                     {
-                      if (Model.Ticket!.StatusId == status.Id) {<option value="@status.Name" selected>@status.Name</option>} else {<option value="@status.Name">@status.Name</option>}
+                      if (Model.Ticket!.StatusId == status.Id) {<option value="@status.Id" selected>@status.Name</option>} else {<option value="@status.Id">@status.Name</option>}
                     }
                   </select>
                 </div>
@@ -246,10 +246,10 @@
                       <i class="fa fa-exclamation-circle mr-1"></i>Priority
                     </span>
                   </label>
-                  <select name="EditPriority" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
+                  <select name="EditPriorityId" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
                     @foreach (var priority in Model.Priorities)
                     {
-                      if (Model.Ticket!.PriorityId == priority.Id) {<option value="@priority.Name" selected>@priority.Name</option>} else {<option value="@priority.Name">@priority.Name</option>}
+                      if (Model.Ticket!.PriorityId == priority.Id) {<option value="@priority.Id" selected>@priority.Name</option>} else {<option value="@priority.Id">@priority.Name</option>}
                     }
                   </select>
                 </div>

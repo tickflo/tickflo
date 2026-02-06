@@ -53,7 +53,7 @@ public class EmailSendService(
             TemplateId = template.Id,
             Vars = variables,
             From = $"{this.config.Email.FromName} <{this.config.Email.FromAddress}>",
-            To = toEmail.Trim().ToLowerInvariant(),
+            To = toEmail.Trim().ToLower(),
             CreatedBy = sentByUserId
         });
 

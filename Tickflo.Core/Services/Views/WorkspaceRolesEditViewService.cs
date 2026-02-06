@@ -68,17 +68,17 @@ public class WorkspaceRolesEditViewService(
                     var eff = new EffectiveSectionPermission
                     {
                         Section = section,
-                        CanView = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("view", StringComparison.OrdinalIgnoreCase)),
-                        CanEdit = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("edit", StringComparison.OrdinalIgnoreCase)),
-                        CanCreate = permissions.Any(p => p.Resource.Equals(section, StringComparison.OrdinalIgnoreCase) && p.Action.Equals("create", StringComparison.OrdinalIgnoreCase)),
+                        CanView = permissions.Any(p => p.Resource == section && p.Action == "view"),
+                        CanEdit = permissions.Any(p => p.Resource == section && p.Action == "edit"),
+                        CanCreate = permissions.Any(p => p.Resource == section && p.Action == "create"),
                         CanDelete = false
                     };
 
                     if (section == "tickets")
                     {
                         var scopes = permissions
-                            .Where(p => p.Resource.Equals("tickets_scope", StringComparison.OrdinalIgnoreCase))
-                            .Select(p => p.Action.ToLowerInvariant())
+                            .Where(p => p.Resource == "tickets_scope")
+                            .Select(p => p.Action.ToLower())
                             .ToList();
                         eff.TicketViewScope = scopes.Contains("mine") ? "mine" : scopes.Contains("team") ? "team" : scopes.Contains("all") ? "all" : "all";
                     }

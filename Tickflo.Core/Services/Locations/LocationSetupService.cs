@@ -87,9 +87,9 @@ public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupSe
 
         var name = request.Name.Trim();
 
-        var nameLower = name.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+        var nameLower = name.ToLower();
         var exists = await this.dbContext.Locations
-            .AnyAsync(l => l.WorkspaceId == workspaceId && l.Name.Equals(nameLower, StringComparison.OrdinalIgnoreCase));
+            .AnyAsync(l => l.WorkspaceId == workspaceId && l.Name.ToLower() == nameLower);
 
         if (exists)
         {
@@ -131,9 +131,9 @@ public class LocationSetupService(TickfloDbContext dbContext) : ILocationSetupSe
             // Check uniqueness if name is changing
             if (!string.Equals(location.Name, name, StringComparison.OrdinalIgnoreCase))
             {
-                var nameLower = name.ToLower(System.Globalization.CultureInfo.CurrentCulture);
+                var nameLower = name.ToLower();
                 var exists = await this.dbContext.Locations
-                    .AnyAsync(l => l.WorkspaceId == workspaceId && l.Id != locationId && l.Name.Equals(nameLower, StringComparison.OrdinalIgnoreCase));
+                    .AnyAsync(l => l.WorkspaceId == workspaceId && l.Id != locationId && l.Name.ToLower() == nameLower);
 
                 if (exists)
                 {

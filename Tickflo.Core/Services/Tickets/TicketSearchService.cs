@@ -186,8 +186,8 @@ public class TicketSearchService(TickfloDbContext dbContext) : ITicketSearchServ
 
         if (!string.IsNullOrEmpty(statusFilter))
         {
-            var statusFilterLower = statusFilter.ToLower(System.Globalization.CultureInfo.CurrentCulture);
-            var statusId = (await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.Equals(statusFilterLower, StringComparison.OrdinalIgnoreCase)))?.Id;
+            var statusFilterLower = statusFilter.ToLower();
+            var statusId = (await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == statusFilterLower))?.Id;
             if (statusId.HasValue)
             {
                 myTickets = [.. myTickets.Where(t => t.StatusId == statusId.Value)];
@@ -402,10 +402,10 @@ public class TicketSearchService(TickfloDbContext dbContext) : ITicketSearchServ
 
         if (!string.IsNullOrEmpty(criteria.SearchTerm))
         {
-            var term = criteria.SearchTerm.ToLowerInvariant();
+            var term = criteria.SearchTerm.ToLower();
             result = [.. result.Where(t =>
-                (t.Subject?.ToLowerInvariant().Contains(term, StringComparison.InvariantCultureIgnoreCase) ?? false) ||
-                (t.Description?.ToLowerInvariant().Contains(term, StringComparison.InvariantCultureIgnoreCase) ?? false)
+                (t.Subject?.ToLower().Contains(term, StringComparison.InvariantCultureIgnoreCase) ?? false) ||
+                (t.Description?.ToLower().Contains(term, StringComparison.InvariantCultureIgnoreCase) ?? false)
             )];
         }
 

@@ -17,10 +17,8 @@ using Tickflo.Core.Services.Workspace;
 [Authorize]
 public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbContext dbContext, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, Services.ITempTeamService teamService, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService, INotificationTriggerService notificationTriggerService) : WorkspacePageModel
 {
+
     #region Constants
-    private const string DefaultTicketType = "Standard";
-    private const string DefaultTicketPriority = "Normal";
-    private const string DefaultTicketStatus = "New";
     private const string SuccessTicketSaved = "Ticket saved.";
     private const string ErrorCommentEmpty = "Comment cannot be empty.";
     private const string ErrorTicketNotFound = "Ticket not found.";
@@ -99,11 +97,11 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
     [BindProperty]
     public string? EditDescription { get; set; }
     [BindProperty]
-    public string? EditType { get; set; }
+    public int? EditTicketTypeId { get; set; }
     [BindProperty]
-    public string? EditPriority { get; set; }
+    public int? EditPriorityId { get; set; }
     [BindProperty]
-    public string? EditStatus { get; set; }
+    public int? EditStatusId { get; set; }
     [BindProperty]
     public string? EditInventoryRef { get; set; }
     [BindProperty]
@@ -448,9 +446,9 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             CreatedByUserId = userId,
             Subject = (this.EditSubject ?? string.Empty).Trim(),
             Description = (this.EditDescription ?? string.Empty).Trim(),
-            Type = DefaultOrTrim(this.EditType, DefaultTicketType),
-            Priority = DefaultOrTrim(this.EditPriority, DefaultTicketPriority),
-            Status = DefaultOrTrim(this.EditStatus, DefaultTicketStatus),
+            TicketTypeId = this.EditTicketTypeId,
+            PriorityId = this.EditPriorityId,
+            StatusId = this.EditStatusId,
             ContactId = this.EditContactId,
             AssignedUserId = null,
             AssignedTeamId = null,
@@ -466,7 +464,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
     private async Task<Ticket?> HandleTicketUpdateAsync(int workspaceId, int ticketId, int userId, Ticket? existing, List<TicketInventory> inventories)
     {
         Console.WriteLine($"[HandleTicketUpdateAsync] Starting - TicketId: {ticketId}, WorkspaceId: {workspaceId}");
-        Console.WriteLine($"[HandleTicketUpdateAsync] Form values - Subject: '{this.EditSubject}', Type: '{this.EditType}', Priority: '{this.EditPriority}', Status: '{this.EditStatus}'");
+        Console.WriteLine($"[HandleTicketUpdateAsync] Form values - Subject: '{this.EditSubject}', TypeId: {this.EditTicketTypeId}, PriorityId: {this.EditPriorityId}, StatusId: {this.EditStatusId}");
 
         if (this.EnsureEntityExistsOrNotFound(existing) is IActionResult result)
         {
@@ -484,9 +482,9 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             UpdatedByUserId = userId,
             Subject = this.EditSubject?.Trim(),
             Description = this.EditDescription?.Trim(),
-            Type = this.EditType?.Trim(),
-            Priority = this.EditPriority?.Trim(),
-            Status = this.EditStatus?.Trim(),
+            TicketTypeId = this.EditTicketTypeId,
+            PriorityId = this.EditPriorityId,
+            StatusId = this.EditStatusId,
             ContactId = this.EditContactId,
             AssignedUserId = null,
             AssignedTeamId = null,
@@ -595,6 +593,4 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
         PageNumber = this.Request.Query["PageNumber"].ToString(),
         PageSize = this.Request.Query["PageSize"].ToString()
     });
-
-    private static string DefaultOrTrim(string? value, string defaultValue) => string.IsNullOrWhiteSpace(value) ? defaultValue : value.Trim();
 }
