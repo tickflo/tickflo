@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
+using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
 
 [AllowAnonymous]
@@ -28,12 +29,20 @@ public class LoginModel(IAuthenticationService authenticationService, TickfloCon
             return this.Page();
         }
 
-        var email = this.Input.Email?.Trim() ?? string.Empty;
-        var password = this.Input.Password ?? string.Empty;
-        var result = await this.authenticationService.AuthenticateAsync(email, password);
+        try
+        {
+            var email = this.Input.Email?.Trim() ?? string.Empty;
+            var password = this.Input.Password ?? string.Empty;
+            var result = await this.authenticationService.AuthenticateAsync(email, password);
 
-        this.AppendAuthenticationCookie(result.Token);
-        return this.Redirect("/workspaces");
+            this.AppendAuthenticationCookie(result.Token);
+            return this.Redirect("/workspaces");
+        }
+        catch (HttpException ex)
+        {
+            this.ErrorMessage = ex.Message;
+            return this.Page();
+        }
     }
 
     private void AppendAuthenticationCookie(string token) => this.Response.Cookies.Append(this.config.SessionCookieName, token, new CookieOptions
