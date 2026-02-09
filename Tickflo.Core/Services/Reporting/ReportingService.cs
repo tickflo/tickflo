@@ -524,7 +524,7 @@ public class ReportingService(TickfloDbContext dbContext) : IReportingService
                 case "Priority":
                     if (filter.Op == "eq" && filter.Value.ValueKind == JsonValueKind.String)
                     {
-                        q = q.Where(c => c.Priority.ToLower() == filter.Value.GetString());
+                        q = q.Where(c => c.Priority != null && c.Priority.ToLower() == filter.Value.GetString());
                     }
 
                     break;
