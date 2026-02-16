@@ -14,4 +14,7 @@ public class Email
     public int? CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public int? UpdatedBy { get; set; }
+    public DateTime? SentAt { get; set; }
+    public string? State { get; set; }
+    public string? ErrorMessage { get; set; }
 }
