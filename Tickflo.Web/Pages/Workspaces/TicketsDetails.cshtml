@@ -78,7 +78,7 @@
       <!-- Description Preview (if exists and not empty) -->
       @if(!string.IsNullOrWhiteSpace(Model.Ticket?.Description))
       {
-        <div class="bg-neutral-950/40 rounded-lg p-4 border border-white/5">
+        <div class="bg-neutral-900/40 rounded-lg p-4 border border-white/10">
           <div class="text-xs uppercase tracking-wider font-semibold text-white/40 mb-2">
             <i class="fa fa-align-left mr-1"></i>Description
           </div>
@@ -90,7 +90,7 @@
     <!-- Ticket Metadata -->
     <div class="divider my-2"></div>
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="bg-neutral-950/30 rounded-lg p-3 space-y-1">
+      <div class="rounded-lg p-3 space-y-1">
         <div class="text-xs uppercase tracking-wider font-semibold text-white/40">
           <i class="fa fa-clock mr-1"></i>Created
         </div>
@@ -101,7 +101,7 @@
           @Model.Ticket?.CreatedAt.ToLocalTime().ToString("h:mm tt")
         </div>
       </div>
-      <div class="bg-neutral-950/30 rounded-lg p-3 space-y-1">
+      <div class="rounded-lg p-3 space-y-1">
         <div class="text-xs uppercase tracking-wider font-semibold text-white/40">
           <i class="fa fa-address-book mr-1"></i>Contact
         </div>
@@ -115,7 +115,7 @@
           <div class="text-sm text-white/50 italic">No contact assigned</div>
         }
       </div>
-      <div class="bg-neutral-950/30 rounded-lg p-3 space-y-1">
+      <div class="rounded-lg p-3 space-y-1">
         <div class="text-xs uppercase tracking-wider font-semibold text-white/40">
           <i class="fa fa-user-check mr-1"></i>Assigned To
         </div>
@@ -149,7 +149,7 @@
           <div class="text-sm text-white/50 italic">Unassigned</div>
         }
       </div>
-      <div class="bg-neutral-950/30 rounded-lg p-3 space-y-1">
+      <div class="rounded-lg p-3 space-y-1">
         <div class="text-xs uppercase tracking-wider font-semibold text-white/40">
           <i class="fa fa-map-marker-alt mr-1"></i>Location
         </div>
@@ -180,7 +180,7 @@
   @if(Model.CanViewTickets)
   {
     <!-- Edit Form Card -->
-    <div class="card bg-neutral-900/80 backdrop-blur rounded-2xl border border-white/5 shadow-xl">
+    <div class="card bg-neutral-900/75 backdrop-blur rounded-2xl border border-white/5 shadow-xl">
       <div class="card-body">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-bold text-white">
@@ -198,55 +198,55 @@
           <input type="hidden" name="locationId" value="@Model.LocationId" />
 
           <!-- Ticket Details Section -->
-          <div class="bg-neutral-950/50 rounded-xl p-5 border border-white/5">
+          <div class="space-y-4">
             <h3 class="text-sm uppercase tracking-wider font-semibold text-white/60 mb-4">
               <i class="fa fa-file-alt mr-2"></i>Ticket Details
             </h3>
             <div class="space-y-4">
               <!-- Subject Field -->
-              <div>
+              <div class="form-control">
                 <label class="label">
                   <span class="label-text text-white/80 font-medium">Subject *</span>
                   <span class="label-text-alt text-white/40">Required</span>
                 </label>
-                <input name="EditSubject" value="@Model.Ticket!.Subject" class="input input-bordered w-full bg-neutral-900/70 focus:bg-neutral-900" placeholder="Brief description of the issue" required />
+                <input name="EditSubject" value="@Model.Ticket!.Subject" class="input w-full bg-neutral-900/80 focus:bg-neutral-900" placeholder="Brief description of the issue" required />
               </div>
               
               <!-- Type, Status, Priority in a row -->
               <div class="grid gap-4 sm:grid-cols-3">
-                <div>
+                <div class="form-control">
                   <label class="label">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-tag mr-1"></i>Type
                     </span>
                   </label>
-                  <select name="EditTicketTypeId" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
+                  <select name="EditTicketTypeId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
                     @foreach (var ticketType in Model.Types)
                     {
                       if (Model.Ticket!.TicketTypeId == ticketType.Id) {<option value="@ticketType.Id" selected>@ticketType.Name</option>} else {<option value="@ticketType.Id">@ticketType.Name</option>}
                     }
                   </select>
                 </div>
-                <div>
+                <div class="form-control">
                   <label class="label">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-circle mr-1"></i>Status
                     </span>
                   </label>
-                  <select name="EditStatusId" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
+                  <select name="EditStatusId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
                     @foreach (var status in Model.Statuses)
                     {
                       if (Model.Ticket!.StatusId == status.Id) {<option value="@status.Id" selected>@status.Name</option>} else {<option value="@status.Id">@status.Name</option>}
                     }
                   </select>
                 </div>
-                <div>
+                <div class="form-control">
                   <label class="label">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-exclamation-circle mr-1"></i>Priority
                     </span>
                   </label>
-                  <select name="EditPriorityId" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
+                  <select name="EditPriorityId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
                     @foreach (var priority in Model.Priorities)
                     {
                       if (Model.Ticket!.PriorityId == priority.Id) {<option value="@priority.Id" selected>@priority.Name</option>} else {<option value="@priority.Id">@priority.Name</option>}
@@ -256,31 +256,34 @@
               </div>
               
               <!-- Description Field -->
-              <div>
+              <div class="form-control">
                 <label class="label">
                   <span class="label-text text-white/80 font-medium">Description</span>
                   <span class="label-text-alt text-white/40">Optional</span>
                 </label>
-                <textarea name="EditDescription" class="textarea textarea-bordered w-full bg-neutral-900/70 focus:bg-neutral-900 min-h-[150px]" placeholder="Provide detailed context, steps to reproduce, or additional notes...">@Model.Ticket!.Description</textarea>
+                <textarea name="EditDescription" class="textarea w-full bg-neutral-900/80 focus:bg-neutral-900 min-h-[150px]" placeholder="Provide detailed context, steps to reproduce, or additional notes...">@Model.Ticket!.Description</textarea>
               </div>
             </div>
           </div>
 
+          <!-- Divider -->
+          <div class="divider my-6"></div>
+
           <!-- Assignment & Location Section -->
-          <div class="bg-neutral-950/50 rounded-xl p-5 border border-white/5">
+          <div class="space-y-4">
             <h3 class="text-sm uppercase tracking-wider font-semibold text-white/60 mb-4">
               <i class="fa fa-users mr-2"></i>Assignment & Location
             </h3>
             <div class="grid gap-4 lg:grid-cols-2">
               <div class="space-y-4">
-                <div>
+                <div class="form-control">
                   <label class="label">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-user mr-1"></i>Assignee
                     </span>
                   </label>
                   <input type="hidden" id="EditAssignedUserId" name="EditAssignedUserId" value="@Model.Ticket!.AssignedUserId" />
-                  <input id="assignee-search" class="input input-bordered w-full bg-neutral-900/70 focus:bg-neutral-900" list="assignees-list" placeholder="Search by name or email..." />
+                  <input id="assignee-search" class="input w-full bg-neutral-900/80 focus:bg-neutral-900" list="assignees-list" placeholder="Search by name or email..." />
                   <datalist id="assignees-list">
                     <option value="Unassigned" data-id=""></option>
                     @foreach (var member in Model.Members)
@@ -289,14 +292,14 @@
                     }
                   </datalist>
                 </div>
-                <div>
+                <div class="form-control">
                   <label class="label">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-users mr-1"></i>Team
                     </span>
                   </label>
                   <input type="hidden" id="EditAssignedTeamId" name="EditAssignedTeamId" value="@Model.Ticket!.AssignedTeamId" />
-                  <input id="team-search" class="input input-bordered w-full bg-neutral-900/70 focus:bg-neutral-900" list="teams-list" placeholder="Search team..." />
+                  <input id="team-search" class="input w-full bg-neutral-900/80 focus:bg-neutral-900" list="teams-list" placeholder="Search team..." />
                   <datalist id="teams-list">
                     <option value="None" data-id=""></option>
                     @foreach (var team in Model.Teams)
@@ -307,15 +310,14 @@
                 </div>
               </div>
               <div class="space-y-4">
-                <div>
-                <div>
+                <div class="form-control">
                   <label class="label">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-user mr-1"></i>Contact
                     </span>
                   </label>
                   <input type="hidden" name="EditContactId" id="editContactId" value="@Model.Ticket!.ContactId" />
-                  <input id="contact-search" class="input input-bordered w-full bg-neutral-900/70 focus:bg-neutral-900" list="contacts-list" placeholder="Search contacts..." />
+                  <input id="contact-search" class="input w-full bg-neutral-900/80 focus:bg-neutral-900" list="contacts-list" placeholder="Search contacts..." />
                   <datalist id="contacts-list">
                     @foreach (var contact in Model.Contacts)
                     {
@@ -323,13 +325,13 @@
                     }
                   </datalist>
                 </div>
-                <div>
+                <div class="form-control">
                   <label class="label">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-map-marker-alt mr-1"></i>Location
                     </span>
                   </label>
-                  <select name="locationId" class="select select-bordered w-full bg-neutral-900/70 focus:bg-neutral-900">
+                  <select name="locationId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
                     <option value="">None</option>
                     @foreach (var location in Model.LocationOptions)
                     {
@@ -342,8 +344,11 @@
             </div>
           </div>
 
+          <!-- Divider -->
+          <div class="divider my-6"></div>
+
           <!-- Parts / Inventory Section -->
-          <div class="bg-neutral-950/50 rounded-xl p-5 border border-white/5">
+          <div class="space-y-4">
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-sm uppercase tracking-wider font-semibold text-white/60">
                 <i class="fa fa-boxes mr-2"></i>Parts & Inventory
@@ -353,11 +358,11 @@
             
             <div id="inventory-products-section" class="space-y-3">
               <!-- Add Inventory Controls -->
-              <div class="flex flex-wrap gap-2 items-center p-3 bg-neutral-900/60 rounded-lg border border-white/5">
-                <input id="inventory-search" class="input input-bordered flex-1 min-w-[200px] bg-neutral-900 focus:bg-neutral-950" list="inventory-list" placeholder="Search by name or SKU..." />
+              <div class="flex flex-wrap gap-2 items-center p-3 bg-neutral-900/80 rounded-lg border border-white/10">
+                <input id="inventory-search" class="input flex-1 min-w-[200px] bg-neutral-900/80 focus:bg-neutral-950" list="inventory-list" placeholder="Search by name or SKU..." />
                 <div class="flex items-center gap-2">
                   <label class="text-xs text-white/60">Qty:</label>
-                  <input id="inventory-qty" type="number" min="1" value="1" class="input input-bordered w-20 bg-neutral-900 focus:bg-neutral-950" />
+                  <input id="inventory-qty" type="number" min="1" value="1" class="input w-20 bg-neutral-900/80 focus:bg-neutral-950" />
                 </div>
                 <button type="button" class="btn btn-primary btn-sm" id="add-inventory-btn">
                   <i class="fa fa-plus mr-1"></i>Add Item
@@ -378,10 +383,10 @@
               </datalist>
 
               <!-- Inventory Table -->
-              <div class="overflow-x-auto bg-neutral-900/40 rounded-lg border border-white/5">
+              <div class="overflow-x-auto bg-neutral-900/40 rounded-lg border border-white/10">
                 <table class="table table-sm w-full" id="invoice-table">
                   <thead>
-                    <tr class="border-b border-white/5">
+                    <tr class="border-b border-white/10">
                       <th class="bg-neutral-950/50 text-white/60">SKU</th>
                       <th class="bg-neutral-950/50 text-white/60">Item Name</th>
                       <th class="bg-neutral-950/50 text-white/60 text-center">Quantity</th>
@@ -836,7 +841,7 @@
         @if ((Model.Ticket?.Id ?? 0) > 0)
         {
           <div class="divider my-6"></div>
-          <div class="bg-neutral-950/50 rounded-xl p-5 border border-white/5">
+          <div class="space-y-4">
             <h3 class="text-sm uppercase tracking-wider font-semibold text-white/60 mb-4">
               <i class="fa fa-comments mr-2"></i>Comments
             </h3>
@@ -849,7 +854,7 @@
                   <textarea 
                     name="NewCommentContent" 
                     placeholder="Add a comment..." 
-                    class="w-full p-3 rounded-lg bg-neutral-900 border border-white/10 text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 resize-none"
+                    class="w-full p-3 rounded-lg bg-neutral-900/80 text-white placeholder-white/40 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 resize-none"
                     rows="3"></textarea>
                   <div class="flex items-center gap-3">
                     <label class="flex items-center gap-2 cursor-pointer text-sm text-white/70 hover:text-white/90">
@@ -968,7 +973,7 @@
         @if ((Model.Ticket?.Id ?? 0) > 0)
         {
           <div class="divider my-6"></div>
-          <div class="bg-neutral-950/50 rounded-xl p-5 border border-white/5">
+          <div class="space-y-4">
             <h3 class="text-sm uppercase tracking-wider font-semibold text-white/60 mb-4">
               <i class="fa fa-history mr-2"></i>Activity History
             </h3>
