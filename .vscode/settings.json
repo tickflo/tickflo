@@ -1,5 +1,5 @@
 {
-	"dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "fullSolution",
+	"dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "openFiles",
 	"editor.formatOnSave": true,
 	"[csharp]": {
 		"editor.defaultFormatter": "ms-dotnettools.csharp"

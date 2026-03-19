@@ -12,6 +12,8 @@ public class TickfloConfig
     public string S3SecretKey { get; set; } = string.Empty;
     public string S3Bucket { get; set; } = string.Empty;
     public string S3Region { get; set; } = string.Empty;
+    public string MailgunApiKey { get; set; } = string.Empty;
+    public string AppEnv { get; set; } = "Production";
     public int SessionTimeoutMinutes { get; set; }
     public string SessionCookieName { get; set; } = "tickflo_session";
     public UserConfig User { get; set; } = new();
@@ -59,4 +61,5 @@ public class EmailConfig
 {
     public string FromAddress { get; set; } = "no-reply@tickflo.co";
     public string FromName { get; set; } = "Tickflo";
+    public int BatchSize { get; set; } = 100;
 }

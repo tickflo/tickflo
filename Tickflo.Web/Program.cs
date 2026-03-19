@@ -135,6 +135,8 @@ builder.Services.AddScoped<IEmailLogService, EmailLogService>();
 builder.Services.AddScoped<Tickflo.Web.Services.ITempTeamService, Tickflo.Web.Services.TempTeamService>();
 builder.Services.AddScoped<Tickflo.Web.Services.ITempRolePermissionService, Tickflo.Web.Services.TempRolePermissionService>();
 
+builder.Services.AddScoped<Tickflo.Core.Jobs.IBatchEmailSendService, Tickflo.Core.Jobs.MailgunEmailSendService>();
+
 builder.Services.AddDbContext<TickfloDbContext>(options =>
     options.UseNpgsql(connectionString)
         .UseSnakeCaseNamingConvention());
