@@ -160,9 +160,13 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
         modelBuilder.Entity<FileStorage>()
             .HasIndex(fs => fs.Path);
 
-        modelBuilder.Entity<Email>().Property(e => e.Vars)
-            .HasConversion(
-                v => JsonSerializer.Serialize(v),
-                v => JsonSerializer.Deserialize<Dictionary<string, string>>(v) ?? new Dictionary<string, string>());
+        modelBuilder.Entity<Email>(entity =>
+        {
+            entity.Property(e => e.State).HasDefaultValueSql("'created'::character varying");
+            entity.Property(e => e.Vars)
+                .HasConversion(
+                    v => JsonSerializer.Serialize(v),
+                    v => JsonSerializer.Deserialize<Dictionary<string, string>>(v) ?? new Dictionary<string, string>());
+        });
     }
 }

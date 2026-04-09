@@ -387,7 +387,8 @@
         "type": "Project",
         "dependencies": {
           "Isopoh.Cryptography.Argon2": "[2.0.0, )",
-          "Microsoft.EntityFrameworkCore": "[10.0.2, )"
+          "Microsoft.EntityFrameworkCore": "[10.0.2, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.0, )"
         }
       },
       "tickflo.web": {
