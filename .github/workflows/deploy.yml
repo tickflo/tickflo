@@ -193,7 +193,7 @@ jobs:
               -e S3SecretKey=${{ secrets.S3_SECRET_KEY_PROD }} \
               -e S3Bucket=tickflo \
               -e S3Region=us-east-1 \
-              -e MailgunApiKey=${{ secrets.MAILGUN_KEY_PROD }} \  
+              -e MailgunApiKey=${{ secrets.MAILGUN_KEY_PROD }} \
               ${{ env.IMAGE_NAME }}:latest
 
             docker image prune -f
