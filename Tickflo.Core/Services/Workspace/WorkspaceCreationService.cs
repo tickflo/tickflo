@@ -100,6 +100,7 @@ public partial class WorkspaceCreationService(
             {
                 WorkspaceId = workspace.Id,
                 Name = name,
+                Admin = isAdmin,
                 CreatedBy = createdByUserId
             };
 
