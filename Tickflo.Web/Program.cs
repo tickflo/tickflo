@@ -1,6 +1,29 @@
 using System.Web;
-using AuthenticationService = Tickflo.Core.Services.Authentication.AuthenticationService;
-using IAuthenticationService = Tickflo.Core.Services.Authentication.IAuthenticationService;
+using Amazon.S3;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using Tickflo.Core.Config;
+using Tickflo.Core.Data;
+using Tickflo.Core.Services.Admin;
+using Tickflo.Core.Services.Authentication;
+using Tickflo.Core.Services.Common;
+using Tickflo.Core.Services.Contacts;
+using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Export;
+using Tickflo.Core.Services.Inventory;
+using Tickflo.Core.Services.Locations;
+using Tickflo.Core.Services.Notifications;
+using Tickflo.Core.Services.Reporting;
+using Tickflo.Core.Services.Roles;
+using Tickflo.Core.Services.Teams;
+using Tickflo.Core.Services.Tickets;
+using Tickflo.Core.Services.Users;
+using Tickflo.Core.Services.Views;
+using Tickflo.Core.Services.Workspace;
+using Tickflo.Web;
+using Tickflo.Web.Authentication;
+using Tickflo.Web.Services;
 
 DotNetEnv.Env.Load();
 
@@ -22,7 +45,7 @@ builder.Services.AddSingleton(appConfig);
 builder.Services.AddSingleton(settingsConfig);
 builder.Services.AddScoped<IPasswordHasher, Argon2idPasswordHasher>();
 builder.Services.AddSignalR();
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<Tickflo.Core.Services.Authentication.IAuthenticationService, Tickflo.Core.Services.Authentication.AuthenticationService>();
 builder.Services.AddScoped<IPasswordSetupService, PasswordSetupService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 

@@ -1,5 +1,15 @@
 namespace Tickflo.CoreTest.Services.Auth;
 
+using Microsoft.EntityFrameworkCore;
+using Moq;
+using Tickflo.Core.Config;
+using Tickflo.Core.Data;
+using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Authentication;
+using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Workspace;
+using Xunit;
+
 public class AuthenticationServiceEmailConfirmationTests
 {
     [Fact]

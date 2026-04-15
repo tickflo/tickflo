@@ -7,15 +7,13 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
-using Tickflo.Web.Services;
 
 [AllowAnonymous]
-public class SignupModel(IAuthenticationService authenticationService, TickfloConfig config, ILogger<SignupModel> logger, IRequestOriginService requestOriginService) : PageModel
+public class SignupModel(IAuthenticationService authenticationService, TickfloConfig config, ILogger<SignupModel> logger) : PageModel
 {
     private readonly IAuthenticationService authenticationService = authenticationService;
     private readonly TickfloConfig config = config;
     private readonly ILogger<SignupModel> logger = logger;
-    private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     [Required]
     [Display(Name = "Name")]
@@ -54,7 +52,7 @@ public class SignupModel(IAuthenticationService authenticationService, TickfloCo
 
     public bool Invited { get; set; }
 
-    public async Task OnGetAsync([FromQuery] string? email)
+    public void OnGet([FromQuery] string? email)
     {
         if (!string.IsNullOrEmpty(email))
         {
@@ -102,11 +100,10 @@ public class SignupModel(IAuthenticationService authenticationService, TickfloCo
         var recoveryEmail = this.RecoveryEmail?.Trim() ?? string.Empty;
         var workspaceName = this.WorkspaceName?.Trim() ?? string.Empty;
         var password = this.Password ?? string.Empty;
-        var emailConfirmationOrigin = this.requestOriginService.GetCurrentOrigin(this.Request);
 
         return workspaceName.Length > 0
-            ? await this.authenticationService.SignupAsync(name, email, recoveryEmail, workspaceName, password, emailConfirmationOrigin)
-            : await this.authenticationService.SignupInviteeAsync(name, email, recoveryEmail, password, emailConfirmationOrigin);
+            ? await this.authenticationService.SignupAsync(name, email, recoveryEmail, workspaceName, password)
+            : await this.authenticationService.SignupInviteeAsync(name, email, recoveryEmail, password);
     }
 
     private void AppendAuthenticationCookie(string token) => this.Response.Cookies.Append(this.config.SessionCookieName, token, new CookieOptions
