@@ -1,13 +1,5 @@
 namespace Tickflo.Core.Services.Authentication;
 
-using Microsoft.EntityFrameworkCore;
-using Tickflo.Core.Config;
-using Tickflo.Core.Data;
-using Tickflo.Core.Entities;
-using Tickflo.Core.Exceptions;
-using Tickflo.Core.Services.Email;
-using Tickflo.Core.Services.Workspace;
-using Tickflo.Core.Utils;
 public interface IAuthenticationService
 {
     public Task<AuthenticationResult> AuthenticateAsync(string email, string password);
