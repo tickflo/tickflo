@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Services.Authentication;
 using Tickflo.Core.Services.Common;
-using Tickflo.Web.Services;
 
 // TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
 
@@ -14,13 +13,11 @@ using Tickflo.Web.Services;
 public class EmailConfirmationController(
     TickfloDbContext dbContext,
     ICurrentUserService currentUserService,
-    IAuthenticationService authenticationService,
-    IRequestOriginService requestOriginService) : ControllerBase
+    IAuthenticationService authenticationService) : ControllerBase
 {
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly IAuthenticationService authenticationService = authenticationService;
     private readonly ICurrentUserService currentUserService = currentUserService;
-    private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     [HttpGet("email-confirmation/confirm")]
     [AllowAnonymous]
@@ -107,8 +104,7 @@ public class EmailConfirmationController(
 
         try
         {
-            var emailConfirmationOrigin = this.requestOriginService.GetCurrentOrigin(this.Request);
-            await this.authenticationService.ResendEmailConfirmationAsync(user.Id, emailConfirmationOrigin);
+            await this.authenticationService.ResendEmailConfirmationAsync(user.Id);
             return this.Ok(new { message = "Confirmation email resent successfully." });
         }
         catch (Exception ex)

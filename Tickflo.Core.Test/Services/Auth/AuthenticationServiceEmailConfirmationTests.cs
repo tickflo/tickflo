@@ -7,6 +7,7 @@ using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Authentication;
 using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Web;
 using Tickflo.Core.Services.Workspace;
 using Xunit;
 
@@ -28,14 +29,19 @@ public class AuthenticationServiceEmailConfirmationTests
 
         var emailSendService = new Mock<IEmailSendService>();
         var workspaceCreationService = new Mock<IWorkspaceCreationService>();
+        var requestOriginService = new Mock<IRequestOriginService>();
+
+        requestOriginService.Setup(service => service.GetCurrentOrigin()).Returns("https://localhost:7182");
+
         var authenticationService = new AuthenticationService(
             databaseContext,
             new Argon2idPasswordHasher(),
             emailSendService.Object,
             tickfloConfig,
-            workspaceCreationService.Object);
+            workspaceCreationService.Object,
+            requestOriginService.Object);
 
-        await authenticationService.ResendEmailConfirmationAsync(user.Id, "https://localhost:7182");
+        await authenticationService.ResendEmailConfirmationAsync(user.Id);
 
         var expectedConfirmationLink = $"https://localhost:7182/email-confirmation/confirm?email={Uri.EscapeDataString(user.Email)}&code={user.EmailConfirmationCode}";
         emailSendService.Verify(service => service.AddToQueueAsync(
@@ -63,12 +69,17 @@ public class AuthenticationServiceEmailConfirmationTests
 
         var emailSendService = new Mock<IEmailSendService>();
         var workspaceCreationService = new Mock<IWorkspaceCreationService>();
+        var requestOriginService = new Mock<IRequestOriginService>();
+
+        requestOriginService.Setup(service => service.GetCurrentOrigin()).Returns(tickfloConfig.BaseUrl.TrimEnd('/'));
+
         var authenticationService = new AuthenticationService(
             databaseContext,
             new Argon2idPasswordHasher(),
             emailSendService.Object,
             tickfloConfig,
-            workspaceCreationService.Object);
+            workspaceCreationService.Object,
+            requestOriginService.Object);
 
         await authenticationService.ResendEmailConfirmationAsync(user.Id);
 
@@ -102,14 +113,19 @@ public class AuthenticationServiceEmailConfirmationTests
 
         var emailSendService = new Mock<IEmailSendService>();
         var workspaceCreationService = new Mock<IWorkspaceCreationService>();
+        var requestOriginService = new Mock<IRequestOriginService>();
+
+        requestOriginService.Setup(service => service.GetCurrentOrigin()).Returns("https://localhost:7182");
+
         var authenticationService = new AuthenticationService(
             databaseContext,
             new Argon2idPasswordHasher(),
             emailSendService.Object,
             tickfloConfig,
-            workspaceCreationService.Object);
+            workspaceCreationService.Object,
+            requestOriginService.Object);
 
-        await authenticationService.ResendEmailConfirmationAsync(user.Id, "https://localhost:7182");
+        await authenticationService.ResendEmailConfirmationAsync(user.Id);
 
         Assert.False(string.IsNullOrWhiteSpace(user.EmailConfirmationCode));
 

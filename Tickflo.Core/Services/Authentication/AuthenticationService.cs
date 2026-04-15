@@ -6,15 +6,16 @@ using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Web;
 using Tickflo.Core.Services.Workspace;
 using Tickflo.Core.Utils;
 
 public interface IAuthenticationService
 {
     public Task<AuthenticationResult> AuthenticateAsync(string email, string password);
-    public Task<AuthenticationResult> SignupAsync(string name, string email, string recoveryEmail, string workspaceName, string password, string? emailConfirmationOrigin = null);
-    public Task<AuthenticationResult> SignupInviteeAsync(string name, string email, string recoveryEmail, string password, string? emailConfirmationOrigin = null);
-    public Task ResendEmailConfirmationAsync(int userId, string? emailConfirmationOrigin = null);
+    public Task<AuthenticationResult> SignupAsync(string name, string email, string recoveryEmail, string workspaceName, string password);
+    public Task<AuthenticationResult> SignupInviteeAsync(string name, string email, string recoveryEmail, string password);
+    public Task ResendEmailConfirmationAsync(int userId);
 }
 
 
@@ -23,7 +24,8 @@ public partial class AuthenticationService(
     IPasswordHasher passwordHasher,
     IEmailSendService emailSendService,
     TickfloConfig config,
-    IWorkspaceCreationService workspaceCreationService
+    IWorkspaceCreationService workspaceCreationService,
+    IRequestOriginService requestOriginService
     ) : IAuthenticationService
 {
     private readonly TickfloDbContext db = db;
@@ -31,6 +33,7 @@ public partial class AuthenticationService(
     private readonly IEmailSendService emailSendService = emailSendService;
     private readonly IWorkspaceCreationService workspaceCreationService = workspaceCreationService;
     private readonly TickfloConfig config = config;
+    private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     public async Task<AuthenticationResult> AuthenticateAsync(string email, string password)
     {
@@ -63,7 +66,7 @@ public partial class AuthenticationService(
         };
     }
 
-    public async Task<AuthenticationResult> SignupAsync(string name, string email, string recoveryEmail, string workspaceName, string password, string? emailConfirmationOrigin = null)
+    public async Task<AuthenticationResult> SignupAsync(string name, string email, string recoveryEmail, string workspaceName, string password)
     {
         if (await this.db.Users.AnyAsync(user => user.Email.ToLower() == email))
         {
@@ -79,7 +82,7 @@ public partial class AuthenticationService(
             this.db.Users.Add(user);
             await this.db.SaveChangesAsync();
 
-            await this.SendEmailConfirmationAsync(user, emailConfirmationOrigin);
+            await this.SendEmailConfirmationAsync(user);
             await this.workspaceCreationService.CreateWorkspaceAsync(workspaceName, user.Id);
 
             var token = new Token(user.Id, this.config.SessionTimeoutMinutes * 60);
@@ -103,7 +106,7 @@ public partial class AuthenticationService(
         }
     }
 
-    public async Task<AuthenticationResult> SignupInviteeAsync(string name, string email, string recoveryEmail, string password, string? emailConfirmationOrigin = null)
+    public async Task<AuthenticationResult> SignupInviteeAsync(string name, string email, string recoveryEmail, string password)
     {
         var user = await this.db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email)
             ?? throw new NotFoundException("User not found");
@@ -128,7 +131,7 @@ public partial class AuthenticationService(
         user.PasswordHash = this.passwordHasher.Hash($"{email}{password}");
         this.db.Users.Update(user);
 
-        await this.SendEmailConfirmationAsync(user, emailConfirmationOrigin);
+        await this.SendEmailConfirmationAsync(user);
 
         var token = new Token(user.Id, this.config.SessionTimeoutMinutes * 60);
         await this.db.Tokens.AddAsync(token);
@@ -141,7 +144,7 @@ public partial class AuthenticationService(
         };
     }
 
-    public async Task ResendEmailConfirmationAsync(int userId, string? emailConfirmationOrigin = null)
+    public async Task ResendEmailConfirmationAsync(int userId)
     {
         var user = await this.db.Users.FirstOrDefaultAsync(u => u.Id == userId)
             ?? throw new NotFoundException("User not found");
@@ -151,15 +154,15 @@ public partial class AuthenticationService(
             throw new BadRequestException("Email is already confirmed");
         }
 
-        await this.SendEmailConfirmationAsync(user, emailConfirmationOrigin);
+        await this.SendEmailConfirmationAsync(user);
         await this.db.SaveChangesAsync();
     }
 
-    private async Task SendEmailConfirmationAsync(User user, string? emailConfirmationOrigin = null)
+    private async Task SendEmailConfirmationAsync(User user)
     {
         EnsureEmailConfirmationCode(user);
 
-        var callbackOrigin = this.GetCallbackOrigin(emailConfirmationOrigin);
+        var callbackOrigin = this.requestOriginService.GetCurrentOrigin();
         var confirmationLink = $"{callbackOrigin}/email-confirmation/confirm?email={Uri.EscapeDataString(user.Email)}&code={user.EmailConfirmationCode}";
 
         await this.emailSendService.AddToQueueAsync(user.Email,
@@ -178,12 +181,6 @@ public partial class AuthenticationService(
         }
 
         user.EmailConfirmationCode = SecureTokenGenerator.GenerateToken(16);
-    }
-
-    private string GetCallbackOrigin(string? emailConfirmationOrigin)
-    {
-        var origin = string.IsNullOrWhiteSpace(emailConfirmationOrigin) ? this.config.BaseUrl : emailConfirmationOrigin;
-        return origin.TrimEnd('/');
     }
 
     private void PreventTimingAttack() => this.passwordHasher.Verify("password", "$argon2id$v=19$m=16,t=2,p=1$NlJRdlBSbDZhRVUzdTFYcQ$FbtOcbMs2IMTMHFE8WcSiQ");

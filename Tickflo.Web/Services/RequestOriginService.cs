@@ -1,19 +1,20 @@
 namespace Tickflo.Web.Services;
 
 using Microsoft.AspNetCore.Http;
+using Tickflo.Core.Config;
+using Tickflo.Core.Services.Web;
 
-public interface IRequestOriginService
+public class RequestOriginService(IHttpContextAccessor httpContextAccessor, TickfloConfig config) : IRequestOriginService
 {
-    public string? GetCurrentOrigin(HttpRequest request);
-}
+    private readonly IHttpContextAccessor httpContextAccessor = httpContextAccessor;
+    private readonly TickfloConfig config = config;
 
-public class RequestOriginService : IRequestOriginService
-{
-    public string? GetCurrentOrigin(HttpRequest request)
+    public string GetCurrentOrigin()
     {
-        if (!request.Host.HasValue || string.IsNullOrWhiteSpace(request.Scheme))
+        var request = this.httpContextAccessor.HttpContext?.Request;
+        if (request == null || !request.Host.HasValue || string.IsNullOrWhiteSpace(request.Scheme))
         {
-            return null;
+            return this.config.BaseUrl?.TrimEnd('/') ?? "";
         }
 
         return $"{request.Scheme}://{request.Host}";
