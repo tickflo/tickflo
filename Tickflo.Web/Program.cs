@@ -23,6 +23,7 @@ using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 using Tickflo.Web;
 using Tickflo.Web.Authentication;
+using Tickflo.Web.Services;
 using AuthenticationService = Tickflo.Core.Services.Authentication.AuthenticationService;
 using IAuthenticationService = Tickflo.Core.Services.Authentication.IAuthenticationService;
 
@@ -123,8 +124,8 @@ builder.Services.AddScoped<ILocationListingService, LocationListingService>();
 builder.Services.AddScoped<ITeamListingService, TeamListingService>();
 
 // RustFS file and image storage services (Web implementations)
-builder.Services.AddScoped<Tickflo.Core.Services.Storage.IFileStorageService, Tickflo.Web.Services.RustFSStorageService>();
-builder.Services.AddScoped<Tickflo.Core.Services.Storage.IImageStorageService, Tickflo.Web.Services.RustFSImageStorageService>();
+builder.Services.AddScoped<Tickflo.Core.Services.Storage.IFileStorageService, RustFSStorageService>();
+builder.Services.AddScoped<Tickflo.Core.Services.Storage.IImageStorageService, RustFSImageStorageService>();
 builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<IEmailSendService, EmailSendService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
@@ -132,8 +133,8 @@ builder.Services.AddScoped<IAppContext, Tickflo.Web.AppContext>();
 builder.Services.AddScoped<IEmailLogService, EmailLogService>();
 
 // Temporary services (TODO: Move logic to Core)
-builder.Services.AddScoped<Tickflo.Web.Services.ITempTeamService, Tickflo.Web.Services.TempTeamService>();
-builder.Services.AddScoped<Tickflo.Web.Services.ITempRolePermissionService, Tickflo.Web.Services.TempRolePermissionService>();
+builder.Services.AddScoped<ITempTeamService, TempTeamService>();
+builder.Services.AddScoped<ITempRolePermissionService, TempRolePermissionService>();
 
 builder.Services.AddScoped<Tickflo.Core.Jobs.IBatchEmailSendService, Tickflo.Core.Jobs.MailgunEmailSendService>();
 
@@ -168,6 +169,7 @@ builder.Services.AddAuthorizationBuilder()
 builder.Services.AddMiniProfiler().AddEntityFramework();
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IRequestOriginService, RequestOriginService>();
 
 builder.Services.AddSingleton<IAmazonS3>(sp =>
 {
