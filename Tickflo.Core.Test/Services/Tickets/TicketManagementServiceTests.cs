@@ -11,7 +11,7 @@ using Xunit;
 public class TicketManagementServiceTests
 {
     [Fact]
-    public async Task CreateTicketAndNotifyAsyncShouldDispatchTicketCreatedNotification()
+    public async Task CreateTicketAndNotifyAsyncWhenTicketIsCreatedShouldDispatchTicketCreatedNotification()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -98,6 +98,41 @@ public class TicketManagementServiceTests
             29,
             "Assignment changed. Status changed from 'Open' to 'Closed'. Ticket details were updated.",
             It.Is<IReadOnlyCollection<int>>(excludedUserIds => excludedUserIds.Count == 1 && excludedUserIds.Contains(assignee.Id))), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateTicketAsyncWhenNamesAreOmittedShouldUseWorkspaceReferenceDefaults()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var workspace = new Workspace { Name = "Operations", Slug = "operations" };
+        databaseContext.Workspaces.Add(workspace);
+        await databaseContext.SaveChangesAsync();
+
+        var defaultType = new TicketType { WorkspaceId = workspace.Id, Name = "Inspection", SortOrder = 1 };
+        var laterType = new TicketType { WorkspaceId = workspace.Id, Name = "Repair", SortOrder = 2 };
+        var defaultPriority = new TicketPriority { WorkspaceId = workspace.Id, Name = "Normal", SortOrder = 1 };
+        var laterPriority = new TicketPriority { WorkspaceId = workspace.Id, Name = "Urgent", SortOrder = 2 };
+        var defaultStatus = new TicketStatus { WorkspaceId = workspace.Id, Name = "Queued", SortOrder = 1, IsClosedState = false };
+        var closedStatus = new TicketStatus { WorkspaceId = workspace.Id, Name = "Closed", SortOrder = 2, IsClosedState = true };
+        databaseContext.TicketTypes.AddRange(defaultType, laterType);
+        databaseContext.TicketPriorities.AddRange(defaultPriority, laterPriority);
+        databaseContext.TicketStatuses.AddRange(defaultStatus, closedStatus);
+        await databaseContext.SaveChangesAsync();
+
+        var notificationTriggerService = new Mock<INotificationTriggerService>();
+        var ticketManagementService = new TicketManagementService(databaseContext, notificationTriggerService.Object);
+
+        var createdTicket = await ticketManagementService.CreateTicketAsync(new CreateTicketRequest
+        {
+            WorkspaceId = workspace.Id,
+            CreatedByUserId = 17,
+            Subject = "Inspect rooftop unit",
+            Description = "Original details."
+        });
+
+        Assert.Equal(defaultType.Id, createdTicket.TicketTypeId);
+        Assert.Equal(defaultPriority.Id, createdTicket.PriorityId);
+        Assert.Equal(defaultStatus.Id, createdTicket.StatusId);
     }
 
     private static TickfloDbContext CreateDatabaseContext()

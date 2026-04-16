@@ -186,7 +186,7 @@ public partial class AuthenticationService(
 
     private static bool IsDemoUserEmail(string? email) =>
         !string.IsNullOrWhiteSpace(email) &&
-        email.Contains("demo.com", StringComparison.OrdinalIgnoreCase);
+        email.EndsWith("@demo.com", StringComparison.OrdinalIgnoreCase);
 
     private void PreventTimingAttack() => this.passwordHasher.Verify("password", "$argon2id$v=19$m=16,t=2,p=1$NlJRdlBSbDZhRVUzdTFYcQ$FbtOcbMs2IMTMHFE8WcSiQ");
 }

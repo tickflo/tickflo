@@ -145,10 +145,10 @@ public class TicketCommentService(
 
     public async Task<TicketComment> AddCommentAndNotifyAsync(int workspaceId, int ticketId, int createdByUserId, string content, bool isVisibleToClient, CancellationToken ct = default)
     {
-        var comment = await this.AddCommentAsync(workspaceId, ticketId, createdByUserId, content, isVisibleToClient, ct);
         var ticket = await this.dbContext.Tickets
             .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId, ct)
             ?? throw new InvalidOperationException("Ticket not found");
+        var comment = await this.AddCommentAsync(workspaceId, ticketId, createdByUserId, content, isVisibleToClient, ct);
 
         await this.notificationTriggerService.NotifyTicketCommentAddedAsync(
             workspaceId,

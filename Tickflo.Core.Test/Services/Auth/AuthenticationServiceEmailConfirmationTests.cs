@@ -15,7 +15,7 @@ using Xunit;
 public class AuthenticationServiceEmailConfirmationTests
 {
     [Fact]
-    public async Task ResendEmailConfirmationAsyncWhenOriginProvidedShouldUseOriginWithConfirmationRoute()
+    public async Task ResendEmailConfirmationAsyncWhenOriginIsProvidedShouldUseOriginWithConfirmationRoute()
     {
         var tickfloConfig = new TickfloConfig
         {
@@ -55,7 +55,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task ResendEmailConfirmationAsyncWhenOriginMissingShouldFallbackToConfiguredBaseUrl()
+    public async Task ResendEmailConfirmationAsyncWhenConfiguredOriginIsUsedShouldBuildConfirmationRouteFromThatOrigin()
     {
         var tickfloConfig = new TickfloConfig
         {
@@ -192,6 +192,26 @@ public class AuthenticationServiceEmailConfirmationTests
             "user@example.com",
             "recovery@example.com",
             passwordHasher.Hash("user@example.comcorrect-password"));
+
+        databaseContext.Users.Add(user);
+        await databaseContext.SaveChangesAsync();
+
+        var authenticationService = CreateAuthenticationService(databaseContext);
+
+        await Assert.ThrowsAsync<UnauthorizedException>(() =>
+            authenticationService.AuthenticateAsync(user.Email, "wrong-password"));
+    }
+
+    [Fact]
+    public async Task AuthenticateAsyncWhenEmailOnlyContainsDemoDomainTextShouldRejectInvalidPassword()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var passwordHasher = new Argon2idPasswordHasher();
+        var user = new User(
+            "Regular User",
+            "attacker@notdemo.com",
+            "recovery@example.com",
+            passwordHasher.Hash("attacker@notdemo.comcorrect-password"));
 
         databaseContext.Users.Add(user);
         await databaseContext.SaveChangesAsync();

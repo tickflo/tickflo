@@ -99,9 +99,9 @@ public class CreateTicketRequest
     public int CreatedByUserId { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public string Type { get; set; } = "Standard";
-    public string Priority { get; set; } = "Normal";
-    public string Status { get; set; } = "New";
+    public string? Type { get; set; }
+    public string? Priority { get; set; }
+    public string? Status { get; set; }
     public int? TicketTypeId { get; set; }
     public int? PriorityId { get; set; }
     public int? StatusId { get; set; }
@@ -139,10 +139,6 @@ public class TicketManagementService(
     TickfloDbContext dbContext,
     INotificationTriggerService notificationTriggerService) : ITicketManagementService
 {
-    // TODO: These should definitely be configured per workspace not hard coded
-    private const string DefaultTicketType = "Standard";
-    private const string DefaultPriority = "Normal";
-    private const string DefaultStatus = "New";
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
@@ -227,8 +223,12 @@ public class TicketManagementService(
             }
         }
 
-        var defaultType = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == DefaultTicketType);
-        return defaultType?.Id;
+        return await this.dbContext.TicketTypes
+            .Where(ticketType => ticketType.WorkspaceId == workspaceId)
+            .OrderBy(ticketType => ticketType.SortOrder)
+            .ThenBy(ticketType => ticketType.Id)
+            .Select(ticketType => (int?)ticketType.Id)
+            .FirstOrDefaultAsync();
     }
 
     private async Task<int?> ResolvePriorityIdAsync(int workspaceId, string? priorityName)
@@ -243,8 +243,12 @@ public class TicketManagementService(
             }
         }
 
-        var defaultPriority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == DefaultPriority);
-        return defaultPriority?.Id;
+        return await this.dbContext.TicketPriorities
+            .Where(ticketPriority => ticketPriority.WorkspaceId == workspaceId)
+            .OrderBy(ticketPriority => ticketPriority.SortOrder)
+            .ThenBy(ticketPriority => ticketPriority.Id)
+            .Select(ticketPriority => (int?)ticketPriority.Id)
+            .FirstOrDefaultAsync();
     }
 
     private async Task<int?> ResolveStatusIdAsync(int workspaceId, string? statusName)
@@ -259,8 +263,12 @@ public class TicketManagementService(
             }
         }
 
-        var defaultStatus = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == DefaultStatus);
-        return defaultStatus?.Id;
+        return await this.dbContext.TicketStatuses
+            .Where(ticketStatus => ticketStatus.WorkspaceId == workspaceId && !ticketStatus.IsClosedState)
+            .OrderBy(ticketStatus => ticketStatus.SortOrder)
+            .ThenBy(ticketStatus => ticketStatus.Id)
+            .Select(ticketStatus => (int?)ticketStatus.Id)
+            .FirstOrDefaultAsync();
     }
 
     private async Task AssignTicketUserAsync(Ticket ticket, int? assignedUserId, int? locationId, int workspaceId)

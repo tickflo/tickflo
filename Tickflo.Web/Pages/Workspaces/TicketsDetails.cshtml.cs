@@ -443,7 +443,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             ContactId = this.EditContactId,
             AssignedUserId = this.EditAssignedUserId,
             AssignedTeamId = this.EditAssignedTeamId,
-            LocationId = null,
+            LocationId = this.LocationId,
             Inventories = inventories
         };
 
@@ -470,7 +470,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             ContactId = this.EditContactId,
             AssignedUserId = this.EditAssignedUserId,
             AssignedTeamId = this.EditAssignedTeamId,
-            LocationId = null,
+            LocationId = this.LocationId,
             Inventories = inventories
         };
 

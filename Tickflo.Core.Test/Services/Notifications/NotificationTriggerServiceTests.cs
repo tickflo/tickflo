@@ -13,7 +13,7 @@ using Xunit;
 public class NotificationTriggerServiceTests
 {
     [Fact]
-    public async Task NotifyTicketCreatedAsyncWhenAssignedToAnotherUserShouldQueueAssignmentEmail()
+    public async Task NotifyTicketCreatedAsyncWhenTicketIsAssignedToAnotherUserShouldQueueAssignmentEmail()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -52,7 +52,7 @@ public class NotificationTriggerServiceTests
     }
 
     [Fact]
-    public async Task NotifyTicketAssignmentChangedAsyncWhenAssignedToSelfShouldQueueAssignmentEmail()
+    public async Task NotifyTicketAssignmentChangedAsyncWhenActorAssignsTicketToSelfShouldQueueAssignmentEmail()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -202,7 +202,7 @@ public class NotificationTriggerServiceTests
     }
 
     [Fact]
-    public async Task NotifyTicketCommentAddedAsyncWhenClientVisibleShouldQueueCommentEmailsForCreatorAssigneeAndContactOwner()
+    public async Task NotifyTicketCommentAddedAsyncWhenCommentIsClientVisibleShouldQueueCommentEmailsForCreatorAssigneeAndContactOwner()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -268,7 +268,7 @@ public class NotificationTriggerServiceTests
     }
 
     [Fact]
-    public async Task NotifyTicketCreatedAsyncWhenRequestOriginHasDevPortShouldUseOriginForTicketLink()
+    public async Task NotifyTicketCreatedAsyncWhenRequestOriginUsesDevPortShouldUseOriginForTicketLink()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
