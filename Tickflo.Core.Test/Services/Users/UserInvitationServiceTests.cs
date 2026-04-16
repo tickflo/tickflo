@@ -2,7 +2,6 @@ namespace Tickflo.CoreTest.Services.Users;
 
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Email;
@@ -47,7 +46,6 @@ public class UserInvitationServiceTests
         var userInvitationService = new UserInvitationService(
             databaseContext,
             emailSendService.Object,
-            new TickfloConfig { BaseUrl = "https://app.tickflo.co" },
             requestOriginService.Object);
 
         await userInvitationService.InviteUserAsync(workspace.Id, "invitee@example.com", inviter.Id, [role.Id]);
@@ -96,7 +94,6 @@ public class UserInvitationServiceTests
         var userInvitationService = new UserInvitationService(
             databaseContext,
             emailSendService.Object,
-            new TickfloConfig { BaseUrl = "https://app.tickflo.co" },
             requestOriginService.Object);
 
         await userInvitationService.InviteUserAsync(workspace.Id, existingUser.Email, inviter.Id, [role.Id]);

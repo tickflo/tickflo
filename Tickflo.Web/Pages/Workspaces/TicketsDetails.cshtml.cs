@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-using Tickflo.Core.Services.Notifications;
 using Tickflo.Core.Services.Tickets;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
@@ -15,7 +14,7 @@ using Tickflo.Core.Services.Workspace;
 // TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
 
 [Authorize]
-public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbContext dbContext, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, Services.ITempTeamService teamService, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService, INotificationTriggerService notificationTriggerService) : WorkspacePageModel
+public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbContext dbContext, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, Services.ITempTeamService teamService, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService) : WorkspacePageModel
 {
 
     #region Constants
@@ -23,37 +22,6 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
     private const string ErrorCommentEmpty = "Comment cannot be empty.";
     private const string ErrorTicketNotFound = "Ticket not found.";
     private const int InvalidTicketId = 0;
-
-    private sealed record TicketNotificationSnapshot(
-        string Subject,
-        string Description,
-        int? TicketTypeId,
-        int? PriorityId,
-        int? StatusId,
-        int? ContactId,
-        int? AssignedUserId,
-        int? AssignedTeamId,
-        int? LocationId)
-    {
-        public static TicketNotificationSnapshot FromTicket(Ticket ticket) => new(
-            ticket.Subject,
-            ticket.Description,
-            ticket.TicketTypeId,
-            ticket.PriorityId,
-            ticket.StatusId,
-            ticket.ContactId,
-            ticket.AssignedUserId,
-            ticket.AssignedTeamId,
-            ticket.LocationId);
-
-        public bool HasGeneralChanges(Ticket ticket) =>
-            this.Subject != ticket.Subject ||
-            this.Description != ticket.Description ||
-            this.TicketTypeId != ticket.TicketTypeId ||
-            this.PriorityId != ticket.PriorityId ||
-            this.ContactId != ticket.ContactId ||
-            this.LocationId != ticket.LocationId;
-    }
     #endregion
 
     [BindProperty]
@@ -79,7 +47,6 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
     private readonly Services.ITempTeamService teamService = teamService;
     private readonly IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService = workspaceTicketsSaveViewService;
     private readonly ITicketCommentService ticketCommentService = ticketCommentService;
-    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
     public List<Inventory> InventoryItems { get; private set; } = [];
 
@@ -243,23 +210,12 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
 
         try
         {
-            var comment = await this.ticketCommentService.AddCommentAsync(
+            var comment = await this.ticketCommentService.AddCommentAndNotifyAsync(
                 this.Workspace.Id,
                 id,
                 currentUserId,
                 this.NewCommentContent.Trim(),
                 this.NewCommentIsVisibleToClient);
-
-            var ticket = await this.dbContext.Tickets
-                .FirstOrDefaultAsync(t => t.WorkspaceId == this.Workspace.Id && t.Id == id);
-            if (ticket != null)
-            {
-                await this.notificationTriggerService.NotifyTicketCommentAddedAsync(
-                    this.Workspace.Id,
-                    ticket,
-                    currentUserId,
-                    this.NewCommentIsVisibleToClient);
-            }
 
             await this.BroadcastCommentAddedAsync(hub, comment);
             this.SetSuccessMessage("Comment added successfully.");
@@ -491,23 +447,15 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             Inventories = inventories
         };
 
-        var ticket = await this.ticketManagementService.CreateTicketAsync(createReq);
-        await this.notificationTriggerService.NotifyTicketCreatedAsync(workspaceId, ticket, userId);
-        return ticket;
+        return await this.ticketManagementService.CreateTicketAndNotifyAsync(createReq);
     }
 
     private async Task<Ticket?> HandleTicketUpdateAsync(int workspaceId, int ticketId, int userId, Ticket? existing, List<TicketInventory> inventories)
     {
-        Console.WriteLine($"[HandleTicketUpdateAsync] Starting - TicketId: {ticketId}, WorkspaceId: {workspaceId}");
-        Console.WriteLine($"[HandleTicketUpdateAsync] Form values - Subject: '{this.EditSubject}', TypeId: {this.EditTicketTypeId}, PriorityId: {this.EditPriorityId}, StatusId: {this.EditStatusId}");
-        Console.WriteLine($"[HandleTicketUpdateAsync] Assignment values - AssignedUserId: {this.EditAssignedUserId}, AssignedTeamId: {this.EditAssignedTeamId}");
-
-        if (this.EnsureEntityExistsOrNotFound(existing) is IActionResult result)
+        if (this.EnsureEntityExistsOrNotFound(existing) is not null)
         {
             throw new InvalidOperationException(ErrorTicketNotFound);
         }
-
-        var originalTicket = TicketNotificationSnapshot.FromTicket(existing!);
 
         var updateReq = new UpdateTicketRequest
         {
@@ -526,100 +474,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             Inventories = inventories
         };
 
-        Console.WriteLine($"[HandleTicketUpdateAsync] Calling UpdateTicketAsync...");
-        var ticket = await this.ticketManagementService.UpdateTicketAsync(updateReq);
-        Console.WriteLine($"[HandleTicketUpdateAsync] UpdateTicketAsync returned - Ticket ID: {ticket.Id}, Subject: '{ticket.Subject}'");
-
-        await this.NotifyTicketChangesAsync(workspaceId, ticket, userId, originalTicket);
-        return ticket;
-    }
-
-    private async Task NotifyTicketChangesAsync(
-        int workspaceId,
-        Ticket ticket,
-        int userId,
-        TicketNotificationSnapshot originalTicket)
-    {
-        var assignmentChanged = originalTicket.AssignedUserId != ticket.AssignedUserId ||
-            originalTicket.AssignedTeamId != ticket.AssignedTeamId;
-        var statusChanged = originalTicket.StatusId != ticket.StatusId;
-        var generalChangesDetected = originalTicket.HasGeneralChanges(ticket);
-
-        if (assignmentChanged)
-        {
-            await this.notificationTriggerService.NotifyTicketAssignmentChangedAsync(
-                workspaceId,
-                ticket,
-                originalTicket.AssignedUserId,
-                originalTicket.AssignedTeamId,
-                userId);
-        }
-
-        string? oldStatusName = null;
-        string? newStatusName = null;
-        if (statusChanged)
-        {
-            oldStatusName = await this.GetStatusDisplayNameAsync(workspaceId, originalTicket.StatusId);
-            newStatusName = await this.GetStatusDisplayNameAsync(workspaceId, ticket.StatusId);
-
-            await this.notificationTriggerService.NotifyTicketStatusChangedAsync(
-                workspaceId,
-                ticket,
-                oldStatusName ?? "Unknown",
-                newStatusName ?? "Unknown",
-                userId);
-        }
-
-        var changeSummary = BuildChangeSummary(assignmentChanged, statusChanged, generalChangesDetected, oldStatusName, newStatusName);
-        if (changeSummary != null)
-        {
-            await this.notificationTriggerService.NotifyTicketUpdatedAsync(
-                workspaceId,
-                ticket,
-                userId,
-                changeSummary,
-                assignmentChanged && ticket.AssignedUserId.HasValue ? [ticket.AssignedUserId.Value] : null);
-        }
-    }
-
-    private async Task<string?> GetStatusDisplayNameAsync(int workspaceId, int? statusId)
-    {
-        if (!statusId.HasValue)
-        {
-            return null;
-        }
-
-        return await this.dbContext.TicketStatuses
-            .Where(status => status.WorkspaceId == workspaceId && status.Id == statusId.Value)
-            .Select(status => status.Name)
-            .FirstOrDefaultAsync();
-    }
-
-    private static string? BuildChangeSummary(
-        bool assignmentChanged,
-        bool statusChanged,
-        bool generalChangesDetected,
-        string? oldStatusName,
-        string? newStatusName)
-    {
-        var changes = new List<string>();
-
-        if (assignmentChanged)
-        {
-            changes.Add("Assignment changed.");
-        }
-
-        if (statusChanged)
-        {
-            changes.Add($"Status changed from '{oldStatusName ?? "Unknown"}' to '{newStatusName ?? "Unknown"}'.");
-        }
-
-        if (generalChangesDetected)
-        {
-            changes.Add("Ticket details were updated.");
-        }
-
-        return changes.Count == 0 ? null : string.Join(" ", changes);
+        return await this.ticketManagementService.UpdateTicketAndNotifyAsync(updateReq);
     }
 
     private async Task BroadcastTicketChangeAsync(Microsoft.AspNetCore.SignalR.IHubContext<Realtime.TicketsHub> hub, Ticket ticket, bool isNew, int workspaceId)

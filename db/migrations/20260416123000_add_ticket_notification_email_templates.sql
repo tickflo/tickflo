@@ -5,16 +5,16 @@ VALUES
     (
         8,
         1,
-        'You were assigned work order #{{ticket_id}}',
+        'You were assigned ticket #{{ticket_id}}',
         'Hello {{recipient_name}},
 
-{{actor_name}} assigned you work order #{{ticket_id}} in {{workspace_name}}.
+{{actor_name}} assigned you ticket #{{ticket_id}} in {{workspace_name}}.
 
-Work order: {{ticket_subject}}
+Ticket: {{ticket_subject}}
 
 {{change_summary}}
 
-Open the work order:
+Open the ticket:
 {{ticket_link}}
 
 Best regards,
@@ -23,16 +23,16 @@ Tickflo Team'
     (
         9,
         1,
-        'Work order #{{ticket_id}} was updated',
+        'Ticket #{{ticket_id}} was updated',
         'Hello {{recipient_name}},
 
-{{actor_name}} updated work order #{{ticket_id}} in {{workspace_name}}.
+{{actor_name}} updated ticket #{{ticket_id}} in {{workspace_name}}.
 
-Work order: {{ticket_subject}}
+Ticket: {{ticket_subject}}
 
 {{change_summary}}
 
-Open the work order:
+Open the ticket:
 {{ticket_link}}
 
 Best regards,

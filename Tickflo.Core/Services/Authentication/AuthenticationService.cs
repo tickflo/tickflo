@@ -13,7 +13,6 @@ using Tickflo.Core.Utils;
 public interface IAuthenticationService
 {
     public Task<AuthenticationResult> AuthenticateAsync(string email, string password);
-    public Task<int?> GetDemoUserIdRequiringInitialPasswordAsync(string email);
     public Task<AuthenticationResult> SignupAsync(string name, string email, string recoveryEmail, string workspaceName, string password);
     public Task<AuthenticationResult> SignupInviteeAsync(string name, string email, string recoveryEmail, string password);
     public Task ResendEmailConfirmationAsync(int userId);
@@ -29,9 +28,6 @@ public partial class AuthenticationService(
     IRequestOriginService requestOriginService
     ) : IAuthenticationService
 {
-    private const string DemoEmailDomain = "@demo.com";
-    private const string ErrorNoPasswordSet = "No password set for this user";
-
     private readonly TickfloDbContext db = db;
     private readonly IPasswordHasher passwordHasher = passwordHasher;
     private readonly IEmailSendService emailSendService = emailSendService;
@@ -51,7 +47,7 @@ public partial class AuthenticationService(
         if (user.PasswordHash == null)
         {
             this.PreventTimingAttack();
-            throw new UnauthorizedException(ErrorNoPasswordSet);
+            throw new UnauthorizedException("No password set for this user");
         }
 
         if (!this.passwordHasher.Verify($"{email}{password}", user.PasswordHash))
@@ -68,23 +64,6 @@ public partial class AuthenticationService(
             UserId = user.Id,
             Token = token.Value,
         };
-    }
-
-    public async Task<int?> GetDemoUserIdRequiringInitialPasswordAsync(string email)
-    {
-        var normalizedEmail = email.Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(normalizedEmail) || !normalizedEmail.EndsWith(DemoEmailDomain, StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        var user = await this.db.Users.FirstOrDefaultAsync(user => user.Email.ToLower() == normalizedEmail);
-        if (user == null || user.PasswordHash != null)
-        {
-            return null;
-        }
-
-        return user.Id;
     }
 
     public async Task<AuthenticationResult> SignupAsync(string name, string email, string recoveryEmail, string workspaceName, string password)

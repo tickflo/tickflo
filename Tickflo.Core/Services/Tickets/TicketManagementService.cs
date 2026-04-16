@@ -3,6 +3,7 @@ namespace Tickflo.Core.Services.Tickets;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Notifications;
 
 /// <summary>
 /// Service for managing ticket lifecycle operations including creation, updates, and history tracking.
@@ -26,6 +27,16 @@ public interface ITicketManagementService
     /// <param name="request">Ticket update request</param>
     /// <returns>The updated ticket</returns>
     public Task<Ticket> UpdateTicketAsync(UpdateTicketRequest request);
+
+    /// <summary>
+    /// Creates a ticket and dispatches its notification workflow.
+    /// </summary>
+    public Task<Ticket> CreateTicketAndNotifyAsync(CreateTicketRequest request);
+
+    /// <summary>
+    /// Updates a ticket and dispatches its notification workflow.
+    /// </summary>
+    public Task<Ticket> UpdateTicketAndNotifyAsync(UpdateTicketRequest request);
 
     /// <summary>
     /// Validates ticket assignment permissions.
@@ -124,16 +135,47 @@ public class UpdateTicketRequest
     public List<TicketInventory>? Inventories { get; set; }
 }
 
-public class TicketManagementService(TickfloDbContext dbContext) : ITicketManagementService
+public class TicketManagementService(
+    TickfloDbContext dbContext,
+    INotificationTriggerService notificationTriggerService) : ITicketManagementService
 {
     // TODO: These should definitely be configured per workspace not hard coded
     private const string DefaultTicketType = "Standard";
     private const string DefaultPriority = "Normal";
     private const string DefaultStatus = "New";
-    private const string HistoryActionCreated = "created";
-    private const string HistoryActionFieldChanged = "field_changed";
-
     private readonly TickfloDbContext dbContext = dbContext;
+    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
+
+    private sealed record TicketNotificationSnapshot(
+        string Subject,
+        string Description,
+        int? TicketTypeId,
+        int? PriorityId,
+        int? StatusId,
+        int? ContactId,
+        int? AssignedUserId,
+        int? AssignedTeamId,
+        int? LocationId)
+    {
+        public static TicketNotificationSnapshot FromTicket(Ticket ticket) => new(
+            ticket.Subject,
+            ticket.Description,
+            ticket.TicketTypeId,
+            ticket.PriorityId,
+            ticket.StatusId,
+            ticket.ContactId,
+            ticket.AssignedUserId,
+            ticket.AssignedTeamId,
+            ticket.LocationId);
+
+        public bool HasGeneralChanges(Ticket ticket) =>
+            this.Subject != ticket.Subject ||
+            this.Description != ticket.Description ||
+            this.TicketTypeId != ticket.TicketTypeId ||
+            this.PriorityId != ticket.PriorityId ||
+            this.ContactId != ticket.ContactId ||
+            this.LocationId != ticket.LocationId;
+    }
 
     public async Task<Ticket> CreateTicketAsync(CreateTicketRequest request)
     {
@@ -163,6 +205,13 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
         await this.dbContext.SaveChangesAsync();
         await this.CreateTicketHistoryAsync(request.WorkspaceId, ticket.Id, request.CreatedByUserId);
 
+        return ticket;
+    }
+
+    public async Task<Ticket> CreateTicketAndNotifyAsync(CreateTicketRequest request)
+    {
+        var ticket = await this.CreateTicketAsync(request);
+        await this.notificationTriggerService.NotifyTicketCreatedAsync(request.WorkspaceId, ticket, request.CreatedByUserId);
         return ticket;
     }
 
@@ -247,7 +296,7 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = createdByUserId,
-            Action = HistoryActionCreated,
+            Action = TicketHistoryAction.Created.ToDatabaseValue(),
             Note = "Ticket created",
             CreatedAt = DateTime.UtcNow
         });
@@ -271,6 +320,20 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
         await this.dbContext.SaveChangesAsync();
         await this.LogTicketChangesAsync(changeTracker, ticket, request);
 
+        return ticket;
+    }
+
+    public async Task<Ticket> UpdateTicketAndNotifyAsync(UpdateTicketRequest request)
+    {
+        var existingTicket = await this.dbContext.Tickets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ticket => ticket.WorkspaceId == request.WorkspaceId && ticket.Id == request.TicketId)
+            ?? throw new InvalidOperationException("Ticket not found");
+
+        var originalTicket = TicketNotificationSnapshot.FromTicket(existingTicket);
+        var ticket = await this.UpdateTicketAsync(request);
+
+        await this.NotifyTicketChangesAsync(request.WorkspaceId, ticket, request.UpdatedByUserId, originalTicket);
         return ticket;
     }
 
@@ -348,40 +411,24 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
 
     private async Task UpdateTicketAssignmentsAsync(Ticket ticket, UpdateTicketRequest request)
     {
-        Console.WriteLine($"[UpdateTicketAssignmentsAsync] AssignedUserId: {request.AssignedUserId}, AssignedTeamId: {request.AssignedTeamId}");
-
         if (request.AssignedUserId.HasValue)
         {
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Validating user assignment: {request.AssignedUserId.Value}");
             var isValid = await this.ValidateUserAssignmentAsync(request.AssignedUserId.Value, request.WorkspaceId);
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] User validation result: {isValid}");
 
             if (isValid)
             {
                 ticket.AssignedUserId = request.AssignedUserId.Value;
-                Console.WriteLine($"[UpdateTicketAssignmentsAsync] Updated AssignedUserId to: {request.AssignedUserId.Value}");
             }
-        }
-        else
-        {
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] No AssignedUserId provided (value is null)");
         }
 
         if (request.AssignedTeamId.HasValue)
         {
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Validating team assignment: {request.AssignedTeamId.Value}");
             var isValid = await this.ValidateTeamAssignmentAsync(request.AssignedTeamId.Value, request.WorkspaceId);
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Team validation result: {isValid}");
 
             if (isValid)
             {
                 ticket.AssignedTeamId = request.AssignedTeamId.Value;
-                Console.WriteLine($"[UpdateTicketAssignmentsAsync] Updated AssignedTeamId to: {request.AssignedTeamId.Value}");
             }
-        }
-        else
-        {
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] No AssignedTeamId provided (value is null)");
         }
     }
 
@@ -579,7 +626,7 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = userId,
-            Action = HistoryActionFieldChanged,
+            Action = TicketHistoryAction.FieldChanged.ToDatabaseValue(),
             Field = field,
             OldValue = string.IsNullOrEmpty(oldTrim) ? null : oldTrim,
             NewValue = string.IsNullOrEmpty(newTrim) ? null : newTrim,
@@ -618,6 +665,94 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
         }
 
         return string.Join(", ", parts);
+    }
+
+    private async Task NotifyTicketChangesAsync(
+        int workspaceId,
+        Ticket ticket,
+        int userId,
+        TicketNotificationSnapshot originalTicket)
+    {
+        var assignmentChanged = originalTicket.AssignedUserId != ticket.AssignedUserId ||
+            originalTicket.AssignedTeamId != ticket.AssignedTeamId;
+        var statusChanged = originalTicket.StatusId != ticket.StatusId;
+        var generalChangesDetected = originalTicket.HasGeneralChanges(ticket);
+
+        if (assignmentChanged)
+        {
+            await this.notificationTriggerService.NotifyTicketAssignmentChangedAsync(
+                workspaceId,
+                ticket,
+                originalTicket.AssignedUserId,
+                originalTicket.AssignedTeamId,
+                userId);
+        }
+
+        string? oldStatusName = null;
+        string? newStatusName = null;
+        if (statusChanged)
+        {
+            oldStatusName = await this.GetStatusDisplayNameAsync(workspaceId, originalTicket.StatusId);
+            newStatusName = await this.GetStatusDisplayNameAsync(workspaceId, ticket.StatusId);
+
+            await this.notificationTriggerService.NotifyTicketStatusChangedAsync(
+                workspaceId,
+                ticket,
+                oldStatusName ?? "Unknown",
+                newStatusName ?? "Unknown",
+                userId);
+        }
+
+        var changeSummary = BuildChangeSummary(assignmentChanged, statusChanged, generalChangesDetected, oldStatusName, newStatusName);
+        if (changeSummary != null)
+        {
+            await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+                workspaceId,
+                ticket,
+                userId,
+                changeSummary,
+                assignmentChanged && ticket.AssignedUserId.HasValue ? [ticket.AssignedUserId.Value] : null);
+        }
+    }
+
+    private async Task<string?> GetStatusDisplayNameAsync(int workspaceId, int? statusId)
+    {
+        if (!statusId.HasValue)
+        {
+            return null;
+        }
+
+        return await this.dbContext.TicketStatuses
+            .Where(status => status.WorkspaceId == workspaceId && status.Id == statusId.Value)
+            .Select(status => status.Name)
+            .FirstOrDefaultAsync();
+    }
+
+    private static string? BuildChangeSummary(
+        bool assignmentChanged,
+        bool statusChanged,
+        bool generalChangesDetected,
+        string? oldStatusName,
+        string? newStatusName)
+    {
+        var changes = new List<string>();
+
+        if (assignmentChanged)
+        {
+            changes.Add("Assignment changed.");
+        }
+
+        if (statusChanged)
+        {
+            changes.Add($"Status changed from '{oldStatusName ?? "Unknown"}' to '{newStatusName ?? "Unknown"}'.");
+        }
+
+        if (generalChangesDetected)
+        {
+            changes.Add("Ticket details were updated.");
+        }
+
+        return changes.Count == 0 ? null : string.Join(" ", changes);
     }
 
     private sealed class TicketChangeTracker(Ticket ticket)

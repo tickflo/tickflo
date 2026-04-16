@@ -3,6 +3,7 @@ namespace Tickflo.Core.Services.Tickets;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Notifications;
 
 /// <summary>
 /// Handles the business logic for managing ticket comments with dual visibility support.
@@ -40,6 +41,11 @@ public interface ITicketCommentService
     public Task<TicketComment> AddCommentAsync(int workspaceId, int ticketId, int createdByUserId, string content, bool isVisibleToClient, CancellationToken ct = default);
 
     /// <summary>
+    /// Creates a new comment and dispatches ticket notifications for that comment event.
+    /// </summary>
+    public Task<TicketComment> AddCommentAndNotifyAsync(int workspaceId, int ticketId, int createdByUserId, string content, bool isVisibleToClient, CancellationToken ct = default);
+
+    /// <summary>
     /// Updates the content of an existing comment and records the update timestamp and user.
     /// </summary>
     /// <param name="workspaceId">The workspace ID for scoping and security</param>
@@ -74,9 +80,12 @@ public interface ITicketCommentService
     public Task DeleteCommentAsync(int workspaceId, int commentId, CancellationToken ct = default);
 }
 
-public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentService
+public class TicketCommentService(
+    TickfloDbContext dbContext,
+    INotificationTriggerService notificationTriggerService) : ITicketCommentService
 {
     private readonly TickfloDbContext dbContext = dbContext;
+    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
     /// <summary>
     /// Retrieves comments for a ticket with visibility filtering based on view context.
@@ -131,6 +140,22 @@ public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentSe
 
         this.dbContext.TicketComments.Add(comment);
         await this.dbContext.SaveChangesAsync(ct);
+        return comment;
+    }
+
+    public async Task<TicketComment> AddCommentAndNotifyAsync(int workspaceId, int ticketId, int createdByUserId, string content, bool isVisibleToClient, CancellationToken ct = default)
+    {
+        var comment = await this.AddCommentAsync(workspaceId, ticketId, createdByUserId, content, isVisibleToClient, ct);
+        var ticket = await this.dbContext.Tickets
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId, ct)
+            ?? throw new InvalidOperationException("Ticket not found");
+
+        await this.notificationTriggerService.NotifyTicketCommentAddedAsync(
+            workspaceId,
+            ticket,
+            createdByUserId,
+            isVisibleToClient);
+
         return comment;
     }
 

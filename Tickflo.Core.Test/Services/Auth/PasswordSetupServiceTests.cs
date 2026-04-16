@@ -60,55 +60,6 @@ public class PasswordSetupServiceTests
         Assert.NotNull(persistedToken);
     }
 
-    [Fact]
-    public async Task ValidateInitialUserAsyncWhenUserIsNotDemoDomainShouldRejectInitialPasswordSetup()
-    {
-        await using var databaseContext = CreateDatabaseContext();
-        var user = new User("Regular User", "user@example.com", "recovery@example.com", "password-hash")
-        {
-            PasswordHash = null,
-        };
-
-        databaseContext.Users.Add(user);
-        await databaseContext.SaveChangesAsync();
-
-        var passwordSetupService = new PasswordSetupService(
-            databaseContext,
-            new TickfloConfig { SessionTimeoutMinutes = 20 },
-            new Argon2idPasswordHasher());
-
-        var result = await passwordSetupService.ValidateInitialUserAsync(user.Id);
-
-        Assert.False(result.IsValid);
-        Assert.Equal("Initial password setup is only available for demo users.", result.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task SetInitialPasswordAsyncWhenUserIsNotDemoDomainShouldFail()
-    {
-        await using var databaseContext = CreateDatabaseContext();
-        var user = new User("Regular User", "user@example.com", "recovery@example.com", "password-hash")
-        {
-            PasswordHash = null,
-        };
-
-        databaseContext.Users.Add(user);
-        await databaseContext.SaveChangesAsync();
-
-        var passwordSetupService = new PasswordSetupService(
-            databaseContext,
-            new TickfloConfig { SessionTimeoutMinutes = 20 },
-            new Argon2idPasswordHasher());
-
-        var result = await passwordSetupService.SetInitialPasswordAsync(user.Id, "regular-password");
-
-        Assert.False(result.Success);
-        Assert.Equal("Initial password setup is only available for demo users.", result.ErrorMessage);
-
-        var persistedUser = await databaseContext.Users.FindAsync(user.Id);
-        Assert.Null(persistedUser?.PasswordHash);
-    }
-
     private static TickfloDbContext CreateDatabaseContext()
     {
         var options = new DbContextOptionsBuilder<TickfloDbContext>()

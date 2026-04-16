@@ -5,16 +5,16 @@ VALUES
     (
         10,
         1,
-        'New comment on work order #{{ticket_id}}',
+        'New comment on ticket #{{ticket_id}}',
         'Hello {{recipient_name}},
 
-{{actor_name}} added a comment to work order #{{ticket_id}} in {{workspace_name}}.
+{{actor_name}} added a comment to ticket #{{ticket_id}} in {{workspace_name}}.
 
-Work order: {{ticket_subject}}
+Ticket: {{ticket_subject}}
 
 {{change_summary}}
 
-Open the work order:
+Open the ticket:
 {{ticket_link}}
 
 Best regards,

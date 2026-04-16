@@ -124,8 +124,6 @@ public class NotificationTriggerService(
     TickfloConfig config,
     IRequestOriginService requestOriginService) : INotificationTriggerService
 {
-    private const string TicketCreatedAction = "created";
-
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly IEmailSendService emailSendService = emailSendService;
     private readonly TickfloConfig config = config;
@@ -185,7 +183,7 @@ public class NotificationTriggerService(
             }
         }
 
-        if (notifications.Count != 0)
+        if (notifications is not [])
         {
             this.dbContext.Notifications.AddRange(notifications);
             await this.dbContext.SaveChangesAsync();
@@ -246,7 +244,7 @@ public class NotificationTriggerService(
             });
         }
 
-        if (notifications.Count != 0)
+        if (notifications is not [])
         {
             this.dbContext.Notifications.AddRange(notifications);
             await this.dbContext.SaveChangesAsync();
@@ -309,7 +307,7 @@ public class NotificationTriggerService(
             }
         }
 
-        if (notifications.Count != 0)
+        if (notifications is not [])
         {
             this.dbContext.Notifications.AddRange(notifications);
             await this.dbContext.SaveChangesAsync();
@@ -393,7 +391,7 @@ public class NotificationTriggerService(
             });
         }
 
-        if (notifications.Count != 0)
+        if (notifications is not [])
         {
             this.dbContext.Notifications.AddRange(notifications);
             await this.dbContext.SaveChangesAsync();
@@ -446,7 +444,7 @@ public class NotificationTriggerService(
                 workspace?.Name,
                 ticket,
                 ticketLink,
-                "You have been assigned this work order."),
+                "You have been assigned this ticket."),
             actorUserId);
     }
 
@@ -506,7 +504,7 @@ public class NotificationTriggerService(
 
     private async Task<int?> GetTicketCreatorUserIdAsync(int ticketId) =>
         await this.dbContext.TicketHistory
-            .Where(history => history.TicketId == ticketId && history.Action == TicketCreatedAction)
+            .Where(history => history.TicketId == ticketId && history.Action == TicketHistoryAction.Created.ToDatabaseValue())
             .OrderBy(history => history.CreatedAt)
             .ThenBy(history => history.Id)
             .Select(history => (int?)history.CreatedByUserId)

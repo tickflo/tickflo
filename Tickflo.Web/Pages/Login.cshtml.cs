@@ -40,12 +40,6 @@ public class LoginModel(IAuthenticationService authenticationService, TickfloCon
         }
         catch (HttpException ex)
         {
-            var demoUserId = await this.authenticationService.GetDemoUserIdRequiringInitialPasswordAsync(this.Input.Email ?? string.Empty);
-            if (demoUserId.HasValue)
-            {
-                return this.RedirectToPage("/SetPassword", new { userId = demoUserId.Value });
-            }
-
             this.ErrorMessage = ex.Message;
             return this.Page();
         }

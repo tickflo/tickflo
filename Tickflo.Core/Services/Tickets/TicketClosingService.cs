@@ -103,7 +103,7 @@ public class TicketClosingService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = closedByUserId,
-            Action = "closed",
+            Action = TicketHistoryAction.Closed.ToDatabaseValue(),
             Note = $"Ticket closed. Resolution: {resolutionNote}",
             CreatedAt = DateTime.UtcNow
         };
@@ -164,7 +164,7 @@ public class TicketClosingService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = reopenedByUserId,
-            Action = "reopened",
+            Action = TicketHistoryAction.Reopened.ToDatabaseValue(),
             Note = $"Ticket reopened. Reason: {reason}",
             CreatedAt = DateTime.UtcNow
         };
@@ -221,7 +221,7 @@ public class TicketClosingService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = resolvedByUserId,
-            Action = "resolved",
+            Action = TicketHistoryAction.Resolved.ToDatabaseValue(),
             Note = $"Ticket resolved. {resolutionNote}",
             CreatedAt = DateTime.UtcNow
         };
@@ -278,7 +278,7 @@ public class TicketClosingService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = cancelledByUserId,
-            Action = "cancelled",
+            Action = TicketHistoryAction.Cancelled.ToDatabaseValue(),
             Note = $"Ticket cancelled. Reason: {cancellationReason}",
             CreatedAt = DateTime.UtcNow
         };

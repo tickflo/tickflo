@@ -3,6 +3,7 @@ namespace Tickflo.Core.Services.Tickets;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Notifications;
 
 /// <summary>
 /// Handles the business workflow of assigning tickets to users and teams.
@@ -72,9 +73,12 @@ public interface ITicketAssignmentService
     public Task<bool> UpdateAssignmentAsync(Ticket ticket, int? newAssignedUserId, int updatedByUserId);
 }
 
-public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssignmentService
+public class TicketAssignmentService(
+    TickfloDbContext dbContext,
+    INotificationTriggerService notificationTriggerService) : ITicketAssignmentService
 {
     private readonly TickfloDbContext dbContext = dbContext;
+    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
     /// <summary>
     /// Assigns a ticket to a specific user.
@@ -112,7 +116,7 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = assignedByUserId,
-            Action = "assigned",
+            Action = TicketHistoryAction.Assigned.ToDatabaseValue(),
             Note = $"Ticket assigned to user {assigneeUserId}" +
                    (previousAssignee.HasValue ? $" (was user {previousAssignee.Value})" : ""),
             CreatedAt = DateTime.UtcNow
@@ -161,7 +165,7 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = assignedByUserId,
-            Action = "team_assigned",
+            Action = TicketHistoryAction.TeamAssigned.ToDatabaseValue(),
             Note = $"Ticket assigned to team {team.Name}" +
                    (previousTeam.HasValue ? $" (was team {previousTeam.Value})" : ""),
             CreatedAt = DateTime.UtcNow
@@ -204,7 +208,7 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = unassignedByUserId,
-            Action = "unassigned",
+            Action = TicketHistoryAction.Unassigned.ToDatabaseValue(),
             Note = $"Ticket unassigned from user {previousAssignee}",
             CreatedAt = DateTime.UtcNow
         };
@@ -241,7 +245,7 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
                 WorkspaceId = workspaceId,
                 TicketId = ticketId,
                 CreatedByUserId = reassignedByUserId,
-                Action = "reassignment_note",
+                Action = TicketHistoryAction.ReassignmentNote.ToDatabaseValue(),
                 Note = $"Reassignment reason: {reason}",
                 CreatedAt = DateTime.UtcNow
             };
@@ -300,6 +304,20 @@ public class TicketAssignmentService(TickfloDbContext dbContext) : ITicketAssign
         ticket.AssignedUserId = normalizedNewAssignedUserId;
         ticket.UpdatedAt = DateTime.UtcNow;
         await this.dbContext.SaveChangesAsync();
+
+        await this.notificationTriggerService.NotifyTicketAssignmentChangedAsync(
+            ticket.WorkspaceId,
+            ticket,
+            oldAssignedUserId,
+            null,
+            updatedByUserId);
+
+        await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+            ticket.WorkspaceId,
+            ticket,
+            updatedByUserId,
+            "Assignment changed.",
+            ticket.AssignedUserId.HasValue ? [ticket.AssignedUserId.Value] : null);
 
         return true;
     }

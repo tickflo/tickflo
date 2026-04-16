@@ -3,7 +3,6 @@ namespace Tickflo.Web.Pages.Workspaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Tickflo.Core.Entities;
-using Tickflo.Core.Services.Notifications;
 using Tickflo.Core.Services.Tickets;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
@@ -13,14 +12,12 @@ public class TicketsModel(
     IWorkspaceService workspaceService,
     ITicketFilterService ticketFilterService,
     ITicketAssignmentService ticketAssignmentService,
-    IWorkspaceTicketsViewService workspaceTicketsViewService,
-    INotificationTriggerService notificationTriggerService) : WorkspacePageModel
+    IWorkspaceTicketsViewService workspaceTicketsViewService) : WorkspacePageModel
 {
     private readonly IWorkspaceService workspaceService = workspaceService;
     private readonly ITicketFilterService ticketFilterService = ticketFilterService;
     private readonly ITicketAssignmentService ticketAssignmentService = ticketAssignmentService;
     private readonly IWorkspaceTicketsViewService workspaceTicketsViewService = workspaceTicketsViewService;
-    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
     public string WorkspaceSlug { get; private set; } = string.Empty;
     public Workspace? Workspace { get; private set; }
@@ -190,25 +187,7 @@ public class TicketsModel(
             return this.NotFound();
         }
 
-        var oldAssignedUserId = ticket.AssignedUserId;
-        var assignmentChanged = await this.ticketAssignmentService.UpdateAssignmentAsync(ticket, assignedUserId, currentUserId);
-
-        if (assignmentChanged)
-        {
-            await this.notificationTriggerService.NotifyTicketAssignmentChangedAsync(
-                this.Workspace.Id,
-                ticket,
-                oldAssignedUserId,
-                null,
-                currentUserId);
-
-            await this.notificationTriggerService.NotifyTicketUpdatedAsync(
-                this.Workspace.Id,
-                ticket,
-                currentUserId,
-                "Assignment changed.",
-                ticket.AssignedUserId.HasValue ? [ticket.AssignedUserId.Value] : null);
-        }
+        await this.ticketAssignmentService.UpdateAssignmentAsync(ticket, assignedUserId, currentUserId);
 
         return this.RedirectToPage(new
         {

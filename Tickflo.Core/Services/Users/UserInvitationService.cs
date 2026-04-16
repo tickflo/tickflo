@@ -1,7 +1,6 @@
 namespace Tickflo.Core.Services.Users;
 
 using Microsoft.EntityFrameworkCore;
-using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 /// <summary>
@@ -60,12 +59,10 @@ public class UserInvitationResult
 public class UserInvitationService(
     TickfloDbContext dbContext,
     IEmailSendService emailSendService,
-    TickfloConfig config,
     IRequestOriginService requestOriginService) : IUserInvitationService
 {
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly IEmailSendService emailSendService = emailSendService;
-    private readonly TickfloConfig config = config;
     private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     public async Task InviteUserAsync(
@@ -245,11 +242,12 @@ public class UserInvitationService(
         int invitedByUserId
     )
     {
+        var currentOrigin = this.requestOriginService.GetCurrentOrigin().TrimEnd('/');
         var variables = new Dictionary<string, string>
         {
             { "name", user.Name },
             { "workspace_name", workspace.Name },
-            { "signup_link", $"{this.GetBaseUrl()}/signup?email={Uri.EscapeDataString(user.Email)}" },
+            { "signup_link", $"{currentOrigin}/signup?email={Uri.EscapeDataString(user.Email)}" },
         };
 
         await this.emailSendService.AddToQueueAsync(
@@ -266,11 +264,12 @@ public class UserInvitationService(
         int invitedByUserId
     )
     {
+        var currentOrigin = this.requestOriginService.GetCurrentOrigin().TrimEnd('/');
         var variables = new Dictionary<string, string>
         {
             { "name", user.Name },
             { "workspace_name", workspace.Name },
-            { "login_link", $"{this.GetBaseUrl()}/workspaces" },
+            { "login_link", $"{currentOrigin}/workspaces" },
         };
 
         await this.emailSendService.AddToQueueAsync(
@@ -279,14 +278,6 @@ public class UserInvitationService(
             variables,
             invitedByUserId
         );
-    }
-
-    private string GetBaseUrl()
-    {
-        var currentOrigin = this.requestOriginService.GetCurrentOrigin().TrimEnd('/');
-        return string.IsNullOrWhiteSpace(currentOrigin)
-            ? this.config.BaseUrl.TrimEnd('/')
-            : currentOrigin;
     }
 }
 

@@ -48,8 +48,6 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
     private const string DefaultTicketType = "Standard";
     private const string DefaultPriority = "Normal";
     private const string DefaultStatus = "New";
-    private const string HistoryActionCreated = "created";
-
     private const string ErrorSubjectRequired = "Ticket subject is required";
     private const string ErrorInvalidContactId = "Invalid contact ID";
     private const string ErrorLocationNotFound = "Location not found";
@@ -239,7 +237,7 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = createdByUserId,
-            Action = HistoryActionCreated,
+            Action = TicketHistoryAction.Created.ToDatabaseValue(),
             Note = $"Ticket created: {subject}",
             CreatedAt = DateTime.UtcNow
         };

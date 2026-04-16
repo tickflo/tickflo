@@ -47,7 +47,7 @@ public class NotificationTriggerServiceTests
                 values["ticket_id"] == ticket.Id.ToString() &&
                 values["ticket_subject"] == ticket.Subject &&
                 values["ticket_link"] == $"https://app.tickflo.co/workspaces/{workspace.Slug}/tickets/{ticket.Id}" &&
-                values["change_summary"] == "You have been assigned this work order."),
+                values["change_summary"] == "You have been assigned this ticket."),
             creator.Id), Times.Once);
     }
 
@@ -85,7 +85,7 @@ public class NotificationTriggerServiceTests
                 values["ticket_id"] == ticket.Id.ToString() &&
                 values["ticket_subject"] == ticket.Subject &&
                 values["ticket_link"] == $"https://app.tickflo.co/workspaces/{workspace.Slug}/tickets/{ticket.Id}" &&
-                values["change_summary"] == "You have been assigned this work order."),
+                values["change_summary"] == "You have been assigned this ticket."),
             assignee.Id), Times.Once);
     }
 
@@ -115,7 +115,7 @@ public class NotificationTriggerServiceTests
             WorkspaceId = workspace.Id,
             TicketId = ticket.Id,
             CreatedByUserId = creator.Id,
-            Action = "created",
+            Action = TicketHistoryAction.Created.ToDatabaseValue(),
             CreatedAt = DateTime.UtcNow.AddMinutes(-5)
         });
         await databaseContext.SaveChangesAsync();
@@ -174,7 +174,7 @@ public class NotificationTriggerServiceTests
             WorkspaceId = workspace.Id,
             TicketId = ticket.Id,
             CreatedByUserId = creator.Id,
-            Action = "created",
+            Action = TicketHistoryAction.Created.ToDatabaseValue(),
             CreatedAt = DateTime.UtcNow.AddMinutes(-10)
         });
         await databaseContext.SaveChangesAsync();
@@ -240,7 +240,7 @@ public class NotificationTriggerServiceTests
             WorkspaceId = workspace.Id,
             TicketId = ticket.Id,
             CreatedByUserId = creator.Id,
-            Action = "created",
+            Action = TicketHistoryAction.Created.ToDatabaseValue(),
             CreatedAt = DateTime.UtcNow.AddMinutes(-3)
         });
         await databaseContext.SaveChangesAsync();
