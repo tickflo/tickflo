@@ -29,7 +29,8 @@ public class EmailConfirmationController(
         }
 
         var normalizedEmail = email.Trim().ToLowerInvariant();
-        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase));
+        var normalizedCode = code.Trim();
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
         if (user == null)
         {
             return this.NotFound();
@@ -40,7 +41,7 @@ public class EmailConfirmationController(
             return this.Redirect("/workspaces");
         }
 
-        if (user.EmailConfirmationCode != code)
+        if (user.EmailConfirmationCode != normalizedCode)
         {
             return this.BadRequest("Invalid confirmation code.");
         }

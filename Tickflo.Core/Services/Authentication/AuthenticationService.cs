@@ -6,7 +6,10 @@ using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Web;
 using Tickflo.Core.Services.Workspace;
+using Tickflo.Core.Utils;
+
 public interface IAuthenticationService
 {
     public Task<AuthenticationResult> AuthenticateAsync(string email, string password);
@@ -21,7 +24,8 @@ public partial class AuthenticationService(
     IPasswordHasher passwordHasher,
     IEmailSendService emailSendService,
     TickfloConfig config,
-    IWorkspaceCreationService workspaceCreationService
+    IWorkspaceCreationService workspaceCreationService,
+    IRequestOriginService requestOriginService
     ) : IAuthenticationService
 {
     private readonly TickfloDbContext db = db;
@@ -29,6 +33,7 @@ public partial class AuthenticationService(
     private readonly IEmailSendService emailSendService = emailSendService;
     private readonly IWorkspaceCreationService workspaceCreationService = workspaceCreationService;
     private readonly TickfloConfig config = config;
+    private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     public async Task<AuthenticationResult> AuthenticateAsync(string email, string password)
     {
@@ -153,12 +158,30 @@ public partial class AuthenticationService(
         await this.db.SaveChangesAsync();
     }
 
-    private async Task SendEmailConfirmationAsync(User user) => await this.emailSendService.AddToQueueAsync(user.Email,
+    private async Task SendEmailConfirmationAsync(User user)
+    {
+        EnsureEmailConfirmationCode(user);
+
+        var callbackOrigin = this.requestOriginService.GetCurrentOrigin();
+        var confirmationLink = $"{callbackOrigin}/email-confirmation/confirm?email={Uri.EscapeDataString(user.Email)}&code={user.EmailConfirmationCode}";
+
+        await this.emailSendService.AddToQueueAsync(user.Email,
             EmailTemplateType.Signup,
             new Dictionary<string, string>
             {
-                { "confirmation_link", $"{this.config.BaseUrl}/confirm-email?email={Uri.EscapeDataString(user.Email)}&code={user.EmailConfirmationCode}" }
+                { "confirmation_link", confirmationLink }
             });
+    }
+
+    private static void EnsureEmailConfirmationCode(User user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.EmailConfirmationCode))
+        {
+            return;
+        }
+
+        user.EmailConfirmationCode = SecureTokenGenerator.GenerateToken(16);
+    }
 
     private void PreventTimingAttack() => this.passwordHasher.Verify("password", "$argon2id$v=19$m=16,t=2,p=1$NlJRdlBSbDZhRVUzdTFYcQ$FbtOcbMs2IMTMHFE8WcSiQ");
 }
