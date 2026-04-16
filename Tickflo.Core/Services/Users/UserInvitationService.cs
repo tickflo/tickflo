@@ -9,6 +9,7 @@ using Tickflo.Core.Entities;
 /// </summary>
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Web;
 using Tickflo.Core.Utils;
 
 /// <summary>
@@ -59,11 +60,13 @@ public class UserInvitationResult
 public class UserInvitationService(
     TickfloDbContext dbContext,
     IEmailSendService emailSendService,
-    TickfloConfig config) : IUserInvitationService
+    TickfloConfig config,
+    IRequestOriginService requestOriginService) : IUserInvitationService
 {
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly IEmailSendService emailSendService = emailSendService;
     private readonly TickfloConfig config = config;
+    private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     public async Task InviteUserAsync(
         int workspaceId,
@@ -246,7 +249,7 @@ public class UserInvitationService(
         {
             { "name", user.Name },
             { "workspace_name", workspace.Name },
-            { "signup_link", $"{this.config.BaseUrl}/signup?email={Uri.EscapeDataString(user.Email)}" },
+            { "signup_link", $"{this.GetBaseUrl()}/signup?email={Uri.EscapeDataString(user.Email)}" },
         };
 
         await this.emailSendService.AddToQueueAsync(
@@ -267,7 +270,7 @@ public class UserInvitationService(
         {
             { "name", user.Name },
             { "workspace_name", workspace.Name },
-            { "login_link", $"{this.config.BaseUrl}/workspaces" },
+            { "login_link", $"{this.GetBaseUrl()}/workspaces" },
         };
 
         await this.emailSendService.AddToQueueAsync(
@@ -276,6 +279,14 @@ public class UserInvitationService(
             variables,
             invitedByUserId
         );
+    }
+
+    private string GetBaseUrl()
+    {
+        var currentOrigin = this.requestOriginService.GetCurrentOrigin().TrimEnd('/');
+        return string.IsNullOrWhiteSpace(currentOrigin)
+            ? this.config.BaseUrl.TrimEnd('/')
+            : currentOrigin;
     }
 }
 

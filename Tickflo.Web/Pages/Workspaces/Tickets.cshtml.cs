@@ -201,6 +201,13 @@ public class TicketsModel(
                 oldAssignedUserId,
                 null,
                 currentUserId);
+
+            await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+                this.Workspace.Id,
+                ticket,
+                currentUserId,
+                "Assignment changed.",
+                ticket.AssignedUserId.HasValue ? [ticket.AssignedUserId.Value] : null);
         }
 
         return this.RedirectToPage(new

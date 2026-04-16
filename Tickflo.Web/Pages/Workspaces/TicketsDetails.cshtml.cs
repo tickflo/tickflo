@@ -23,6 +23,37 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
     private const string ErrorCommentEmpty = "Comment cannot be empty.";
     private const string ErrorTicketNotFound = "Ticket not found.";
     private const int InvalidTicketId = 0;
+
+    private sealed record TicketNotificationSnapshot(
+        string Subject,
+        string Description,
+        int? TicketTypeId,
+        int? PriorityId,
+        int? StatusId,
+        int? ContactId,
+        int? AssignedUserId,
+        int? AssignedTeamId,
+        int? LocationId)
+    {
+        public static TicketNotificationSnapshot FromTicket(Ticket ticket) => new(
+            ticket.Subject,
+            ticket.Description,
+            ticket.TicketTypeId,
+            ticket.PriorityId,
+            ticket.StatusId,
+            ticket.ContactId,
+            ticket.AssignedUserId,
+            ticket.AssignedTeamId,
+            ticket.LocationId);
+
+        public bool HasGeneralChanges(Ticket ticket) =>
+            this.Subject != ticket.Subject ||
+            this.Description != ticket.Description ||
+            this.TicketTypeId != ticket.TicketTypeId ||
+            this.PriorityId != ticket.PriorityId ||
+            this.ContactId != ticket.ContactId ||
+            this.LocationId != ticket.LocationId;
+    }
     #endregion
 
     [BindProperty]
@@ -476,9 +507,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             throw new InvalidOperationException(ErrorTicketNotFound);
         }
 
-        var oldAssignedUserId = existing!.AssignedUserId;
-        var oldAssignedTeamId = existing.AssignedTeamId;
-        var oldStatusId = existing.StatusId;
+        var originalTicket = TicketNotificationSnapshot.FromTicket(existing!);
 
         var updateReq = new UpdateTicketRequest
         {
@@ -501,26 +530,96 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
         var ticket = await this.ticketManagementService.UpdateTicketAsync(updateReq);
         Console.WriteLine($"[HandleTicketUpdateAsync] UpdateTicketAsync returned - Ticket ID: {ticket.Id}, Subject: '{ticket.Subject}'");
 
-        await this.NotifyTicketChangesAsync(workspaceId, ticket, userId, oldAssignedUserId, oldAssignedTeamId, oldStatusId);
+        await this.NotifyTicketChangesAsync(workspaceId, ticket, userId, originalTicket);
         return ticket;
     }
 
-    private async Task NotifyTicketChangesAsync(int workspaceId, Ticket ticket, int userId, int? oldAssignedUserId, int? oldAssignedTeamId, int? oldStatusId)
+    private async Task NotifyTicketChangesAsync(
+        int workspaceId,
+        Ticket ticket,
+        int userId,
+        TicketNotificationSnapshot originalTicket)
     {
-        if (oldAssignedUserId != ticket.AssignedUserId || oldAssignedTeamId != ticket.AssignedTeamId)
+        var assignmentChanged = originalTicket.AssignedUserId != ticket.AssignedUserId ||
+            originalTicket.AssignedTeamId != ticket.AssignedTeamId;
+        var statusChanged = originalTicket.StatusId != ticket.StatusId;
+        var generalChangesDetected = originalTicket.HasGeneralChanges(ticket);
+
+        if (assignmentChanged)
         {
             await this.notificationTriggerService.NotifyTicketAssignmentChangedAsync(
-                workspaceId, ticket, oldAssignedUserId, oldAssignedTeamId, userId);
-        }
-
-        if (oldStatusId != ticket.StatusId)
-        {
-            await this.notificationTriggerService.NotifyTicketStatusChangedAsync(
-                workspaceId, ticket,
-                oldStatusId?.ToString() ?? "Unknown",
-                ticket.StatusId?.ToString() ?? "Unknown",
+                workspaceId,
+                ticket,
+                originalTicket.AssignedUserId,
+                originalTicket.AssignedTeamId,
                 userId);
         }
+
+        string? oldStatusName = null;
+        string? newStatusName = null;
+        if (statusChanged)
+        {
+            oldStatusName = await this.GetStatusDisplayNameAsync(workspaceId, originalTicket.StatusId);
+            newStatusName = await this.GetStatusDisplayNameAsync(workspaceId, ticket.StatusId);
+
+            await this.notificationTriggerService.NotifyTicketStatusChangedAsync(
+                workspaceId,
+                ticket,
+                oldStatusName ?? "Unknown",
+                newStatusName ?? "Unknown",
+                userId);
+        }
+
+        var changeSummary = BuildChangeSummary(assignmentChanged, statusChanged, generalChangesDetected, oldStatusName, newStatusName);
+        if (changeSummary != null)
+        {
+            await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+                workspaceId,
+                ticket,
+                userId,
+                changeSummary,
+                assignmentChanged && ticket.AssignedUserId.HasValue ? [ticket.AssignedUserId.Value] : null);
+        }
+    }
+
+    private async Task<string?> GetStatusDisplayNameAsync(int workspaceId, int? statusId)
+    {
+        if (!statusId.HasValue)
+        {
+            return null;
+        }
+
+        return await this.dbContext.TicketStatuses
+            .Where(status => status.WorkspaceId == workspaceId && status.Id == statusId.Value)
+            .Select(status => status.Name)
+            .FirstOrDefaultAsync();
+    }
+
+    private static string? BuildChangeSummary(
+        bool assignmentChanged,
+        bool statusChanged,
+        bool generalChangesDetected,
+        string? oldStatusName,
+        string? newStatusName)
+    {
+        var changes = new List<string>();
+
+        if (assignmentChanged)
+        {
+            changes.Add("Assignment changed.");
+        }
+
+        if (statusChanged)
+        {
+            changes.Add($"Status changed from '{oldStatusName ?? "Unknown"}' to '{newStatusName ?? "Unknown"}'.");
+        }
+
+        if (generalChangesDetected)
+        {
+            changes.Add("Ticket details were updated.");
+        }
+
+        return changes.Count == 0 ? null : string.Join(" ", changes);
     }
 
     private async Task BroadcastTicketChangeAsync(Microsoft.AspNetCore.SignalR.IHubContext<Realtime.TicketsHub> hub, Ticket ticket, bool isNew, int workspaceId)

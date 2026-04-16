@@ -139,6 +139,77 @@ public class AuthenticationServiceEmailConfirmationTests
             null), Times.Once);
     }
 
+    [Fact]
+    public async Task GetDemoUserIdRequiringInitialPasswordAsyncWhenDemoUserHasNoPasswordShouldReturnUserId()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash")
+        {
+            PasswordHash = null,
+        };
+
+        databaseContext.Users.Add(user);
+        await databaseContext.SaveChangesAsync();
+
+        var authenticationService = CreateAuthenticationService(databaseContext);
+
+        var result = await authenticationService.GetDemoUserIdRequiringInitialPasswordAsync(user.Email);
+
+        Assert.Equal(user.Id, result);
+    }
+
+    [Fact]
+    public async Task GetDemoUserIdRequiringInitialPasswordAsyncWhenEmailIsNotDemoDomainShouldReturnNull()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var user = new User("Invited User", "user@example.com", "recovery@example.com", "password-hash")
+        {
+            PasswordHash = null,
+        };
+
+        databaseContext.Users.Add(user);
+        await databaseContext.SaveChangesAsync();
+
+        var authenticationService = CreateAuthenticationService(databaseContext);
+
+        var result = await authenticationService.GetDemoUserIdRequiringInitialPasswordAsync(user.Email);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetDemoUserIdRequiringInitialPasswordAsyncWhenPasswordAlreadySetShouldReturnNull()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash");
+
+        databaseContext.Users.Add(user);
+        await databaseContext.SaveChangesAsync();
+
+        var authenticationService = CreateAuthenticationService(databaseContext);
+
+        var result = await authenticationService.GetDemoUserIdRequiringInitialPasswordAsync(user.Email);
+
+        Assert.Null(result);
+    }
+
+    private static AuthenticationService CreateAuthenticationService(TickfloDbContext databaseContext)
+    {
+        var tickfloConfig = new TickfloConfig
+        {
+            BaseUrl = "https://app.tickflo.co",
+            SessionTimeoutMinutes = 20,
+        };
+
+        return new AuthenticationService(
+            databaseContext,
+            new Argon2idPasswordHasher(),
+            Mock.Of<IEmailSendService>(),
+            tickfloConfig,
+            Mock.Of<IWorkspaceCreationService>(),
+            Mock.Of<IRequestOriginService>());
+    }
+
     private static TickfloDbContext CreateDatabaseContext()
     {
         var options = new DbContextOptionsBuilder<TickfloDbContext>()

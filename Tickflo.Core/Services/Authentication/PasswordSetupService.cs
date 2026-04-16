@@ -22,6 +22,8 @@ public class PasswordSetupService(
     IPasswordHasher passwordHasher
     ) : IPasswordSetupService
 {
+    private const string DemoEmailDomain = "@demo.com";
+
     private readonly TickfloDbContext db = db;
     private readonly TickfloConfig config = config;
     private readonly IPasswordHasher passwordHasher = passwordHasher;
@@ -64,6 +66,11 @@ public class PasswordSetupService(
         if (user.PasswordHash != null)
         {
             return new TokenValidationResult(false, "Password already set.", user.Id, user.Email);
+        }
+
+        if (!IsDemoUserEmail(user.Email))
+        {
+            return new TokenValidationResult(false, "Initial password setup is only available for demo users.", user.Id, user.Email);
         }
 
         return new TokenValidationResult(true, null, user.Id, user.Email);
@@ -110,6 +117,11 @@ public class PasswordSetupService(
             return new SetPasswordResult(false, "Password already set.", null, null, user.Id, user.Email);
         }
 
+        if (!IsDemoUserEmail(user.Email))
+        {
+            return new SetPasswordResult(false, "Initial password setup is only available for demo users.", null, null, user.Id, user.Email);
+        }
+
         if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
         {
             return new SetPasswordResult(false, "Password must be at least 8 characters long.", null, null, user.Id, user.Email);
@@ -129,8 +141,15 @@ public class PasswordSetupService(
         {
             workspaceSlug = userWorkspace.Workspace.Slug;
         }
+
+        await this.db.SaveChangesAsync();
+
         return new SetPasswordResult(true, null, token.Value, workspaceSlug, user.Id, user.Email);
     }
+
+    private static bool IsDemoUserEmail(string? email) =>
+        !string.IsNullOrWhiteSpace(email) &&
+        email.Trim().EndsWith(DemoEmailDomain, StringComparison.OrdinalIgnoreCase);
 }
 
 

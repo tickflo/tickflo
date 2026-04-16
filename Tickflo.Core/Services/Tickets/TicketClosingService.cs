@@ -3,6 +3,7 @@ namespace Tickflo.Core.Services.Tickets;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Services.Notifications;
 
 /// <summary>
 /// Handles the business workflow of closing and resolving tickets.
@@ -54,9 +55,12 @@ public interface ITicketClosingService
     public Task<Ticket> CancelTicketAsync(int workspaceId, int ticketId, string cancellationReason, int cancelledByUserId);
 }
 
-public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingService
+public class TicketClosingService(
+    TickfloDbContext dbContext,
+    INotificationTriggerService notificationTriggerService) : ITicketClosingService
 {
     private readonly TickfloDbContext dbContext = dbContext;
+    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
     /// <summary>
     /// Closes a ticket with a resolution note.
@@ -107,7 +111,11 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
         this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
-        // Could add: Send notifications, update SLA metrics, trigger surveys, etc.
+        await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+            workspaceId,
+            ticket,
+            closedByUserId,
+            $"Ticket closed. Resolution: {resolutionNote}");
 
         return ticket;
     }
@@ -164,7 +172,11 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
         this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
-        // Could add: Notify original assignee, reset SLA timers, etc.
+        await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+            workspaceId,
+            ticket,
+            reopenedByUserId,
+            $"Ticket reopened. Reason: {reason}");
 
         return ticket;
     }
@@ -217,7 +229,11 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
         this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
-        // Could add: Start auto-close timer, request feedback, etc.
+        await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+            workspaceId,
+            ticket,
+            resolvedByUserId,
+            $"Ticket resolved. {resolutionNote}");
 
         return ticket;
     }
@@ -269,6 +285,12 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
 
         this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
+
+        await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+            workspaceId,
+            ticket,
+            cancelledByUserId,
+            $"Ticket cancelled. Reason: {cancellationReason}");
 
         return ticket;
     }
