@@ -991,7 +991,7 @@
                   var oldValueDisplay = historyEntry.OldValue;
                   var newValueDisplay = historyEntry.NewValue;
                   
-                  if (historyEntry.Field == "AssignedUserId")
+                  if (historyEntry.Field == Tickflo.Core.Entities.TicketHistoryField.AssignedUser)
                   {
                     if (int.TryParse(historyEntry.OldValue, out var oldUserId))
                     {
@@ -1004,7 +1004,7 @@
                       newValueDisplay = newUser != null ? (string.IsNullOrWhiteSpace(newUser.Name) ? newUser.Email : newUser.Name) : historyEntry.NewValue;
                     }
                   }
-                  else if (historyEntry.Field == "ContactId")
+                  else if (historyEntry.Field == Tickflo.Core.Entities.TicketHistoryField.Contact)
                   {
                     if (int.TryParse(historyEntry.OldValue, out var oldContactId))
                     {

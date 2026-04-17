@@ -451,21 +451,21 @@ public class TicketManagementService(
     private async Task LogTicketChangesAsync(TicketChangeTracker changeTracker, Ticket ticket, UpdateTicketRequest request)
     {
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "Subject", changeTracker.OldSubject, ticket.Subject);
+            TicketHistoryField.Subject, changeTracker.OldSubject, ticket.Subject);
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "Description", changeTracker.OldDescription, ticket.Description);
+            TicketHistoryField.Description, changeTracker.OldDescription, ticket.Description);
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "TicketTypeId", changeTracker.OldTypeId?.ToString(), ticket.TicketTypeId?.ToString());
+            TicketHistoryField.Type, changeTracker.OldTypeId?.ToString(), ticket.TicketTypeId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "PriorityId", changeTracker.OldPriorityId?.ToString(), ticket.PriorityId?.ToString());
+            TicketHistoryField.Priority, changeTracker.OldPriorityId?.ToString(), ticket.PriorityId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "StatusId", changeTracker.OldStatusId?.ToString(), ticket.StatusId?.ToString());
+            TicketHistoryField.Status, changeTracker.OldStatusId?.ToString(), ticket.StatusId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "ContactId", changeTracker.OldContactId?.ToString(), ticket.ContactId?.ToString());
+            TicketHistoryField.Contact, changeTracker.OldContactId?.ToString(), ticket.ContactId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "AssignedUserId", changeTracker.OldAssignedUserId?.ToString(), ticket.AssignedUserId?.ToString());
+            TicketHistoryField.AssignedUser, changeTracker.OldAssignedUserId?.ToString(), ticket.AssignedUserId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "LocationId", changeTracker.OldLocationId?.ToString(), ticket.LocationId?.ToString());
+            TicketHistoryField.Location, changeTracker.OldLocationId?.ToString(), ticket.LocationId?.ToString());
 
         if (request.Inventories != null)
         {
@@ -625,7 +625,7 @@ public class TicketManagementService(
         int workspaceId,
         int ticketId,
         int userId,
-        string field,
+        TicketHistoryField field,
         string? oldValue,
         string? newValue)
     {
@@ -660,7 +660,7 @@ public class TicketManagementService(
     {
         var oldSummary = await this.GenerateInventorySummaryForHistoryAsync(oldInventories, workspaceId);
         var newSummary = await this.GenerateInventorySummaryForHistoryAsync(newInventories, workspaceId);
-        await this.LogFieldChangeAsync(workspaceId, ticketId, userId, "Inventory", oldSummary, newSummary);
+        await this.LogFieldChangeAsync(workspaceId, ticketId, userId, TicketHistoryField.Inventory, oldSummary, newSummary);
     }
 
     private async Task<string> GenerateInventorySummaryForHistoryAsync(

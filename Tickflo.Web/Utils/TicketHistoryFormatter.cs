@@ -4,46 +4,26 @@ using Tickflo.Core.Entities;
 
 public static class TicketHistoryFormatter
 {
-    private const string FieldSubject = "Subject";
-    private const string FieldDescription = "Description";
-    private const string FieldType = "Type";
-    private const string FieldPriority = "Priority";
-    private const string FieldStatus = "Status";
-    private const string FieldContactId = "ContactId";
-    private const string FieldAssignedUserId = "AssignedUserId";
-    private const string FieldAssignedTeamId = "AssignedTeamId";
-    private const string FieldLocationId = "LocationId";
-    private const string FieldInventory = "Inventory";
-    private const string FieldDueDate = "DueDate";
-
     private const string DefaultFieldName = "unknown field";
     private const string EmptyValueText = "(empty)";
 
-    public static string FormatFieldName(string? field)
+    public static string FormatFieldName(TicketHistoryField? field) => field switch
     {
-        if (string.IsNullOrWhiteSpace(field))
-        {
-            return DefaultFieldName;
-        }
+        TicketHistoryField.Subject => "subject",
+        TicketHistoryField.Description => "description",
+        TicketHistoryField.Type => "type",
+        TicketHistoryField.Priority => "priority",
+        TicketHistoryField.Status => "status",
+        TicketHistoryField.Contact => "contact",
+        TicketHistoryField.AssignedUser => "assignee",
+        TicketHistoryField.AssignedTeam => "assigned team",
+        TicketHistoryField.Location => "location",
+        TicketHistoryField.Inventory => "inventory",
+        TicketHistoryField.DueDate => "due date",
+        _ => DefaultFieldName
+    };
 
-        return field switch
-        {
-            FieldSubject => "subject",
-            FieldDescription => "description",
-            FieldType => "type",
-            FieldPriority => "priority",
-            FieldStatus => "status",
-            FieldContactId => "contact",
-            FieldAssignedUserId => "assignee",
-            FieldAssignedTeamId => "assigned team",
-            FieldLocationId => "location",
-            FieldInventory => "inventory",
-            FieldDueDate => "due date",
-            _ => field.ToLower(System.Globalization.CultureInfo.CurrentCulture)
-        };
-    }
-
-    public static string FormatActionDescription(TicketHistoryAction action, string? field, string? note) => action switch
+    public static string FormatActionDescription(TicketHistoryAction action, TicketHistoryField? field, string? note) => action switch
     {
         TicketHistoryAction.Created => "created this ticket",
         TicketHistoryAction.FieldChanged => $"changed {FormatFieldName(field)}",
@@ -63,3 +43,4 @@ public static class TicketHistoryFormatter
     public static bool ShouldShowValueChange(TicketHistoryAction action) =>
         action == TicketHistoryAction.FieldChanged;
 }
+
