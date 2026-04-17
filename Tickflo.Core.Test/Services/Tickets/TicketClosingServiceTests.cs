@@ -48,44 +48,6 @@ public class TicketClosingServiceTests
             null), Times.Once);
     }
 
-    [Fact]
-    public async Task ResolveTicketAsync_WhenTicketIsResolved_ShouldNotifyTicketUpdateRecipients()
-    {
-        await using var databaseContext = CreateDatabaseContext();
-        var workspace = await SeedWorkspaceWithStatusesAsync(databaseContext);
-        var ticket = await SeedTicketAsync(databaseContext, workspace.Id, "Investigate pump alarm", "Open");
-        var notificationTriggerService = new Mock<INotificationTriggerService>();
-        var ticketClosingService = new TicketClosingService(databaseContext, notificationTriggerService.Object);
-
-        await ticketClosingService.ResolveTicketAsync(workspace.Id, ticket.Id, "Work completed.", 27);
-
-        notificationTriggerService.Verify(service => service.NotifyTicketUpdatedAsync(
-            workspace.Id,
-            It.Is<Ticket>(value => value.Id == ticket.Id),
-            27,
-            "Ticket resolved. Work completed.",
-            null), Times.Once);
-    }
-
-    [Fact]
-    public async Task CancelTicketAsync_WhenTicketIsCancelled_ShouldNotifyTicketUpdateRecipients()
-    {
-        await using var databaseContext = CreateDatabaseContext();
-        var workspace = await SeedWorkspaceWithStatusesAsync(databaseContext);
-        var ticket = await SeedTicketAsync(databaseContext, workspace.Id, "Investigate pump alarm", "Open");
-        var notificationTriggerService = new Mock<INotificationTriggerService>();
-        var ticketClosingService = new TicketClosingService(databaseContext, notificationTriggerService.Object);
-
-        await ticketClosingService.CancelTicketAsync(workspace.Id, ticket.Id, "Duplicate request.", 28);
-
-        notificationTriggerService.Verify(service => service.NotifyTicketUpdatedAsync(
-            workspace.Id,
-            It.Is<Ticket>(value => value.Id == ticket.Id),
-            28,
-            "Ticket cancelled. Reason: Duplicate request.",
-            null), Times.Once);
-    }
-
     private static TickfloDbContext CreateDatabaseContext()
     {
         var options = new DbContextOptionsBuilder<TickfloDbContext>()

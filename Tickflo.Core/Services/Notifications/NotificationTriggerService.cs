@@ -8,11 +8,6 @@ using Tickflo.Core.Services.Email;
 using Tickflo.Core.Services.Web;
 
 /// <summary>
-/// Implementation of notification trigger service.
-/// Coordinates notification dispatch for all business events.
-/// </summary>
-
-/// <summary>
 /// Behavior-focused service for triggering and managing notifications based on business events.
 /// Acts as a centralized hub for all notification needs across the application.
 /// </summary>
@@ -121,12 +116,12 @@ public interface INotificationTriggerService
 public class NotificationTriggerService(
     TickfloDbContext dbContext,
     IEmailSendService emailSendService,
-    TickfloConfig config,
+    TickfloConfig tickfloConfig,
     IRequestOriginService requestOriginService) : INotificationTriggerService
 {
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly IEmailSendService emailSendService = emailSendService;
-    private readonly TickfloConfig config = config;
+    private readonly TickfloConfig tickfloConfig = tickfloConfig;
     private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     public async Task NotifyTicketCreatedAsync(
@@ -524,7 +519,7 @@ public class NotificationTriggerService(
         var baseUrl = this.requestOriginService.GetCurrentOrigin().TrimEnd('/');
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
-            baseUrl = this.config.BaseUrl.TrimEnd('/');
+            baseUrl = this.tickfloConfig.BaseUrl.TrimEnd('/');
         }
 
         if (string.IsNullOrWhiteSpace(workspaceSlug))

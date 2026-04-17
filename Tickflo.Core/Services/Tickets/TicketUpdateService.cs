@@ -1,13 +1,8 @@
 namespace Tickflo.Core.Services.Tickets;
 
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-
-/// <summary>
-/// Handles the business workflow of updating ticket information and tracking changes.
-/// </summary>
 
 /// <summary>
 /// Handles ticket update workflows.
@@ -23,48 +18,11 @@ public interface ITicketUpdateService
     /// <param name="updatedByUserId">User making the update</param>
     /// <returns>The updated ticket</returns>
     public Task<Ticket> UpdateTicketInfoAsync(int workspaceId, int ticketId, TicketUpdateRequest request, int updatedByUserId);
-
-    /// <summary>
-    /// Updates ticket priority with audit trail.
-    /// </summary>
-    /// <param name="workspaceId">Workspace context</param>
-    /// <param name="ticketId">Ticket to update</param>
-    /// <param name="newPriority">New priority level</param>
-    /// <param name="reason">Optional reason for change</param>
-    /// <param name="updatedByUserId">User making the update</param>
-    /// <returns>The updated ticket</returns>
-    public Task<Ticket> UpdatePriorityAsync(int workspaceId, int ticketId, string newPriority, string? reason, int updatedByUserId);
-
-    /// <summary>
-    /// Updates ticket status with transition validation.
-    /// </summary>
-    /// <param name="workspaceId">Workspace context</param>
-    /// <param name="ticketId">Ticket to update</param>
-    /// <param name="newStatus">New status</param>
-    /// <param name="reason">Optional reason for change</param>
-    /// <param name="updatedByUserId">User making the update</param>
-    /// <returns>The updated ticket</returns>
-    public Task<Ticket> UpdateStatusAsync(int workspaceId, int ticketId, string newStatus, string? reason, int updatedByUserId);
-
-    /// <summary>
-    /// Adds a note to a ticket.
-    /// </summary>
-    /// <param name="workspaceId">Workspace context</param>
-    /// <param name="ticketId">Ticket to add note to</param>
-    /// <param name="note">Note content</param>
-    /// <param name="addedByUserId">User adding the note</param>
-    /// <returns>The ticket</returns>
-    public Task<Ticket> AddNoteAsync(int workspaceId, int ticketId, string note, int addedByUserId);
 }
 
 public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateService
 {
     private const string ErrorTicketNotFound = "Ticket not found";
-    private const string ErrorPriorityEmpty = "Priority cannot be empty";
-    private static readonly CompositeFormat ErrorPriorityNotFound = CompositeFormat.Parse("Priority '{0}' not found in workspace");
-    private const string ErrorStatusEmpty = "Status cannot be empty";
-    private static readonly CompositeFormat ErrorStatusNotFound = CompositeFormat.Parse("Status '{0}' not found in workspace");
-    private const string ErrorNoteEmpty = "Note cannot be empty";
 
     private readonly TickfloDbContext dbContext = dbContext;
 
@@ -93,7 +51,9 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
 
     private async Task<Ticket> GetTicketOrThrowAsync(int workspaceId, int ticketId)
     {
-        var ticket = await this.dbContext.Tickets.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId) ?? throw new InvalidOperationException(ErrorTicketNotFound);
+        var ticket = await this.dbContext.Tickets
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId)
+            ?? throw new InvalidOperationException(ErrorTicketNotFound);
 
         return ticket;
     }
@@ -125,13 +85,17 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
         return changes;
     }
 
-    private static bool ShouldUpdateSubject(Ticket ticket, TicketUpdateRequest request) => !string.IsNullOrWhiteSpace(request.Subject) && ticket.Subject != request.Subject.Trim();
+    private static bool ShouldUpdateSubject(Ticket ticket, TicketUpdateRequest request) =>
+        !string.IsNullOrWhiteSpace(request.Subject) && ticket.Subject != request.Subject.Trim();
 
-    private static bool ShouldUpdateDescription(Ticket ticket, TicketUpdateRequest request) => !string.IsNullOrWhiteSpace(request.Description) && ticket.Description != request.Description.Trim();
+    private static bool ShouldUpdateDescription(Ticket ticket, TicketUpdateRequest request) =>
+        !string.IsNullOrWhiteSpace(request.Description) && ticket.Description != request.Description.Trim();
 
-    private static bool ShouldUpdateContact(Ticket ticket, TicketUpdateRequest request) => request.ContactId.HasValue && ticket.ContactId != request.ContactId.Value;
+    private static bool ShouldUpdateContact(Ticket ticket, TicketUpdateRequest request) =>
+        request.ContactId.HasValue && ticket.ContactId != request.ContactId.Value;
 
-    private static bool ShouldUpdateLocation(Ticket ticket, TicketUpdateRequest request) => request.LocationId.HasValue && ticket.LocationId != request.LocationId.Value;
+    private static bool ShouldUpdateLocation(Ticket ticket, TicketUpdateRequest request) =>
+        request.LocationId.HasValue && ticket.LocationId != request.LocationId.Value;
 
     private static void ApplyTicketChanges(Ticket ticket, TicketUpdateRequest request)
     {
@@ -168,156 +132,6 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
             CreatedAt = DateTime.UtcNow
         });
         await this.dbContext.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Updates ticket priority.
-    /// </summary>
-    public async Task<Ticket> UpdatePriorityAsync(
-        int workspaceId,
-        int ticketId,
-        string newPriority,
-        string? reason,
-        int updatedByUserId)
-    {
-        var ticket = await this.GetTicketOrThrowAsync(workspaceId, ticketId);
-        ValidateNotEmpty(newPriority, ErrorPriorityEmpty);
-
-        var priority = await this.GetPriorityOrThrowAsync(workspaceId, newPriority);
-
-        ticket.PriorityId = priority.Id;
-        ticket.UpdatedAt = DateTime.UtcNow;
-
-        await this.dbContext.SaveChangesAsync();
-        await this.LogPriorityChangeAsync(workspaceId, ticketId, updatedByUserId, priority.Name, reason);
-
-        return ticket;
-    }
-
-    private async Task<TicketPriority> GetPriorityOrThrowAsync(int workspaceId, string priorityName)
-    {
-        var priorityNameLower = priorityName.Trim().ToLower();
-        var priority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == priorityNameLower) ?? throw new InvalidOperationException(string.Format(null, ErrorPriorityNotFound, priorityName));
-
-        return priority;
-    }
-
-    private async Task LogPriorityChangeAsync(
-        int workspaceId,
-        int ticketId,
-        int updatedByUserId,
-        string priorityName,
-        string? reason)
-    {
-        var note = BuildChangeNote($"Priority changed to '{priorityName}'", reason);
-
-        this.dbContext.TicketHistory.Add(new TicketHistory
-        {
-            WorkspaceId = workspaceId,
-            TicketId = ticketId,
-            CreatedByUserId = updatedByUserId,
-            Action = TicketHistoryAction.FieldChanged,
-            Note = note,
-            CreatedAt = DateTime.UtcNow
-        });
-        await this.dbContext.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Updates ticket status with validation.
-    /// </summary>
-    public async Task<Ticket> UpdateStatusAsync(
-        int workspaceId,
-        int ticketId,
-        string newStatus,
-        string? reason,
-        int updatedByUserId)
-    {
-        var ticket = await this.GetTicketOrThrowAsync(workspaceId, ticketId);
-        ValidateNotEmpty(newStatus, ErrorStatusEmpty);
-
-        var status = await this.GetStatusOrThrowAsync(workspaceId, newStatus);
-
-        ticket.StatusId = status.Id;
-        ticket.UpdatedAt = DateTime.UtcNow;
-
-        await this.dbContext.SaveChangesAsync();
-        await this.LogStatusChangeAsync(workspaceId, ticketId, updatedByUserId, status.Name, reason);
-
-        return ticket;
-    }
-
-    private async Task<TicketStatus> GetStatusOrThrowAsync(int workspaceId, string statusName)
-    {
-        var statusNameLower = statusName.Trim().ToLower();
-        var status = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == statusNameLower) ?? throw new InvalidOperationException(string.Format(null, ErrorStatusNotFound, statusName));
-
-        return status;
-    }
-
-    private async Task LogStatusChangeAsync(
-        int workspaceId,
-        int ticketId,
-        int updatedByUserId,
-        string statusName,
-        string? reason)
-    {
-        var note = BuildChangeNote($"Status changed to '{statusName}'", reason);
-
-        this.dbContext.TicketHistory.Add(new TicketHistory
-        {
-            WorkspaceId = workspaceId,
-            TicketId = ticketId,
-            CreatedByUserId = updatedByUserId,
-            Action = TicketHistoryAction.FieldChanged,
-            Note = note,
-            CreatedAt = DateTime.UtcNow
-        });
-        await this.dbContext.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Adds a note/comment to a ticket.
-    /// </summary>
-    public async Task<Ticket> AddNoteAsync(
-        int workspaceId,
-        int ticketId,
-        string note,
-        int addedByUserId)
-    {
-        var ticket = await this.GetTicketOrThrowAsync(workspaceId, ticketId);
-        ValidateNotEmpty(note, ErrorNoteEmpty);
-
-        this.dbContext.TicketHistory.Add(new TicketHistory
-        {
-            WorkspaceId = workspaceId,
-            TicketId = ticketId,
-            CreatedByUserId = addedByUserId,
-            Action = TicketHistoryAction.ReassignmentNote,
-            Note = note.Trim(),
-            CreatedAt = DateTime.UtcNow
-        });
-        await this.dbContext.SaveChangesAsync();
-
-        return ticket;
-    }
-
-    private static void ValidateNotEmpty(string value, string errorMessage)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidOperationException(errorMessage);
-        }
-    }
-
-    private static string BuildChangeNote(string baseNote, string? reason)
-    {
-        if (string.IsNullOrWhiteSpace(reason))
-        {
-            return baseNote;
-        }
-
-        return $"{baseNote}. Reason: {reason}";
     }
 }
 

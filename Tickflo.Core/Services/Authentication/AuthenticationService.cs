@@ -28,6 +28,8 @@ public partial class AuthenticationService(
     IRequestOriginService requestOriginService
     ) : IAuthenticationService
 {
+    private const string DemoEmailDomain = "@demo.com";
+
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly IPasswordHasher passwordHasher = passwordHasher;
     private readonly IEmailSendService emailSendService = emailSendService;
@@ -91,8 +93,6 @@ public partial class AuthenticationService(
             await this.dbContext.SaveChangesAsync();
 
             await transaction.CommitAsync();
-
-            System.Diagnostics.Debug.WriteLine($"DbContext Hash: ${this.dbContext.GetHashCode()}");
 
             return new AuthenticationResult
             {
@@ -186,7 +186,7 @@ public partial class AuthenticationService(
 
     private static bool IsDemoUserEmail(string? email) =>
         !string.IsNullOrWhiteSpace(email) &&
-        email.EndsWith("@demo.com", StringComparison.OrdinalIgnoreCase);
+        email.EndsWith(DemoEmailDomain, StringComparison.OrdinalIgnoreCase);
 
     private void PreventTimingAttack() => this.passwordHasher.Verify("password", "$argon2id$v=19$m=16,t=2,p=1$NlJRdlBSbDZhRVUzdTFYcQ$FbtOcbMs2IMTMHFE8WcSiQ");
 }

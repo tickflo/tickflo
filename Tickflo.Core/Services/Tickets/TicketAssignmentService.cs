@@ -6,10 +6,6 @@ using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Notifications;
 
 /// <summary>
-/// Handles the business workflow of assigning tickets to users and teams.
-/// </summary>
-
-/// <summary>
 /// Handles ticket assignment workflows.
 /// </summary>
 public interface ITicketAssignmentService

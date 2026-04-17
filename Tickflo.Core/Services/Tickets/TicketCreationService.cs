@@ -5,11 +5,6 @@ using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
 /// <summary>
-/// Handles the business workflow of creating and managing tickets.
-/// Replaces the generic ticket creation from TicketManagementService with a dedicated service.
-/// </summary>
-
-/// <summary>
 /// Handles ticket creation workflows.
 /// </summary>
 public interface ITicketCreationService

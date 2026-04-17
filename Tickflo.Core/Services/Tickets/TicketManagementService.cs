@@ -8,10 +8,6 @@ using Tickflo.Core.Services.Notifications;
 /// <summary>
 /// Service for managing ticket lifecycle operations including creation, updates, and history tracking.
 /// </summary>
-
-/// <summary>
-/// Service for managing ticket lifecycle operations including creation, updates, and history tracking.
-/// </summary>
 public interface ITicketManagementService
 {
     /// <summary>
@@ -786,7 +782,7 @@ public class TicketManagementService(
 
     public async Task<Ticket?> GetTicketAsync(int workspaceId, int ticketId) =>
         await this.dbContext.Tickets
-            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId);
+            .FirstOrDefaultAsync(ticket => ticket.WorkspaceId == workspaceId && ticket.Id == ticketId);
 }
 
 
