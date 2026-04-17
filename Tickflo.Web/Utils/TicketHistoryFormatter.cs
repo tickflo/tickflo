@@ -23,7 +23,7 @@ public static class TicketHistoryFormatter
         _ => DefaultFieldName
     };
 
-    public static string FormatActionDescription(TicketHistoryAction action, TicketHistoryField? field, string? note) => action switch
+    public static string FormatActionDescription(TicketHistoryAction action, TicketHistoryField? field) => action switch
     {
         TicketHistoryAction.Created => "created this ticket",
         TicketHistoryAction.FieldChanged => $"changed {FormatFieldName(field)}",

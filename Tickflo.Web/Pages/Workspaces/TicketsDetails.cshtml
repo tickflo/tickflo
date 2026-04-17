@@ -984,7 +984,7 @@
                 {
                   var actor = Model.Members.FirstOrDefault(m => m.Id == historyEntry.CreatedByUserId);
                   var actorName = actor != null ? (string.IsNullOrWhiteSpace(actor.Name) ? actor.Email : actor.Name) : $"User #{historyEntry.CreatedByUserId}";
-                  var actionDescription = Tickflo.Web.Utils.TicketHistoryFormatter.FormatActionDescription(historyEntry.Action, historyEntry.Field, historyEntry.Note);
+                  var actionDescription = Tickflo.Web.Utils.TicketHistoryFormatter.FormatActionDescription(historyEntry.Action, historyEntry.Field);
                   var showValueChange = Tickflo.Web.Utils.TicketHistoryFormatter.ShouldShowValueChange(historyEntry.Action);
                   
                   // Resolve user-friendly values
