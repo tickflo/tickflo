@@ -11,7 +11,7 @@ using Xunit;
 public class TicketCommentServiceTests
 {
     [Fact]
-    public async Task AddCommentAndNotifyAsyncWhenCommentIsAddedShouldDispatchTicketCommentNotification()
+    public async Task AddCommentAndNotifyAsync_WhenCommentIsAdded_ShouldDispatchTicketCommentNotification()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -42,7 +42,7 @@ public class TicketCommentServiceTests
     }
 
     [Fact]
-    public async Task AddCommentAndNotifyAsyncWhenTicketDoesNotExistShouldNotPersistComment()
+    public async Task AddCommentAndNotifyAsync_WhenTicketDoesNotExist_ShouldNotPersistComment()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };

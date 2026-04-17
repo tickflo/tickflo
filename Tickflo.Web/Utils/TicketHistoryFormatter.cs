@@ -17,7 +17,6 @@ public static class TicketHistoryFormatter
     private const string FieldDueDate = "DueDate";
 
     private const string DefaultFieldName = "unknown field";
-    private const string DefaultActionText = "performed an action";
     private const string EmptyValueText = "(empty)";
 
     public static string FormatFieldName(string? field)
@@ -44,38 +43,23 @@ public static class TicketHistoryFormatter
         };
     }
 
-    public static string FormatActionDescription(string? action, string? field, string? note)
+    public static string FormatActionDescription(TicketHistoryAction action, string? field, string? note) => action switch
     {
-        if (!TicketHistoryActionExtensions.TryParseDatabaseValue(action, out var ticketHistoryAction))
-        {
-            return DefaultActionText;
-        }
-
-        return ticketHistoryAction switch
-        {
-            TicketHistoryAction.Created => "created this ticket",
-            TicketHistoryAction.FieldChanged => $"changed {FormatFieldName(field)}",
-            TicketHistoryAction.Assigned => "assigned this ticket",
-            TicketHistoryAction.TeamAssigned => "assigned this ticket to a team",
-            TicketHistoryAction.Unassigned => "removed the assignee",
-            TicketHistoryAction.ReassignmentNote => "added a reassignment note",
-            TicketHistoryAction.Closed => "closed this ticket",
-            TicketHistoryAction.Reopened => "reopened this ticket",
-            TicketHistoryAction.Resolved => "marked this ticket as resolved",
-            TicketHistoryAction.Cancelled => "cancelled this ticket",
-            _ => FormatUnknownAction(action!, note)
-        };
-    }
-
-    private static string FormatUnknownAction(string action, string? note)
-    {
-        var actionText = action.Replace("_", " ");
-        return string.IsNullOrEmpty(note) ? actionText : $"{actionText} {note}".Trim();
-    }
+        TicketHistoryAction.Created => "created this ticket",
+        TicketHistoryAction.FieldChanged => $"changed {FormatFieldName(field)}",
+        TicketHistoryAction.Assigned => "assigned this ticket",
+        TicketHistoryAction.TeamAssigned => "assigned this ticket to a team",
+        TicketHistoryAction.Unassigned => "removed the assignee",
+        TicketHistoryAction.ReassignmentNote => "added a reassignment note",
+        TicketHistoryAction.Closed => "closed this ticket",
+        TicketHistoryAction.Reopened => "reopened this ticket",
+        TicketHistoryAction.Resolved => "marked this ticket as resolved",
+        TicketHistoryAction.Cancelled => "cancelled this ticket",
+        _ => "performed an action"
+    };
 
     public static string FormatValue(string? value) => string.IsNullOrWhiteSpace(value) ? EmptyValueText : value;
 
-    public static bool ShouldShowValueChange(string? action) =>
-        TicketHistoryActionExtensions.TryParseDatabaseValue(action, out var ticketHistoryAction) &&
-        ticketHistoryAction == TicketHistoryAction.FieldChanged;
+    public static bool ShouldShowValueChange(TicketHistoryAction action) =>
+        action == TicketHistoryAction.FieldChanged;
 }

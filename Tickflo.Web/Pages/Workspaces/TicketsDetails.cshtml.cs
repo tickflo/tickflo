@@ -4,17 +4,13 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Tickets;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
-// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
-
 [Authorize]
-public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbContext dbContext, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, Services.ITempTeamService teamService, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService) : WorkspacePageModel
+public class TicketsDetailsModel(IWorkspaceService workspaceService, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, Services.ITempTeamService teamService, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService) : WorkspacePageModel
 {
 
     #region Constants
@@ -41,7 +37,6 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
         public decimal UnitPrice { get; set; }
     }
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly TickfloDbContext dbContext = dbContext;
     private readonly ITicketManagementService ticketManagementService = ticketManagementService;
     private readonly IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService = workspaceTicketDetailsViewService;
     private readonly Services.ITempTeamService teamService = teamService;
@@ -273,8 +268,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
         var inventories = this.ParseInventoriesFromJson();
         var resolvedId = this.ResolveTicketId(id);
         var isNew = resolvedId <= InvalidTicketId;
-        var existing = !isNew ? await this.dbContext.Tickets
-            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == resolvedId) : null;
+        var existing = !isNew ? await this.ticketManagementService.GetTicketAsync(workspaceId, resolvedId) : null;
 
         var saveViewData = await this.workspaceTicketsSaveViewService.BuildAsync(workspaceId, currentUserId, isNew, existing);
         var authCheck = this.ValidateTicketPermissions(isNew, saveViewData);

@@ -88,6 +88,14 @@ public interface ITicketManagementService
     public Task<(string summary, string details)> GenerateInventorySummaryAsync(
         List<TicketInventory> inventories,
         int workspaceId);
+
+    /// <summary>
+    /// Gets a ticket by workspace and ticket ID.
+    /// </summary>
+    /// <param name="workspaceId">Workspace context</param>
+    /// <param name="ticketId">Ticket ID</param>
+    /// <returns>The ticket, or null if not found</returns>
+    public Task<Ticket?> GetTicketAsync(int workspaceId, int ticketId);
 }
 
 /// <summary>
@@ -304,7 +312,7 @@ public class TicketManagementService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = createdByUserId,
-            Action = TicketHistoryAction.Created.ToDatabaseValue(),
+            Action = TicketHistoryAction.Created,
             Note = "Ticket created",
             CreatedAt = DateTime.UtcNow
         });
@@ -634,7 +642,7 @@ public class TicketManagementService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = userId,
-            Action = TicketHistoryAction.FieldChanged.ToDatabaseValue(),
+            Action = TicketHistoryAction.FieldChanged,
             Field = field,
             OldValue = string.IsNullOrEmpty(oldTrim) ? null : oldTrim,
             NewValue = string.IsNullOrEmpty(newTrim) ? null : newTrim,
@@ -775,6 +783,10 @@ public class TicketManagementService(
         public int? OldLocationId { get; } = ticket.LocationId;
         public List<TicketInventory> OldInventories { get; } = ticket.TicketInventories?.ToList() ?? [];
     }
+
+    public async Task<Ticket?> GetTicketAsync(int workspaceId, int ticketId) =>
+        await this.dbContext.Tickets
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId);
 }
 
 

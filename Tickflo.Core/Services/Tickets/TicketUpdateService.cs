@@ -59,11 +59,6 @@ public interface ITicketUpdateService
 
 public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateService
 {
-    private const string ActionUpdated = "updated";
-    private const string ActionPriorityChanged = "priority_changed";
-    private const string ActionStatusChanged = "status_changed";
-    private const string ActionNoteAdded = "note_added";
-
     private const string ErrorTicketNotFound = "Ticket not found";
     private const string ErrorPriorityEmpty = "Priority cannot be empty";
     private static readonly CompositeFormat ErrorPriorityNotFound = CompositeFormat.Parse("Priority '{0}' not found in workspace");
@@ -168,7 +163,7 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = updatedByUserId,
-            Action = ActionUpdated,
+            Action = TicketHistoryAction.FieldChanged,
             Note = string.Join("; ", changes),
             CreatedAt = DateTime.UtcNow
         });
@@ -221,7 +216,7 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = updatedByUserId,
-            Action = ActionPriorityChanged,
+            Action = TicketHistoryAction.FieldChanged,
             Note = note,
             CreatedAt = DateTime.UtcNow
         });
@@ -274,7 +269,7 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = updatedByUserId,
-            Action = ActionStatusChanged,
+            Action = TicketHistoryAction.FieldChanged,
             Note = note,
             CreatedAt = DateTime.UtcNow
         });
@@ -298,7 +293,7 @@ public class TicketUpdateService(TickfloDbContext dbContext) : ITicketUpdateServ
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = addedByUserId,
-            Action = ActionNoteAdded,
+            Action = TicketHistoryAction.ReassignmentNote,
             Note = note.Trim(),
             CreatedAt = DateTime.UtcNow
         });

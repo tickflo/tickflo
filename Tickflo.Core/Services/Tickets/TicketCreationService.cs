@@ -273,9 +273,8 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = createdByUserId,
-            Action = TicketHistoryAction.Created.ToDatabaseValue(),
+            Action = TicketHistoryAction.Created,
             Note = $"Ticket created: {subject}",
-            CreatedAt = DateTime.UtcNow
         };
 
         this.dbContext.TicketHistory.Add(history);

@@ -11,7 +11,7 @@ using Xunit;
 public class TicketManagementServiceTests
 {
     [Fact]
-    public async Task CreateTicketAndNotifyAsyncWhenTicketIsCreatedShouldDispatchTicketCreatedNotification()
+    public async Task CreateTicketAndNotifyAsync_WhenTicketIsCreated_ShouldDispatchTicketCreatedNotification()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -36,7 +36,7 @@ public class TicketManagementServiceTests
     }
 
     [Fact]
-    public async Task UpdateTicketAndNotifyAsyncWhenAssignmentStatusAndDetailsChangeShouldDispatchNotifications()
+    public async Task UpdateTicketAndNotifyAsync_WhenAssignmentStatusAndDetailsChange_ShouldDispatchNotifications()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -101,7 +101,7 @@ public class TicketManagementServiceTests
     }
 
     [Fact]
-    public async Task CreateTicketAsyncWhenNamesAreOmittedShouldUseWorkspaceReferenceDefaults()
+    public async Task CreateTicketAsync_WhenNamesAreOmitted_ShouldUseWorkspaceReferenceDefaults()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };

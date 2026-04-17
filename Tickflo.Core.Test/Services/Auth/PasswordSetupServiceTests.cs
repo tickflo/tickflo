@@ -10,7 +10,7 @@ using Xunit;
 public class PasswordSetupServiceTests
 {
     [Fact]
-    public async Task SetInitialPasswordAsyncWhenUserHasAcceptedWorkspaceShouldPersistPasswordHashAndLoginToken()
+    public async Task SetInitialPasswordAsync_WhenUserHasAcceptedWorkspace_ShouldPersistPasswordHashAndLoginToken()
     {
         await using var databaseContext = CreateDatabaseContext();
         var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash")

@@ -15,7 +15,7 @@ using Xunit;
 public class AuthenticationServiceEmailConfirmationTests
 {
     [Fact]
-    public async Task ResendEmailConfirmationAsyncWhenOriginIsProvidedShouldUseOriginWithConfirmationRoute()
+    public async Task ResendEmailConfirmationAsync_WhenOriginIsProvided_ShouldUseOriginWithConfirmationRoute()
     {
         var tickfloConfig = new TickfloConfig
         {
@@ -55,7 +55,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task ResendEmailConfirmationAsyncWhenConfiguredOriginIsUsedShouldBuildConfirmationRouteFromThatOrigin()
+    public async Task ResendEmailConfirmationAsync_WhenConfiguredOriginIsUsed_ShouldBuildConfirmationRouteFromThatOrigin()
     {
         var tickfloConfig = new TickfloConfig
         {
@@ -95,7 +95,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task ResendEmailConfirmationAsyncWhenStoredCodeIsMissingShouldGenerateAndUseCode()
+    public async Task ResendEmailConfirmationAsync_WhenStoredCodeIsMissing_ShouldGenerateAndUseCode()
     {
         var tickfloConfig = new TickfloConfig
         {
@@ -141,7 +141,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task AuthenticateAsyncWhenDemoUserHasNoPasswordShouldAllowLogin()
+    public async Task AuthenticateAsync_WhenDemoUserHasNoPassword_ShouldAllowLogin()
     {
         await using var databaseContext = CreateDatabaseContext();
         var user = new User("Demo User", "admin@demo.com", "recovery@example.com", "password-hash")
@@ -161,7 +161,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task AuthenticateAsyncWhenDemoUserPasswordIsWrongShouldAllowLogin()
+    public async Task AuthenticateAsync_WhenDemoUserPasswordIsWrong_ShouldAllowLogin()
     {
         await using var databaseContext = CreateDatabaseContext();
         var passwordHasher = new Argon2idPasswordHasher();
@@ -183,7 +183,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task AuthenticateAsyncWhenNonDemoUserPasswordIsWrongShouldRejectLogin()
+    public async Task AuthenticateAsync_WhenNonDemoUserPasswordIsWrong_ShouldRejectLogin()
     {
         await using var databaseContext = CreateDatabaseContext();
         var passwordHasher = new Argon2idPasswordHasher();
@@ -203,7 +203,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task AuthenticateAsyncWhenEmailOnlyContainsDemoDomainTextShouldRejectInvalidPassword()
+    public async Task AuthenticateAsync_WhenEmailOnlyContainsDemoDomainText_ShouldRejectInvalidPassword()
     {
         await using var databaseContext = CreateDatabaseContext();
         var passwordHasher = new Argon2idPasswordHasher();

@@ -6,10 +6,6 @@ using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Notifications;
 
 /// <summary>
-/// Handles the business workflow of closing and resolving tickets.
-/// </summary>
-
-/// <summary>
 /// Handles ticket closing and resolution workflows.
 /// </summary>
 public interface ITicketClosingService
@@ -103,7 +99,7 @@ public class TicketClosingService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = closedByUserId,
-            Action = TicketHistoryAction.Closed.ToDatabaseValue(),
+            Action = TicketHistoryAction.Closed,
             Note = $"Ticket closed. Resolution: {resolutionNote}",
             CreatedAt = DateTime.UtcNow
         };
@@ -150,8 +146,10 @@ public class TicketClosingService(
         }
 
         var openStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == "open")
-            ?? throw new InvalidOperationException("'Open' status not found in workspace");
+            .Where(s => s.WorkspaceId == workspaceId && !s.IsClosedState)
+            .OrderBy(s => s.SortOrder)
+            .FirstOrDefaultAsync()
+            ?? throw new InvalidOperationException("No open status found in workspace");
 
         ticket.StatusId = openStatus.Id;
         ticket.UpdatedAt = DateTime.UtcNow;
@@ -164,7 +162,7 @@ public class TicketClosingService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = reopenedByUserId,
-            Action = TicketHistoryAction.Reopened.ToDatabaseValue(),
+            Action = TicketHistoryAction.Reopened,
             Note = $"Ticket reopened. Reason: {reason}",
             CreatedAt = DateTime.UtcNow
         };
@@ -221,7 +219,7 @@ public class TicketClosingService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = resolvedByUserId,
-            Action = TicketHistoryAction.Resolved.ToDatabaseValue(),
+            Action = TicketHistoryAction.Resolved,
             Note = $"Ticket resolved. {resolutionNote}",
             CreatedAt = DateTime.UtcNow
         };
@@ -278,7 +276,7 @@ public class TicketClosingService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = cancelledByUserId,
-            Action = TicketHistoryAction.Cancelled.ToDatabaseValue(),
+            Action = TicketHistoryAction.Cancelled,
             Note = $"Ticket cancelled. Reason: {cancellationReason}",
             CreatedAt = DateTime.UtcNow
         };

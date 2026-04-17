@@ -13,7 +13,7 @@ using Xunit;
 public class NotificationTriggerServiceTests
 {
     [Fact]
-    public async Task NotifyTicketCreatedAsyncWhenTicketIsAssignedToAnotherUserShouldQueueAssignmentEmail()
+    public async Task NotifyTicketCreatedAsync_WhenTicketIsAssignedToAnotherUser_ShouldQueueAssignmentEmail()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -52,7 +52,7 @@ public class NotificationTriggerServiceTests
     }
 
     [Fact]
-    public async Task NotifyTicketAssignmentChangedAsyncWhenActorAssignsTicketToSelfShouldQueueAssignmentEmail()
+    public async Task NotifyTicketAssignmentChangedAsync_WhenActorAssignsTicketToSelf_ShouldQueueAssignmentEmail()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -90,7 +90,7 @@ public class NotificationTriggerServiceTests
     }
 
     [Fact]
-    public async Task NotifyTicketUpdatedAsyncWhenCreatorAndAssigneeNeedNotificationShouldQueueOneEmailEach()
+    public async Task NotifyTicketUpdatedAsync_WhenCreatorAndAssigneeNeedNotification_ShouldQueueOneEmailEach()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -115,7 +115,7 @@ public class NotificationTriggerServiceTests
             WorkspaceId = workspace.Id,
             TicketId = ticket.Id,
             CreatedByUserId = creator.Id,
-            Action = TicketHistoryAction.Created.ToDatabaseValue(),
+            Action = TicketHistoryAction.Created,
             CreatedAt = DateTime.UtcNow.AddMinutes(-5)
         });
         await databaseContext.SaveChangesAsync();
@@ -149,7 +149,7 @@ public class NotificationTriggerServiceTests
     }
 
     [Fact]
-    public async Task NotifyTicketUpdatedAsyncWhenAssigneeIsExcludedShouldOnlyNotifyCreator()
+    public async Task NotifyTicketUpdatedAsync_WhenAssigneeIsExcluded_ShouldOnlyNotifyCreator()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -174,7 +174,7 @@ public class NotificationTriggerServiceTests
             WorkspaceId = workspace.Id,
             TicketId = ticket.Id,
             CreatedByUserId = creator.Id,
-            Action = TicketHistoryAction.Created.ToDatabaseValue(),
+            Action = TicketHistoryAction.Created,
             CreatedAt = DateTime.UtcNow.AddMinutes(-10)
         });
         await databaseContext.SaveChangesAsync();
@@ -202,7 +202,7 @@ public class NotificationTriggerServiceTests
     }
 
     [Fact]
-    public async Task NotifyTicketCommentAddedAsyncWhenCommentIsClientVisibleShouldQueueCommentEmailsForCreatorAssigneeAndContactOwner()
+    public async Task NotifyTicketCommentAddedAsync_WhenCommentIsClientVisible_ShouldQueueCommentEmailsForCreatorAssigneeAndContactOwner()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
@@ -240,7 +240,7 @@ public class NotificationTriggerServiceTests
             WorkspaceId = workspace.Id,
             TicketId = ticket.Id,
             CreatedByUserId = creator.Id,
-            Action = TicketHistoryAction.Created.ToDatabaseValue(),
+            Action = TicketHistoryAction.Created,
             CreatedAt = DateTime.UtcNow.AddMinutes(-3)
         });
         await databaseContext.SaveChangesAsync();
@@ -268,7 +268,7 @@ public class NotificationTriggerServiceTests
     }
 
     [Fact]
-    public async Task NotifyTicketCreatedAsyncWhenRequestOriginUsesDevPortShouldUseOriginForTicketLink()
+    public async Task NotifyTicketCreatedAsync_WhenRequestOriginUsesDevPort_ShouldUseOriginForTicketLink()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };

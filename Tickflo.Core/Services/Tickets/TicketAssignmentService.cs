@@ -116,7 +116,7 @@ public class TicketAssignmentService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = assignedByUserId,
-            Action = TicketHistoryAction.Assigned.ToDatabaseValue(),
+            Action = TicketHistoryAction.Assigned,
             Note = $"Ticket assigned to user {assigneeUserId}" +
                    (previousAssignee.HasValue ? $" (was user {previousAssignee.Value})" : ""),
             CreatedAt = DateTime.UtcNow
@@ -165,7 +165,7 @@ public class TicketAssignmentService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = assignedByUserId,
-            Action = TicketHistoryAction.TeamAssigned.ToDatabaseValue(),
+            Action = TicketHistoryAction.TeamAssigned,
             Note = $"Ticket assigned to team {team.Name}" +
                    (previousTeam.HasValue ? $" (was team {previousTeam.Value})" : ""),
             CreatedAt = DateTime.UtcNow
@@ -208,7 +208,7 @@ public class TicketAssignmentService(
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = unassignedByUserId,
-            Action = TicketHistoryAction.Unassigned.ToDatabaseValue(),
+            Action = TicketHistoryAction.Unassigned,
             Note = $"Ticket unassigned from user {previousAssignee}",
             CreatedAt = DateTime.UtcNow
         };
@@ -245,7 +245,7 @@ public class TicketAssignmentService(
                 WorkspaceId = workspaceId,
                 TicketId = ticketId,
                 CreatedByUserId = reassignedByUserId,
-                Action = TicketHistoryAction.ReassignmentNote.ToDatabaseValue(),
+                Action = TicketHistoryAction.ReassignmentNote,
                 Note = $"Reassignment reason: {reason}",
                 CreatedAt = DateTime.UtcNow
             };

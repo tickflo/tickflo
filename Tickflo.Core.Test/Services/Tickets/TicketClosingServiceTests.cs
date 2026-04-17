@@ -11,7 +11,7 @@ using Xunit;
 public class TicketClosingServiceTests
 {
     [Fact]
-    public async Task CloseTicketAsyncWhenTicketIsClosedShouldNotifyTicketUpdateRecipients()
+    public async Task CloseTicketAsync_WhenTicketIsClosed_ShouldNotifyTicketUpdateRecipients()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = await SeedWorkspaceWithStatusesAsync(databaseContext);
@@ -30,7 +30,7 @@ public class TicketClosingServiceTests
     }
 
     [Fact]
-    public async Task ReopenTicketAsyncWhenTicketIsReopenedShouldNotifyTicketUpdateRecipients()
+    public async Task ReopenTicketAsync_WhenTicketIsReopened_ShouldNotifyTicketUpdateRecipients()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = await SeedWorkspaceWithStatusesAsync(databaseContext);
@@ -49,7 +49,7 @@ public class TicketClosingServiceTests
     }
 
     [Fact]
-    public async Task ResolveTicketAsyncWhenTicketIsResolvedShouldNotifyTicketUpdateRecipients()
+    public async Task ResolveTicketAsync_WhenTicketIsResolved_ShouldNotifyTicketUpdateRecipients()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = await SeedWorkspaceWithStatusesAsync(databaseContext);
@@ -68,7 +68,7 @@ public class TicketClosingServiceTests
     }
 
     [Fact]
-    public async Task CancelTicketAsyncWhenTicketIsCancelledShouldNotifyTicketUpdateRecipients()
+    public async Task CancelTicketAsync_WhenTicketIsCancelled_ShouldNotifyTicketUpdateRecipients()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = await SeedWorkspaceWithStatusesAsync(databaseContext);

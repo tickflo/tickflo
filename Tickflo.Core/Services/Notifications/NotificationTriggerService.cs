@@ -183,7 +183,7 @@ public class NotificationTriggerService(
             }
         }
 
-        if (notifications is not [])
+        if (notifications.Count > 0)
         {
             this.dbContext.Notifications.AddRange(notifications);
             await this.dbContext.SaveChangesAsync();
@@ -244,7 +244,7 @@ public class NotificationTriggerService(
             });
         }
 
-        if (notifications is not [])
+        if (notifications.Count > 0)
         {
             this.dbContext.Notifications.AddRange(notifications);
             await this.dbContext.SaveChangesAsync();
@@ -307,7 +307,7 @@ public class NotificationTriggerService(
             }
         }
 
-        if (notifications is not [])
+        if (notifications.Count > 0)
         {
             this.dbContext.Notifications.AddRange(notifications);
             await this.dbContext.SaveChangesAsync();
@@ -391,7 +391,7 @@ public class NotificationTriggerService(
             });
         }
 
-        if (notifications is not [])
+        if (notifications.Count > 0)
         {
             this.dbContext.Notifications.AddRange(notifications);
             await this.dbContext.SaveChangesAsync();
@@ -504,7 +504,7 @@ public class NotificationTriggerService(
 
     private async Task<int?> GetTicketCreatorUserIdAsync(int ticketId) =>
         await this.dbContext.TicketHistory
-            .Where(history => history.TicketId == ticketId && history.Action == TicketHistoryAction.Created.ToDatabaseValue())
+            .Where(history => history.TicketId == ticketId && history.Action == TicketHistoryAction.Created)
             .OrderBy(history => history.CreatedAt)
             .ThenBy(history => history.Id)
             .Select(history => (int?)history.CreatedByUserId)

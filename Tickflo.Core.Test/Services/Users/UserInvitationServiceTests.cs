@@ -12,7 +12,7 @@ using Xunit;
 public class UserInvitationServiceTests
 {
     [Fact]
-    public async Task InviteUserAsyncWhenOriginUsesDevPortForNewUserShouldUseOriginForSignupLink()
+    public async Task InviteUserAsync_WhenOriginUsesDevPortForNewUser_ShouldUseOriginForSignupLink()
     {
         await using var databaseContext = CreateDatabaseContext();
         var inviter = new User("Admin", "admin@example.com", "recovery@example.com", "password-hash");
@@ -59,7 +59,7 @@ public class UserInvitationServiceTests
     }
 
     [Fact]
-    public async Task InviteUserAsyncWhenOriginUsesDevPortForExistingUserShouldUseOriginForLoginLink()
+    public async Task InviteUserAsync_WhenOriginUsesDevPortForExistingUser_ShouldUseOriginForLoginLink()
     {
         await using var databaseContext = CreateDatabaseContext();
         var inviter = new User("Admin", "admin@example.com", "recovery@example.com", "password-hash");

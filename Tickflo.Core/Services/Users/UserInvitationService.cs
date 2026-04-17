@@ -3,9 +3,6 @@ namespace Tickflo.Core.Services.Users;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-/// <summary>
-/// Service for managing user invitations and onboarding workflows.
-/// </summary>
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Email;
 using Tickflo.Core.Services.Web;
@@ -83,14 +80,11 @@ public class UserInvitationService(
 
         email = email.Trim().ToLower();
 
-        // Get workspace for email template
         var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId)
             ?? throw new InvalidOperationException("Workspace not found");
 
-        // Check if user already exists
-        var emailLower = email.ToLower();
         var user = await this.dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
         var isNewUser = user == null;
 
         if (isNewUser)

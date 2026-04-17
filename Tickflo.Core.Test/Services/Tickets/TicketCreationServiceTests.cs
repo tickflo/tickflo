@@ -9,7 +9,7 @@ using Xunit;
 public class TicketCreationServiceTests
 {
     [Fact]
-    public async Task CreateTicketAsyncWhenNamesAreOmittedShouldUseWorkspaceReferenceDefaults()
+    public async Task CreateTicketAsync_WhenNamesAreOmitted_ShouldUseWorkspaceReferenceDefaults()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };

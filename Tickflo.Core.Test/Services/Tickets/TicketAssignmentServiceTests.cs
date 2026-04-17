@@ -11,7 +11,7 @@ using Xunit;
 public class TicketAssignmentServiceTests
 {
     [Fact]
-    public async Task UpdateAssignmentAsyncWhenAssignmentChangesShouldDispatchNotifications()
+    public async Task UpdateAssignmentAsync_WhenAssignmentChanges_ShouldDispatchNotifications()
     {
         await using var databaseContext = CreateDatabaseContext();
         var workspace = new Workspace { Name = "Operations", Slug = "operations" };
