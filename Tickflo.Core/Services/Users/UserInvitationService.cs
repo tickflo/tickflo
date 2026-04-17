@@ -1,14 +1,11 @@
 namespace Tickflo.Core.Services.Users;
 
 using Microsoft.EntityFrameworkCore;
-using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-/// <summary>
-/// Service for managing user invitations and onboarding workflows.
-/// </summary>
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Web;
 using Tickflo.Core.Utils;
 
 /// <summary>
@@ -59,11 +56,11 @@ public class UserInvitationResult
 public class UserInvitationService(
     TickfloDbContext dbContext,
     IEmailSendService emailSendService,
-    TickfloConfig config) : IUserInvitationService
+    IRequestOriginService requestOriginService) : IUserInvitationService
 {
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly IEmailSendService emailSendService = emailSendService;
-    private readonly TickfloConfig config = config;
+    private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     public async Task InviteUserAsync(
         int workspaceId,
@@ -83,14 +80,11 @@ public class UserInvitationService(
 
         email = email.Trim().ToLower();
 
-        // Get workspace for email template
         var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId)
             ?? throw new InvalidOperationException("Workspace not found");
 
-        // Check if user already exists
-        var emailLower = email.ToLower();
         var user = await this.dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
         var isNewUser = user == null;
 
         if (isNewUser)
@@ -242,11 +236,12 @@ public class UserInvitationService(
         int invitedByUserId
     )
     {
+        var currentOrigin = this.requestOriginService.GetCurrentOrigin().TrimEnd('/');
         var variables = new Dictionary<string, string>
         {
             { "name", user.Name },
             { "workspace_name", workspace.Name },
-            { "signup_link", $"{this.config.BaseUrl}/signup?email={Uri.EscapeDataString(user.Email)}" },
+            { "signup_link", $"{currentOrigin}/signup?email={Uri.EscapeDataString(user.Email)}" },
         };
 
         await this.emailSendService.AddToQueueAsync(
@@ -263,11 +258,12 @@ public class UserInvitationService(
         int invitedByUserId
     )
     {
+        var currentOrigin = this.requestOriginService.GetCurrentOrigin().TrimEnd('/');
         var variables = new Dictionary<string, string>
         {
             { "name", user.Name },
             { "workspace_name", workspace.Name },
-            { "login_link", $"{this.config.BaseUrl}/workspaces" },
+            { "login_link", $"{currentOrigin}/workspaces" },
         };
 
         await this.emailSendService.AddToQueueAsync(

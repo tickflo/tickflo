@@ -3,10 +3,7 @@ namespace Tickflo.Core.Services.Tickets;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-
-/// <summary>
-/// Service for managing ticket lifecycle operations including creation, updates, and history tracking.
-/// </summary>
+using Tickflo.Core.Services.Notifications;
 
 /// <summary>
 /// Service for managing ticket lifecycle operations including creation, updates, and history tracking.
@@ -26,6 +23,16 @@ public interface ITicketManagementService
     /// <param name="request">Ticket update request</param>
     /// <returns>The updated ticket</returns>
     public Task<Ticket> UpdateTicketAsync(UpdateTicketRequest request);
+
+    /// <summary>
+    /// Creates a ticket and dispatches its notification workflow.
+    /// </summary>
+    public Task<Ticket> CreateTicketAndNotifyAsync(CreateTicketRequest request);
+
+    /// <summary>
+    /// Updates a ticket and dispatches its notification workflow.
+    /// </summary>
+    public Task<Ticket> UpdateTicketAndNotifyAsync(UpdateTicketRequest request);
 
     /// <summary>
     /// Validates ticket assignment permissions.
@@ -77,6 +84,14 @@ public interface ITicketManagementService
     public Task<(string summary, string details)> GenerateInventorySummaryAsync(
         List<TicketInventory> inventories,
         int workspaceId);
+
+    /// <summary>
+    /// Gets a ticket by workspace and ticket ID.
+    /// </summary>
+    /// <param name="workspaceId">Workspace context</param>
+    /// <param name="ticketId">Ticket ID</param>
+    /// <returns>The ticket, or null if not found</returns>
+    public Task<Ticket?> GetTicketAsync(int workspaceId, int ticketId);
 }
 
 /// <summary>
@@ -88,9 +103,9 @@ public class CreateTicketRequest
     public int CreatedByUserId { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public string Type { get; set; } = "Standard";
-    public string Priority { get; set; } = "Normal";
-    public string Status { get; set; } = "New";
+    public string? Type { get; set; }
+    public string? Priority { get; set; }
+    public string? Status { get; set; }
     public int? TicketTypeId { get; set; }
     public int? PriorityId { get; set; }
     public int? StatusId { get; set; }
@@ -124,16 +139,43 @@ public class UpdateTicketRequest
     public List<TicketInventory>? Inventories { get; set; }
 }
 
-public class TicketManagementService(TickfloDbContext dbContext) : ITicketManagementService
+public class TicketManagementService(
+    TickfloDbContext dbContext,
+    INotificationTriggerService notificationTriggerService) : ITicketManagementService
 {
-    // TODO: These should definitely be configured per workspace not hard coded
-    private const string DefaultTicketType = "Standard";
-    private const string DefaultPriority = "Normal";
-    private const string DefaultStatus = "New";
-    private const string HistoryActionCreated = "created";
-    private const string HistoryActionFieldChanged = "field_changed";
-
     private readonly TickfloDbContext dbContext = dbContext;
+    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
+
+    private sealed record TicketNotificationSnapshot(
+        string Subject,
+        string Description,
+        int? TicketTypeId,
+        int? PriorityId,
+        int? StatusId,
+        int? ContactId,
+        int? AssignedUserId,
+        int? AssignedTeamId,
+        int? LocationId)
+    {
+        public static TicketNotificationSnapshot FromTicket(Ticket ticket) => new(
+            ticket.Subject,
+            ticket.Description,
+            ticket.TicketTypeId,
+            ticket.PriorityId,
+            ticket.StatusId,
+            ticket.ContactId,
+            ticket.AssignedUserId,
+            ticket.AssignedTeamId,
+            ticket.LocationId);
+
+        public bool HasGeneralChanges(Ticket ticket) =>
+            this.Subject != ticket.Subject ||
+            this.Description != ticket.Description ||
+            this.TicketTypeId != ticket.TicketTypeId ||
+            this.PriorityId != ticket.PriorityId ||
+            this.ContactId != ticket.ContactId ||
+            this.LocationId != ticket.LocationId;
+    }
 
     public async Task<Ticket> CreateTicketAsync(CreateTicketRequest request)
     {
@@ -166,6 +208,13 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
         return ticket;
     }
 
+    public async Task<Ticket> CreateTicketAndNotifyAsync(CreateTicketRequest request)
+    {
+        var ticket = await this.CreateTicketAsync(request);
+        await this.notificationTriggerService.NotifyTicketCreatedAsync(request.WorkspaceId, ticket, request.CreatedByUserId);
+        return ticket;
+    }
+
     private async Task<int?> ResolveTicketTypeIdAsync(int workspaceId, string? typeName)
     {
         if (!string.IsNullOrWhiteSpace(typeName))
@@ -178,8 +227,12 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             }
         }
 
-        var defaultType = await this.dbContext.TicketTypes.FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == DefaultTicketType);
-        return defaultType?.Id;
+        return await this.dbContext.TicketTypes
+            .Where(ticketType => ticketType.WorkspaceId == workspaceId)
+            .OrderBy(ticketType => ticketType.SortOrder)
+            .ThenBy(ticketType => ticketType.Id)
+            .Select(ticketType => (int?)ticketType.Id)
+            .FirstOrDefaultAsync();
     }
 
     private async Task<int?> ResolvePriorityIdAsync(int workspaceId, string? priorityName)
@@ -194,8 +247,12 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             }
         }
 
-        var defaultPriority = await this.dbContext.TicketPriorities.FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == DefaultPriority);
-        return defaultPriority?.Id;
+        return await this.dbContext.TicketPriorities
+            .Where(ticketPriority => ticketPriority.WorkspaceId == workspaceId)
+            .OrderBy(ticketPriority => ticketPriority.SortOrder)
+            .ThenBy(ticketPriority => ticketPriority.Id)
+            .Select(ticketPriority => (int?)ticketPriority.Id)
+            .FirstOrDefaultAsync();
     }
 
     private async Task<int?> ResolveStatusIdAsync(int workspaceId, string? statusName)
@@ -210,8 +267,12 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             }
         }
 
-        var defaultStatus = await this.dbContext.TicketStatuses.FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == DefaultStatus);
-        return defaultStatus?.Id;
+        return await this.dbContext.TicketStatuses
+            .Where(ticketStatus => ticketStatus.WorkspaceId == workspaceId && !ticketStatus.IsClosedState)
+            .OrderBy(ticketStatus => ticketStatus.SortOrder)
+            .ThenBy(ticketStatus => ticketStatus.Id)
+            .Select(ticketStatus => (int?)ticketStatus.Id)
+            .FirstOrDefaultAsync();
     }
 
     private async Task AssignTicketUserAsync(Ticket ticket, int? assignedUserId, int? locationId, int workspaceId)
@@ -247,7 +308,7 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = createdByUserId,
-            Action = HistoryActionCreated,
+            Action = TicketHistoryAction.Created,
             Note = "Ticket created",
             CreatedAt = DateTime.UtcNow
         });
@@ -271,6 +332,20 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
         await this.dbContext.SaveChangesAsync();
         await this.LogTicketChangesAsync(changeTracker, ticket, request);
 
+        return ticket;
+    }
+
+    public async Task<Ticket> UpdateTicketAndNotifyAsync(UpdateTicketRequest request)
+    {
+        var existingTicket = await this.dbContext.Tickets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(ticket => ticket.WorkspaceId == request.WorkspaceId && ticket.Id == request.TicketId)
+            ?? throw new InvalidOperationException("Ticket not found");
+
+        var originalTicket = TicketNotificationSnapshot.FromTicket(existingTicket);
+        var ticket = await this.UpdateTicketAsync(request);
+
+        await this.NotifyTicketChangesAsync(request.WorkspaceId, ticket, request.UpdatedByUserId, originalTicket);
         return ticket;
     }
 
@@ -348,61 +423,45 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
 
     private async Task UpdateTicketAssignmentsAsync(Ticket ticket, UpdateTicketRequest request)
     {
-        Console.WriteLine($"[UpdateTicketAssignmentsAsync] AssignedUserId: {request.AssignedUserId}, AssignedTeamId: {request.AssignedTeamId}");
-
         if (request.AssignedUserId.HasValue)
         {
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Validating user assignment: {request.AssignedUserId.Value}");
             var isValid = await this.ValidateUserAssignmentAsync(request.AssignedUserId.Value, request.WorkspaceId);
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] User validation result: {isValid}");
 
             if (isValid)
             {
                 ticket.AssignedUserId = request.AssignedUserId.Value;
-                Console.WriteLine($"[UpdateTicketAssignmentsAsync] Updated AssignedUserId to: {request.AssignedUserId.Value}");
             }
-        }
-        else
-        {
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] No AssignedUserId provided (value is null)");
         }
 
         if (request.AssignedTeamId.HasValue)
         {
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Validating team assignment: {request.AssignedTeamId.Value}");
             var isValid = await this.ValidateTeamAssignmentAsync(request.AssignedTeamId.Value, request.WorkspaceId);
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] Team validation result: {isValid}");
 
             if (isValid)
             {
                 ticket.AssignedTeamId = request.AssignedTeamId.Value;
-                Console.WriteLine($"[UpdateTicketAssignmentsAsync] Updated AssignedTeamId to: {request.AssignedTeamId.Value}");
             }
-        }
-        else
-        {
-            Console.WriteLine($"[UpdateTicketAssignmentsAsync] No AssignedTeamId provided (value is null)");
         }
     }
 
     private async Task LogTicketChangesAsync(TicketChangeTracker changeTracker, Ticket ticket, UpdateTicketRequest request)
     {
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "Subject", changeTracker.OldSubject, ticket.Subject);
+            TicketHistoryField.Subject, changeTracker.OldSubject, ticket.Subject);
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "Description", changeTracker.OldDescription, ticket.Description);
+            TicketHistoryField.Description, changeTracker.OldDescription, ticket.Description);
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "TicketTypeId", changeTracker.OldTypeId?.ToString(), ticket.TicketTypeId?.ToString());
+            TicketHistoryField.Type, changeTracker.OldTypeId?.ToString(), ticket.TicketTypeId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "PriorityId", changeTracker.OldPriorityId?.ToString(), ticket.PriorityId?.ToString());
+            TicketHistoryField.Priority, changeTracker.OldPriorityId?.ToString(), ticket.PriorityId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "StatusId", changeTracker.OldStatusId?.ToString(), ticket.StatusId?.ToString());
+            TicketHistoryField.Status, changeTracker.OldStatusId?.ToString(), ticket.StatusId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "ContactId", changeTracker.OldContactId?.ToString(), ticket.ContactId?.ToString());
+            TicketHistoryField.Contact, changeTracker.OldContactId?.ToString(), ticket.ContactId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "AssignedUserId", changeTracker.OldAssignedUserId?.ToString(), ticket.AssignedUserId?.ToString());
+            TicketHistoryField.AssignedUser, changeTracker.OldAssignedUserId?.ToString(), ticket.AssignedUserId?.ToString());
         await this.LogFieldChangeAsync(request.WorkspaceId, ticket.Id, request.UpdatedByUserId,
-            "LocationId", changeTracker.OldLocationId?.ToString(), ticket.LocationId?.ToString());
+            TicketHistoryField.Location, changeTracker.OldLocationId?.ToString(), ticket.LocationId?.ToString());
 
         if (request.Inventories != null)
         {
@@ -562,7 +621,7 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
         int workspaceId,
         int ticketId,
         int userId,
-        string field,
+        TicketHistoryField field,
         string? oldValue,
         string? newValue)
     {
@@ -579,7 +638,7 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = userId,
-            Action = HistoryActionFieldChanged,
+            Action = TicketHistoryAction.FieldChanged,
             Field = field,
             OldValue = string.IsNullOrEmpty(oldTrim) ? null : oldTrim,
             NewValue = string.IsNullOrEmpty(newTrim) ? null : newTrim,
@@ -597,7 +656,7 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
     {
         var oldSummary = await this.GenerateInventorySummaryForHistoryAsync(oldInventories, workspaceId);
         var newSummary = await this.GenerateInventorySummaryForHistoryAsync(newInventories, workspaceId);
-        await this.LogFieldChangeAsync(workspaceId, ticketId, userId, "Inventory", oldSummary, newSummary);
+        await this.LogFieldChangeAsync(workspaceId, ticketId, userId, TicketHistoryField.Inventory, oldSummary, newSummary);
     }
 
     private async Task<string> GenerateInventorySummaryForHistoryAsync(
@@ -620,6 +679,94 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
         return string.Join(", ", parts);
     }
 
+    private async Task NotifyTicketChangesAsync(
+        int workspaceId,
+        Ticket ticket,
+        int userId,
+        TicketNotificationSnapshot originalTicket)
+    {
+        var assignmentChanged = originalTicket.AssignedUserId != ticket.AssignedUserId ||
+            originalTicket.AssignedTeamId != ticket.AssignedTeamId;
+        var statusChanged = originalTicket.StatusId != ticket.StatusId;
+        var generalChangesDetected = originalTicket.HasGeneralChanges(ticket);
+
+        if (assignmentChanged)
+        {
+            await this.notificationTriggerService.NotifyTicketAssignmentChangedAsync(
+                workspaceId,
+                ticket,
+                originalTicket.AssignedUserId,
+                originalTicket.AssignedTeamId,
+                userId);
+        }
+
+        string? oldStatusName = null;
+        string? newStatusName = null;
+        if (statusChanged)
+        {
+            oldStatusName = await this.GetStatusDisplayNameAsync(workspaceId, originalTicket.StatusId);
+            newStatusName = await this.GetStatusDisplayNameAsync(workspaceId, ticket.StatusId);
+
+            await this.notificationTriggerService.NotifyTicketStatusChangedAsync(
+                workspaceId,
+                ticket,
+                oldStatusName ?? "Unknown",
+                newStatusName ?? "Unknown",
+                userId);
+        }
+
+        var changeSummary = BuildChangeSummary(assignmentChanged, statusChanged, generalChangesDetected, oldStatusName, newStatusName);
+        if (changeSummary != null)
+        {
+            await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+                workspaceId,
+                ticket,
+                userId,
+                changeSummary,
+                assignmentChanged && ticket.AssignedUserId.HasValue ? [ticket.AssignedUserId.Value] : null);
+        }
+    }
+
+    private async Task<string?> GetStatusDisplayNameAsync(int workspaceId, int? statusId)
+    {
+        if (!statusId.HasValue)
+        {
+            return null;
+        }
+
+        return await this.dbContext.TicketStatuses
+            .Where(status => status.WorkspaceId == workspaceId && status.Id == statusId.Value)
+            .Select(status => status.Name)
+            .FirstOrDefaultAsync();
+    }
+
+    private static string? BuildChangeSummary(
+        bool assignmentChanged,
+        bool statusChanged,
+        bool generalChangesDetected,
+        string? oldStatusName,
+        string? newStatusName)
+    {
+        var changes = new List<string>();
+
+        if (assignmentChanged)
+        {
+            changes.Add("Assignment changed.");
+        }
+
+        if (statusChanged)
+        {
+            changes.Add($"Status changed from '{oldStatusName ?? "Unknown"}' to '{newStatusName ?? "Unknown"}'.");
+        }
+
+        if (generalChangesDetected)
+        {
+            changes.Add("Ticket details were updated.");
+        }
+
+        return changes.Count == 0 ? null : string.Join(" ", changes);
+    }
+
     private sealed class TicketChangeTracker(Ticket ticket)
     {
         public string OldSubject { get; } = ticket.Subject;
@@ -632,6 +779,10 @@ public class TicketManagementService(TickfloDbContext dbContext) : ITicketManage
         public int? OldLocationId { get; } = ticket.LocationId;
         public List<TicketInventory> OldInventories { get; } = ticket.TicketInventories?.ToList() ?? [];
     }
+
+    public async Task<Ticket?> GetTicketAsync(int workspaceId, int ticketId) =>
+        await this.dbContext.Tickets
+            .FirstOrDefaultAsync(ticket => ticket.WorkspaceId == workspaceId && ticket.Id == ticketId);
 }
 
 

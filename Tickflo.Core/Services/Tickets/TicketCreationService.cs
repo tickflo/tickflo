@@ -5,11 +5,6 @@ using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 
 /// <summary>
-/// Handles the business workflow of creating and managing tickets.
-/// Replaces the generic ticket creation from TicketManagementService with a dedicated service.
-/// </summary>
-
-/// <summary>
 /// Handles ticket creation workflows.
 /// </summary>
 public interface ITicketCreationService
@@ -45,11 +40,6 @@ public interface ITicketCreationService
 
 public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreationService
 {
-    private const string DefaultTicketType = "Standard";
-    private const string DefaultPriority = "Normal";
-    private const string DefaultStatus = "New";
-    private const string HistoryActionCreated = "created";
-
     private const string ErrorSubjectRequired = "Ticket subject is required";
     private const string ErrorInvalidContactId = "Invalid contact ID";
     private const string ErrorLocationNotFound = "Location not found";
@@ -124,10 +114,23 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.TypeId;
         }
 
-        var typeName = (string.IsNullOrWhiteSpace(request.Type) ? DefaultTicketType : request.Type.Trim()).ToLower();
-        var type = await this.dbContext.TicketTypes
-            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Name.ToLower() == typeName);
-        return type?.Id;
+        if (!string.IsNullOrWhiteSpace(request.Type))
+        {
+            var typeName = request.Type.Trim().ToLower();
+            var type = await this.dbContext.TicketTypes
+                .FirstOrDefaultAsync(ticketType => ticketType.WorkspaceId == workspaceId && ticketType.Name.ToLower() == typeName);
+            if (type != null)
+            {
+                return type.Id;
+            }
+        }
+
+        return await this.dbContext.TicketTypes
+            .Where(ticketType => ticketType.WorkspaceId == workspaceId)
+            .OrderBy(ticketType => ticketType.SortOrder)
+            .ThenBy(ticketType => ticketType.Id)
+            .Select(ticketType => (int?)ticketType.Id)
+            .FirstOrDefaultAsync();
     }
 
     private async Task<int?> ResolvePriorityIdAsync(int workspaceId, TicketCreationRequest request)
@@ -137,10 +140,23 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.PriorityId;
         }
 
-        var priorityName = (string.IsNullOrWhiteSpace(request.Priority) ? DefaultPriority : request.Priority.Trim()).ToLower();
-        var priority = await this.dbContext.TicketPriorities
-            .FirstOrDefaultAsync(p => p.WorkspaceId == workspaceId && p.Name.ToLower() == priorityName);
-        return priority?.Id;
+        if (!string.IsNullOrWhiteSpace(request.Priority))
+        {
+            var priorityName = request.Priority.Trim().ToLower();
+            var priority = await this.dbContext.TicketPriorities
+                .FirstOrDefaultAsync(ticketPriority => ticketPriority.WorkspaceId == workspaceId && ticketPriority.Name.ToLower() == priorityName);
+            if (priority != null)
+            {
+                return priority.Id;
+            }
+        }
+
+        return await this.dbContext.TicketPriorities
+            .Where(ticketPriority => ticketPriority.WorkspaceId == workspaceId)
+            .OrderBy(ticketPriority => ticketPriority.SortOrder)
+            .ThenBy(ticketPriority => ticketPriority.Id)
+            .Select(ticketPriority => (int?)ticketPriority.Id)
+            .FirstOrDefaultAsync();
     }
 
     private async Task<int?> ResolveStatusIdAsync(int workspaceId, TicketCreationRequest request)
@@ -150,10 +166,23 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             return request.StatusId;
         }
 
-        var statusName = (string.IsNullOrWhiteSpace(request.Status) ? DefaultStatus : request.Status.Trim()).ToLower();
-        var status = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == statusName);
-        return status?.Id;
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            var statusName = request.Status.Trim().ToLower();
+            var status = await this.dbContext.TicketStatuses
+                .FirstOrDefaultAsync(ticketStatus => ticketStatus.WorkspaceId == workspaceId && ticketStatus.Name.ToLower() == statusName);
+            if (status != null)
+            {
+                return status.Id;
+            }
+        }
+
+        return await this.dbContext.TicketStatuses
+            .Where(ticketStatus => ticketStatus.WorkspaceId == workspaceId && !ticketStatus.IsClosedState)
+            .OrderBy(ticketStatus => ticketStatus.SortOrder)
+            .ThenBy(ticketStatus => ticketStatus.Id)
+            .Select(ticketStatus => (int?)ticketStatus.Id)
+            .FirstOrDefaultAsync();
     }
 
     private static Ticket BuildTicket(
@@ -239,9 +268,8 @@ public class TicketCreationService(TickfloDbContext dbContext) : ITicketCreation
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = createdByUserId,
-            Action = HistoryActionCreated,
+            Action = TicketHistoryAction.Created,
             Note = $"Ticket created: {subject}",
-            CreatedAt = DateTime.UtcNow
         };
 
         this.dbContext.TicketHistory.Add(history);

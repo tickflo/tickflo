@@ -14,7 +14,7 @@ using Xunit;
 public class AuthenticationServiceEmailConfirmationTests
 {
     [Fact]
-    public async Task ResendEmailConfirmationAsyncWhenOriginProvidedShouldUseOriginWithConfirmationRoute()
+    public async Task ResendEmailConfirmationAsync_WhenOriginIsProvided_ShouldUseOriginWithConfirmationRoute()
     {
         var tickfloConfig = new TickfloConfig
         {
@@ -54,7 +54,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task ResendEmailConfirmationAsyncWhenOriginMissingShouldFallbackToConfiguredBaseUrl()
+    public async Task ResendEmailConfirmationAsync_WhenConfiguredOriginIsUsed_ShouldBuildConfirmationRouteFromThatOrigin()
     {
         var tickfloConfig = new TickfloConfig
         {
@@ -94,7 +94,7 @@ public class AuthenticationServiceEmailConfirmationTests
     }
 
     [Fact]
-    public async Task ResendEmailConfirmationAsyncWhenStoredCodeIsMissingShouldGenerateAndUseCode()
+    public async Task ResendEmailConfirmationAsync_WhenStoredCodeIsMissing_ShouldGenerateAndUseCode()
     {
         var tickfloConfig = new TickfloConfig
         {

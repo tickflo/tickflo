@@ -1,13 +1,11 @@
 namespace Tickflo.Core.Services.Notifications;
 
 using Microsoft.EntityFrameworkCore;
+using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-
-/// <summary>
-/// Implementation of notification trigger service.
-/// Coordinates notification dispatch for all business events.
-/// </summary>
+using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Web;
 
 /// <summary>
 /// Behavior-focused service for triggering and managing notifications based on business events.
@@ -45,6 +43,16 @@ public interface INotificationTriggerService
         string previousStatus,
         string newStatus,
         int changedByUserId);
+
+    /// <summary>
+    /// Notify assignee and creator when a ticket is updated.
+    /// </summary>
+    public Task NotifyTicketUpdatedAsync(
+        int workspaceId,
+        Ticket ticket,
+        int updatedByUserId,
+        string changeSummary,
+        IReadOnlyCollection<int>? excludedUserIds = null);
 
     /// <summary>
     /// Notify relevant parties when a comment is added to a ticket.
@@ -105,9 +113,16 @@ public interface INotificationTriggerService
         Dictionary<string, string>? resultData = null);
 }
 
-public class NotificationTriggerService(TickfloDbContext dbContext) : INotificationTriggerService
+public class NotificationTriggerService(
+    TickfloDbContext dbContext,
+    IEmailSendService emailSendService,
+    TickfloConfig tickfloConfig,
+    IRequestOriginService requestOriginService) : INotificationTriggerService
 {
     private readonly TickfloDbContext dbContext = dbContext;
+    private readonly IEmailSendService emailSendService = emailSendService;
+    private readonly TickfloConfig tickfloConfig = tickfloConfig;
+    private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     public async Task NotifyTicketCreatedAsync(
         int workspaceId,
@@ -163,9 +178,13 @@ public class NotificationTriggerService(TickfloDbContext dbContext) : INotificat
             }
         }
 
-        // Add all notifications to queue
-        this.dbContext.Notifications.AddRange(notifications);
-        await this.dbContext.SaveChangesAsync();
+        if (notifications.Count > 0)
+        {
+            this.dbContext.Notifications.AddRange(notifications);
+            await this.dbContext.SaveChangesAsync();
+        }
+
+        await this.QueueTicketAssignmentEmailAsync(workspaceId, ticket, createdByUserId);
     }
 
     public async Task NotifyTicketAssignmentChangedAsync(
@@ -220,8 +239,13 @@ public class NotificationTriggerService(TickfloDbContext dbContext) : INotificat
             });
         }
 
-        this.dbContext.Notifications.AddRange(notifications);
-        await this.dbContext.SaveChangesAsync();
+        if (notifications.Count > 0)
+        {
+            this.dbContext.Notifications.AddRange(notifications);
+            await this.dbContext.SaveChangesAsync();
+        }
+
+        await this.QueueTicketAssignmentEmailAsync(workspaceId, ticket, changedByUserId);
     }
 
     public async Task NotifyTicketStatusChangedAsync(
@@ -278,8 +302,49 @@ public class NotificationTriggerService(TickfloDbContext dbContext) : INotificat
             }
         }
 
-        this.dbContext.Notifications.AddRange(notifications);
-        await this.dbContext.SaveChangesAsync();
+        if (notifications.Count > 0)
+        {
+            this.dbContext.Notifications.AddRange(notifications);
+            await this.dbContext.SaveChangesAsync();
+        }
+    }
+
+    public async Task NotifyTicketUpdatedAsync(
+        int workspaceId,
+        Ticket ticket,
+        int updatedByUserId,
+        string changeSummary,
+        IReadOnlyCollection<int>? excludedUserIds = null)
+    {
+        if (string.IsNullOrWhiteSpace(changeSummary))
+        {
+            return;
+        }
+
+        var recipients = await this.GetTicketEmailRecipientsAsync(ticket, updatedByUserId, excludedUserIds);
+        if (recipients.Count == 0)
+        {
+            return;
+        }
+
+        var actorName = await this.GetUserDisplayNameAsync(updatedByUserId);
+        var workspace = await this.GetWorkspaceAsync(workspaceId);
+        var ticketLink = this.BuildTicketLink(workspace?.Slug, ticket.Id);
+
+        foreach (var recipient in recipients)
+        {
+            await this.emailSendService.AddToQueueAsync(
+                recipient.Email,
+                EmailTemplateType.TicketUpdated,
+                BuildTicketEmailVariables(
+                    recipient.Name,
+                    actorName,
+                    workspace?.Name,
+                    ticket,
+                    ticketLink,
+                    changeSummary),
+                updatedByUserId);
+        }
     }
 
     public async Task NotifyTicketCommentAddedAsync(
@@ -289,53 +354,25 @@ public class NotificationTriggerService(TickfloDbContext dbContext) : INotificat
         bool isVisibleToClient)
     {
         var notifications = new List<Notification>();
-        var commenter = await this.dbContext.Users.FindAsync(commentedByUserId);
-        var commenterName = commenter?.Name ?? commenter?.Email ?? "Someone";
+        var commenterName = await this.GetUserDisplayNameAsync(commentedByUserId);
 
         var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
         var ticketData = System.Text.Json.JsonSerializer.Serialize(new { ticketId = ticket.Id, workspaceSlug = workspace?.Slug });
-
-        // Collect recipients: assigned user and contact's assigned user (if any)
-        var recipientIds = new List<int?> { ticket.AssignedUserId };
-
-        if (ticket.ContactId.HasValue)
+        var additionalRecipientIds = new List<int>();
+        var contactAssignedUserId = await this.GetContactAssignedUserIdAsync(workspaceId, ticket.ContactId);
+        if (isVisibleToClient && contactAssignedUserId.HasValue)
         {
-            var contact = await this.dbContext.Contacts
-                .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == ticket.ContactId.Value);
-            if (contact?.AssignedUserId.HasValue == true)
-            {
-                recipientIds.Add(contact.AssignedUserId);
-            }
+            additionalRecipientIds.Add(contactAssignedUserId.Value);
         }
 
-        foreach (var recipientId in recipientIds)
+        var recipients = await this.GetTicketEmailRecipientsAsync(ticket, commentedByUserId, null, additionalRecipientIds);
+
+        foreach (var recipient in recipients)
         {
-            if (!recipientId.HasValue)
-            {
-                continue;
-            }
-
-            // Skip notifying the user who made the comment
-            if (recipientId.Value == commentedByUserId)
-            {
-                continue;
-            }
-
-            // Skip notifying contact-assigned user if comment is internal-only (not visible to client)
-            if (!isVisibleToClient && ticket.ContactId.HasValue)
-            {
-                var contact = await this.dbContext.Contacts
-                    .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == ticket.ContactId.Value);
-                if (contact?.AssignedUserId == recipientId.Value)
-                {
-                    continue;
-                }
-            }
-
             // In-app notification (immediate)
             notifications.Add(new Notification
             {
-                UserId = recipientId.Value,
+                UserId = recipient.Id,
                 WorkspaceId = workspaceId,
                 Type = "ticket_comment",
                 DeliveryMethod = "in_app",
@@ -347,27 +384,169 @@ public class NotificationTriggerService(TickfloDbContext dbContext) : INotificat
                 CreatedBy = commentedByUserId,
                 CreatedAt = DateTime.UtcNow
             });
-
-            // Email notification (queued for batch send)
-            notifications.Add(new Notification
-            {
-                UserId = recipientId.Value,
-                WorkspaceId = workspaceId,
-                Type = "ticket_comment",
-                DeliveryMethod = "email",
-                Priority = "normal",
-                Subject = "New Comment on Ticket",
-                Body = $"{commenterName} added a comment to ticket #{ticket.Id}: {ticket.Subject}",
-                Data = ticketData,
-                Status = "pending", // queued for batch email sender
-                CreatedBy = commentedByUserId,
-                CreatedAt = DateTime.UtcNow
-            });
         }
 
-        this.dbContext.Notifications.AddRange(notifications);
-        await this.dbContext.SaveChangesAsync();
+        if (notifications.Count > 0)
+        {
+            this.dbContext.Notifications.AddRange(notifications);
+            await this.dbContext.SaveChangesAsync();
+        }
+
+        var commentSummary = isVisibleToClient
+            ? "A new client-visible comment was added."
+            : "A new internal comment was added.";
+        var ticketLink = this.BuildTicketLink(workspace?.Slug, ticket.Id);
+
+        foreach (var recipient in recipients)
+        {
+            await this.emailSendService.AddToQueueAsync(
+                recipient.Email,
+                EmailTemplateType.TicketComment,
+                BuildTicketEmailVariables(
+                    recipient.Name,
+                    commenterName,
+                    workspace?.Name,
+                    ticket,
+                    ticketLink,
+                    commentSummary),
+                commentedByUserId);
+        }
     }
+
+    private async Task QueueTicketAssignmentEmailAsync(int workspaceId, Ticket ticket, int actorUserId)
+    {
+        if (!ticket.AssignedUserId.HasValue)
+        {
+            return;
+        }
+
+        var assignedUser = await this.dbContext.Users.FindAsync(ticket.AssignedUserId.Value);
+        if (assignedUser == null || string.IsNullOrWhiteSpace(assignedUser.Email))
+        {
+            return;
+        }
+
+        var actorName = await this.GetUserDisplayNameAsync(actorUserId);
+        var workspace = await this.GetWorkspaceAsync(workspaceId);
+        var ticketLink = this.BuildTicketLink(workspace?.Slug, ticket.Id);
+
+        await this.emailSendService.AddToQueueAsync(
+            assignedUser.Email,
+            EmailTemplateType.TicketAssigned,
+            BuildTicketEmailVariables(
+                assignedUser.Name,
+                actorName,
+                workspace?.Name,
+                ticket,
+                ticketLink,
+                "You have been assigned this ticket."),
+            actorUserId);
+    }
+
+    private async Task<List<User>> GetTicketEmailRecipientsAsync(
+        Ticket ticket,
+        int actorUserId,
+        IReadOnlyCollection<int>? excludedUserIds,
+        IReadOnlyCollection<int>? additionalUserIds = null)
+    {
+        var recipientIds = new HashSet<int>();
+        if (ticket.AssignedUserId.HasValue)
+        {
+            recipientIds.Add(ticket.AssignedUserId.Value);
+        }
+
+        var creatorUserId = await this.GetTicketCreatorUserIdAsync(ticket.Id);
+        if (creatorUserId.HasValue)
+        {
+            recipientIds.Add(creatorUserId.Value);
+        }
+
+        if (additionalUserIds != null)
+        {
+            foreach (var additionalUserId in additionalUserIds)
+            {
+                recipientIds.Add(additionalUserId);
+            }
+        }
+
+        recipientIds.Remove(actorUserId);
+
+        if (excludedUserIds != null)
+        {
+            foreach (var excludedUserId in excludedUserIds)
+            {
+                recipientIds.Remove(excludedUserId);
+            }
+        }
+
+        return await this.dbContext.Users
+            .Where(user => recipientIds.Contains(user.Id) && !string.IsNullOrWhiteSpace(user.Email))
+            .ToListAsync();
+    }
+
+    private async Task<int?> GetContactAssignedUserIdAsync(int workspaceId, int? contactId)
+    {
+        if (!contactId.HasValue)
+        {
+            return null;
+        }
+
+        return await this.dbContext.Contacts
+            .Where(contact => contact.WorkspaceId == workspaceId && contact.Id == contactId.Value)
+            .Select(contact => contact.AssignedUserId)
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task<int?> GetTicketCreatorUserIdAsync(int ticketId) =>
+        await this.dbContext.TicketHistory
+            .Where(history => history.TicketId == ticketId && history.Action == TicketHistoryAction.Created)
+            .OrderBy(history => history.CreatedAt)
+            .ThenBy(history => history.Id)
+            .Select(history => (int?)history.CreatedByUserId)
+            .FirstOrDefaultAsync();
+
+    private async Task<string> GetUserDisplayNameAsync(int userId)
+    {
+        var user = await this.dbContext.Users.FindAsync(userId);
+        return user?.Name ?? user?.Email ?? "Someone";
+    }
+
+    private async Task<Workspace?> GetWorkspaceAsync(int workspaceId) =>
+        await this.dbContext.Workspaces.FindAsync(workspaceId);
+
+    private string BuildTicketLink(string? workspaceSlug, int ticketId)
+    {
+        var baseUrl = this.requestOriginService.GetCurrentOrigin().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            baseUrl = this.tickfloConfig.BaseUrl.TrimEnd('/');
+        }
+
+        if (string.IsNullOrWhiteSpace(workspaceSlug))
+        {
+            return $"{baseUrl}/workspaces";
+        }
+
+        return $"{baseUrl}/workspaces/{workspaceSlug}/tickets/{ticketId}";
+    }
+
+    private static Dictionary<string, string> BuildTicketEmailVariables(
+        string? recipientName,
+        string actorName,
+        string? workspaceName,
+        Ticket ticket,
+        string ticketLink,
+        string changeSummary) =>
+        new()
+        {
+            { "recipient_name", string.IsNullOrWhiteSpace(recipientName) ? "there" : recipientName },
+            { "actor_name", actorName },
+            { "workspace_name", workspaceName ?? "your workspace" },
+            { "ticket_id", ticket.Id.ToString() },
+            { "ticket_subject", ticket.Subject },
+            { "ticket_link", ticketLink },
+            { "change_summary", changeSummary }
+        };
 
     public async Task NotifyUserAddedToWorkspaceAsync(
         int workspaceId,
