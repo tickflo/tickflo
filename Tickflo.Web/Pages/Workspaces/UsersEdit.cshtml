@@ -4,9 +4,9 @@
     ViewData["Title"] = "Edit User";
 }
 
-<div class="flex flex-row gap-4">
+<div class="flex flex-row gap-2 md:gap-4">
     @await Html.PartialAsync("_WorkspaceSidebar", Model.WorkspaceSlug)
-    <section class="p-6 flex-1 space-y-4">
+    <section class="p-3 md:p-6 flex-1 min-w-0 space-y-4">
         @await Html.PartialAsync("_WorkspaceHeader", new Tickflo.Web.Pages.Shared.WorkspaceHeaderView { Slug = Model.WorkspaceSlug, Name = Model.WorkspaceSlug, SectionTitle = "Edit User" })
 
         <div class="card bg-base-100 shadow-sm rounded-3xl">
@@ -22,7 +22,7 @@
                 else
                 {
                     <div class="overflow-x-auto rounded-box bg-base-100 mb-4">
-                        <table class="table table-sm table-zebra w-full">
+                        <table class="table table-sm table-zebra w-full table-stack">
                             <thead>
                                 <tr>
                                     <th>Role Name</th>

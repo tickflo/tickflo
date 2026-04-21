@@ -4,9 +4,9 @@
     ViewData["Title"] = "Ticket Details";
 }
 
-<div class="flex flex-row gap-6">
+<div class="flex flex-row gap-2 md:gap-6">
   @await Html.PartialAsync("_WorkspaceSidebar", Model.WorkspaceSlug)
-  <section class="relative overflow-hidden p-6 flex-1 space-y-6 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
+  <section class="relative overflow-hidden p-3 md:p-6 flex-1 min-w-0 space-y-4 md:space-y-6 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
 @{
   var sectionTitle = (Model.Ticket == null || Model.Ticket.Id == 0) ? "New Ticket" : "Ticket Details";
 }
@@ -417,12 +417,12 @@
           </div>
 
           <!-- Form Actions -->
-          <div class="flex flex-wrap gap-3 justify-end pt-4 border-t border-white/10">
+          <div class="flex flex-col-reverse sm:flex-row flex-wrap gap-2 sm:gap-3 sm:justify-end pt-4 border-t border-white/10">
             @{ var saveLabel = (Model.Ticket != null && Model.Ticket.Id > 0) ? "Update Ticket" : "Create Ticket"; }
-            <a class="btn btn-ghost" asp-page="/Workspaces/Tickets" asp-route-slug="@Model.WorkspaceSlug" asp-preserve-query>
+            <a class="btn btn-ghost w-full sm:w-auto min-h-11 sm:min-h-0" asp-page="/Workspaces/Tickets" asp-route-slug="@Model.WorkspaceSlug" asp-preserve-query>
               <i class="fa fa-times mr-1"></i>Cancel
             </a>
-            <button class="btn btn-primary" type="submit" id="ticket-save-btn" @(canSubmit ? "" : "disabled")>
+            <button class="btn btn-primary w-full sm:w-auto min-h-11 sm:min-h-0" type="submit" id="ticket-save-btn" @(canSubmit ? "" : "disabled")>
               <i class="fa @(isNewTicket ? "fa-plus" : "fa-save") mr-1"></i>@saveLabel
             </button>
           </div>
