@@ -17,13 +17,13 @@ public interface IPasswordSetupService
 
 
 public class PasswordSetupService(
-    TickfloDbContext db,
-    TickfloConfig config,
+    TickfloDbContext dbContext,
+    TickfloConfig tickfloConfig,
     IPasswordHasher passwordHasher
     ) : IPasswordSetupService
 {
-    private readonly TickfloDbContext db = db;
-    private readonly TickfloConfig config = config;
+    private readonly TickfloDbContext dbContext = dbContext;
+    private readonly TickfloConfig tickfloConfig = tickfloConfig;
     private readonly IPasswordHasher passwordHasher = passwordHasher;
 
     public async Task<TokenValidationResult> ValidateResetTokenAsync(string tokenValue)
@@ -33,13 +33,13 @@ public class PasswordSetupService(
             return new TokenValidationResult(false, "Missing token.", null, null);
         }
 
-        var token = await this.db.Tokens.FirstOrDefaultAsync(t => t.Value == tokenValue);
+        var token = await this.dbContext.Tokens.FirstOrDefaultAsync(t => t.Value == tokenValue);
         if (token == null)
         {
             return new TokenValidationResult(false, "Invalid or expired token.", null, null);
         }
 
-        var user = await this.db.Users.FindAsync(token.UserId);
+        var user = await this.dbContext.Users.FindAsync(token.UserId);
         if (user == null)
         {
             return new TokenValidationResult(false, "User not found.", null, null);
@@ -55,7 +55,7 @@ public class PasswordSetupService(
             return new TokenValidationResult(false, "Missing user id.", null, null);
         }
 
-        var user = await this.db.Users.FindAsync(userId);
+        var user = await this.dbContext.Users.FindAsync(userId);
         if (user == null)
         {
             return new TokenValidationResult(false, "User not found.", null, null);
@@ -82,7 +82,7 @@ public class PasswordSetupService(
             return new SetPasswordResult(false, "Password must be at least 8 characters long.", null, null, validation.UserId, validation.UserEmail);
         }
 
-        var user = await this.db.Users.FindAsync(validation.UserId.Value);
+        var user = await this.dbContext.Users.FindAsync(validation.UserId.Value);
         if (user == null)
         {
             return new SetPasswordResult(false, "User not found.", null, null, null, null);
@@ -91,15 +91,15 @@ public class PasswordSetupService(
         var passwordHash = this.passwordHasher.Hash($"{user.Email}{newPassword}");
         user.PasswordHash = passwordHash;
         user.UpdatedAt = DateTime.UtcNow;
-        this.db.Users.Update(user);
-        await this.db.SaveChangesAsync();
+        this.dbContext.Users.Update(user);
+        await this.dbContext.SaveChangesAsync();
 
         return new SetPasswordResult(true, null, null, null, user.Id, user.Email);
     }
 
     public async Task<SetPasswordResult> SetInitialPasswordAsync(int userId, string newPassword)
     {
-        var user = await this.db.Users.FindAsync(userId);
+        var user = await this.dbContext.Users.FindAsync(userId);
         if (user == null)
         {
             return new SetPasswordResult(false, "User not found.", null, null, null, null);
@@ -118,17 +118,20 @@ public class PasswordSetupService(
         var passwordHash = this.passwordHasher.Hash($"{user.Email}{newPassword}");
         user.PasswordHash = passwordHash;
         user.UpdatedAt = DateTime.UtcNow;
-        this.db.Users.Update(user);
+        this.dbContext.Users.Update(user);
 
-        var token = new Token(user.Id, this.config.SessionTimeoutMinutes * 60);
-        await this.db.Tokens.AddAsync(token);
+        var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
+        await this.dbContext.Tokens.AddAsync(token);
 
         string? workspaceSlug = null;
-        var userWorkspace = await this.db.UserWorkspaces.Include(w => w.Workspace).FirstOrDefaultAsync(w => w.UserId == user.Id && w.Accepted);
+        var userWorkspace = await this.dbContext.UserWorkspaces.Include(w => w.Workspace).FirstOrDefaultAsync(w => w.UserId == user.Id && w.Accepted);
         if (userWorkspace != null)
         {
             workspaceSlug = userWorkspace.Workspace.Slug;
         }
+
+        await this.dbContext.SaveChangesAsync();
+
         return new SetPasswordResult(true, null, token.Value, workspaceSlug, user.Id, user.Email);
     }
 }

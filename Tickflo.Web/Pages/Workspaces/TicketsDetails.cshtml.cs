@@ -4,18 +4,13 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-using Tickflo.Core.Services.Notifications;
 using Tickflo.Core.Services.Tickets;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Workspace;
 
-// TODO: This should NOT be using TickfloDbContext directly. The logic on this page/controller needs moved into a Tickflo.Core service
-
 [Authorize]
-public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbContext dbContext, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, Services.ITempTeamService teamService, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService, INotificationTriggerService notificationTriggerService) : WorkspacePageModel
+public class TicketsDetailsModel(IWorkspaceService workspaceService, ITicketManagementService ticketManagementService, IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService, Services.ITempTeamService teamService, IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService, ITicketCommentService ticketCommentService) : WorkspacePageModel
 {
 
     #region Constants
@@ -42,13 +37,11 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
         public decimal UnitPrice { get; set; }
     }
     private readonly IWorkspaceService workspaceService = workspaceService;
-    private readonly TickfloDbContext dbContext = dbContext;
     private readonly ITicketManagementService ticketManagementService = ticketManagementService;
     private readonly IWorkspaceTicketDetailsViewService workspaceTicketDetailsViewService = workspaceTicketDetailsViewService;
     private readonly Services.ITempTeamService teamService = teamService;
     private readonly IWorkspaceTicketsSaveViewService workspaceTicketsSaveViewService = workspaceTicketsSaveViewService;
     private readonly ITicketCommentService ticketCommentService = ticketCommentService;
-    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
     public List<Inventory> InventoryItems { get; private set; } = [];
 
@@ -212,23 +205,12 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
 
         try
         {
-            var comment = await this.ticketCommentService.AddCommentAsync(
+            var comment = await this.ticketCommentService.AddCommentAndNotifyAsync(
                 this.Workspace.Id,
                 id,
                 currentUserId,
                 this.NewCommentContent.Trim(),
                 this.NewCommentIsVisibleToClient);
-
-            var ticket = await this.dbContext.Tickets
-                .FirstOrDefaultAsync(t => t.WorkspaceId == this.Workspace.Id && t.Id == id);
-            if (ticket != null)
-            {
-                await this.notificationTriggerService.NotifyTicketCommentAddedAsync(
-                    this.Workspace.Id,
-                    ticket,
-                    currentUserId,
-                    this.NewCommentIsVisibleToClient);
-            }
 
             await this.BroadcastCommentAddedAsync(hub, comment);
             this.SetSuccessMessage("Comment added successfully.");
@@ -286,8 +268,7 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
         var inventories = this.ParseInventoriesFromJson();
         var resolvedId = this.ResolveTicketId(id);
         var isNew = resolvedId <= InvalidTicketId;
-        var existing = !isNew ? await this.dbContext.Tickets
-            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == resolvedId) : null;
+        var existing = !isNew ? await this.ticketManagementService.GetTicketAsync(workspaceId, resolvedId) : null;
 
         var saveViewData = await this.workspaceTicketsSaveViewService.BuildAsync(workspaceId, currentUserId, isNew, existing);
         var authCheck = this.ValidateTicketPermissions(isNew, saveViewData);
@@ -456,29 +437,19 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             ContactId = this.EditContactId,
             AssignedUserId = this.EditAssignedUserId,
             AssignedTeamId = this.EditAssignedTeamId,
-            LocationId = null,
+            LocationId = this.LocationId,
             Inventories = inventories
         };
 
-        var ticket = await this.ticketManagementService.CreateTicketAsync(createReq);
-        await this.notificationTriggerService.NotifyTicketCreatedAsync(workspaceId, ticket, userId);
-        return ticket;
+        return await this.ticketManagementService.CreateTicketAndNotifyAsync(createReq);
     }
 
     private async Task<Ticket?> HandleTicketUpdateAsync(int workspaceId, int ticketId, int userId, Ticket? existing, List<TicketInventory> inventories)
     {
-        Console.WriteLine($"[HandleTicketUpdateAsync] Starting - TicketId: {ticketId}, WorkspaceId: {workspaceId}");
-        Console.WriteLine($"[HandleTicketUpdateAsync] Form values - Subject: '{this.EditSubject}', TypeId: {this.EditTicketTypeId}, PriorityId: {this.EditPriorityId}, StatusId: {this.EditStatusId}");
-        Console.WriteLine($"[HandleTicketUpdateAsync] Assignment values - AssignedUserId: {this.EditAssignedUserId}, AssignedTeamId: {this.EditAssignedTeamId}");
-
-        if (this.EnsureEntityExistsOrNotFound(existing) is IActionResult result)
+        if (this.EnsureEntityExistsOrNotFound(existing) is not null)
         {
             throw new InvalidOperationException(ErrorTicketNotFound);
         }
-
-        var oldAssignedUserId = existing!.AssignedUserId;
-        var oldAssignedTeamId = existing.AssignedTeamId;
-        var oldStatusId = existing.StatusId;
 
         var updateReq = new UpdateTicketRequest
         {
@@ -493,34 +464,11 @@ public class TicketsDetailsModel(IWorkspaceService workspaceService, TickfloDbCo
             ContactId = this.EditContactId,
             AssignedUserId = this.EditAssignedUserId,
             AssignedTeamId = this.EditAssignedTeamId,
-            LocationId = null,
+            LocationId = this.LocationId,
             Inventories = inventories
         };
 
-        Console.WriteLine($"[HandleTicketUpdateAsync] Calling UpdateTicketAsync...");
-        var ticket = await this.ticketManagementService.UpdateTicketAsync(updateReq);
-        Console.WriteLine($"[HandleTicketUpdateAsync] UpdateTicketAsync returned - Ticket ID: {ticket.Id}, Subject: '{ticket.Subject}'");
-
-        await this.NotifyTicketChangesAsync(workspaceId, ticket, userId, oldAssignedUserId, oldAssignedTeamId, oldStatusId);
-        return ticket;
-    }
-
-    private async Task NotifyTicketChangesAsync(int workspaceId, Ticket ticket, int userId, int? oldAssignedUserId, int? oldAssignedTeamId, int? oldStatusId)
-    {
-        if (oldAssignedUserId != ticket.AssignedUserId || oldAssignedTeamId != ticket.AssignedTeamId)
-        {
-            await this.notificationTriggerService.NotifyTicketAssignmentChangedAsync(
-                workspaceId, ticket, oldAssignedUserId, oldAssignedTeamId, userId);
-        }
-
-        if (oldStatusId != ticket.StatusId)
-        {
-            await this.notificationTriggerService.NotifyTicketStatusChangedAsync(
-                workspaceId, ticket,
-                oldStatusId?.ToString() ?? "Unknown",
-                ticket.StatusId?.ToString() ?? "Unknown",
-                userId);
-        }
+        return await this.ticketManagementService.UpdateTicketAndNotifyAsync(updateReq);
     }
 
     private async Task BroadcastTicketChangeAsync(Microsoft.AspNetCore.SignalR.IHubContext<Realtime.TicketsHub> hub, Ticket ticket, bool isNew, int workspaceId)

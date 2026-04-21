@@ -6,7 +6,10 @@ using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Email;
+using Tickflo.Core.Services.Web;
 using Tickflo.Core.Services.Workspace;
+using Tickflo.Core.Utils;
+
 public interface IAuthenticationService
 {
     public Task<AuthenticationResult> AuthenticateAsync(string email, string password);
@@ -17,42 +20,47 @@ public interface IAuthenticationService
 
 
 public partial class AuthenticationService(
-    TickfloDbContext db,
+    TickfloDbContext dbContext,
     IPasswordHasher passwordHasher,
     IEmailSendService emailSendService,
-    TickfloConfig config,
-    IWorkspaceCreationService workspaceCreationService
+    TickfloConfig tickfloConfig,
+    IWorkspaceCreationService workspaceCreationService,
+    IRequestOriginService requestOriginService
     ) : IAuthenticationService
 {
-    private readonly TickfloDbContext db = db;
+    private const string DemoEmailDomain = "@demo.com";
+
+    private readonly TickfloDbContext dbContext = dbContext;
     private readonly IPasswordHasher passwordHasher = passwordHasher;
     private readonly IEmailSendService emailSendService = emailSendService;
     private readonly IWorkspaceCreationService workspaceCreationService = workspaceCreationService;
-    private readonly TickfloConfig config = config;
+    private readonly TickfloConfig tickfloConfig = tickfloConfig;
+    private readonly IRequestOriginService requestOriginService = requestOriginService;
 
     public async Task<AuthenticationResult> AuthenticateAsync(string email, string password)
     {
-        var user = await this.db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email);
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail);
         if (user == null)
         {
             this.PreventTimingAttack();
             throw new UnauthorizedException("Invalid credentials");
         }
 
-        if (user.PasswordHash == null)
+        if (!IsDemoUserEmail(user.Email) && user.PasswordHash == null)
         {
             this.PreventTimingAttack();
             throw new UnauthorizedException("No password set for this user");
         }
 
-        if (!this.passwordHasher.Verify($"{email}{password}", user.PasswordHash))
+        if (!IsDemoUserEmail(user.Email) && !this.passwordHasher.Verify($"{normalizedEmail}{password}", user.PasswordHash!))
         {
             throw new UnauthorizedException("Invalid credentials");
         }
 
-        var token = new Token(user.Id, this.config.SessionTimeoutMinutes * 60);
-        await this.db.Tokens.AddAsync(token);
-        await this.db.SaveChangesAsync();
+        var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
+        await this.dbContext.Tokens.AddAsync(token);
+        await this.dbContext.SaveChangesAsync();
 
         return new AuthenticationResult
         {
@@ -63,30 +71,28 @@ public partial class AuthenticationService(
 
     public async Task<AuthenticationResult> SignupAsync(string name, string email, string recoveryEmail, string workspaceName, string password)
     {
-        if (await this.db.Users.AnyAsync(user => user.Email.ToLower() == email))
+        if (await this.dbContext.Users.AnyAsync(user => user.Email.ToLower() == email))
         {
             throw new BadRequestException("User with this email already exists");
         }
 
-        await using var transaction = await this.db.Database.BeginTransactionAsync();
+        await using var transaction = await this.dbContext.Database.BeginTransactionAsync();
 
         try
         {
 
             var user = new User(name, email, recoveryEmail, this.passwordHasher.Hash($"{email}{password}"));
-            this.db.Users.Add(user);
-            await this.db.SaveChangesAsync();
+            this.dbContext.Users.Add(user);
+            await this.dbContext.SaveChangesAsync();
 
             await this.SendEmailConfirmationAsync(user);
             await this.workspaceCreationService.CreateWorkspaceAsync(workspaceName, user.Id);
 
-            var token = new Token(user.Id, this.config.SessionTimeoutMinutes * 60);
-            await this.db.Tokens.AddAsync(token);
-            await this.db.SaveChangesAsync();
+            var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
+            await this.dbContext.Tokens.AddAsync(token);
+            await this.dbContext.SaveChangesAsync();
 
             await transaction.CommitAsync();
-
-            System.Diagnostics.Debug.WriteLine($"DbContext Hash: ${this.db.GetHashCode()}");
 
             return new AuthenticationResult
             {
@@ -103,10 +109,10 @@ public partial class AuthenticationService(
 
     public async Task<AuthenticationResult> SignupInviteeAsync(string name, string email, string recoveryEmail, string password)
     {
-        var user = await this.db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email)
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == email)
             ?? throw new NotFoundException("User not found");
 
-        var pendingInvites = await this.db.UserWorkspaces.Where(uw => uw.UserId == user.Id && !uw.Accepted).ToListAsync();
+        var pendingInvites = await this.dbContext.UserWorkspaces.Where(uw => uw.UserId == user.Id && !uw.Accepted).ToListAsync();
 
         if (pendingInvites.Count == 0)
         {
@@ -118,19 +124,19 @@ public partial class AuthenticationService(
             invite.Accepted = true;
             invite.UpdatedAt = DateTime.UtcNow;
             invite.UpdatedBy = user.Id;
-            this.db.UserWorkspaces.Update(invite);
+            this.dbContext.UserWorkspaces.Update(invite);
         }
 
         user.Name = name;
         user.RecoveryEmail = recoveryEmail;
         user.PasswordHash = this.passwordHasher.Hash($"{email}{password}");
-        this.db.Users.Update(user);
+        this.dbContext.Users.Update(user);
 
         await this.SendEmailConfirmationAsync(user);
 
-        var token = new Token(user.Id, this.config.SessionTimeoutMinutes * 60);
-        await this.db.Tokens.AddAsync(token);
-        await this.db.SaveChangesAsync();
+        var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
+        await this.dbContext.Tokens.AddAsync(token);
+        await this.dbContext.SaveChangesAsync();
 
         return new AuthenticationResult
         {
@@ -141,7 +147,7 @@ public partial class AuthenticationService(
 
     public async Task ResendEmailConfirmationAsync(int userId)
     {
-        var user = await this.db.Users.FirstOrDefaultAsync(u => u.Id == userId)
+        var user = await this.dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId)
             ?? throw new NotFoundException("User not found");
 
         if (user.EmailConfirmed)
@@ -150,15 +156,37 @@ public partial class AuthenticationService(
         }
 
         await this.SendEmailConfirmationAsync(user);
-        await this.db.SaveChangesAsync();
+        await this.dbContext.SaveChangesAsync();
     }
 
-    private async Task SendEmailConfirmationAsync(User user) => await this.emailSendService.AddToQueueAsync(user.Email,
+    private async Task SendEmailConfirmationAsync(User user)
+    {
+        EnsureEmailConfirmationCode(user);
+
+        var callbackOrigin = this.requestOriginService.GetCurrentOrigin();
+        var confirmationLink = $"{callbackOrigin}/email-confirmation/confirm?email={Uri.EscapeDataString(user.Email)}&code={user.EmailConfirmationCode}";
+
+        await this.emailSendService.AddToQueueAsync(user.Email,
             EmailTemplateType.Signup,
             new Dictionary<string, string>
             {
-                { "confirmation_link", $"{this.config.BaseUrl}/confirm-email?email={Uri.EscapeDataString(user.Email)}&code={user.EmailConfirmationCode}" }
+                { "confirmation_link", confirmationLink }
             });
+    }
+
+    private static void EnsureEmailConfirmationCode(User user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.EmailConfirmationCode))
+        {
+            return;
+        }
+
+        user.EmailConfirmationCode = SecureTokenGenerator.GenerateToken(16);
+    }
+
+    private static bool IsDemoUserEmail(string? email) =>
+        !string.IsNullOrWhiteSpace(email) &&
+        email.EndsWith(DemoEmailDomain, StringComparison.OrdinalIgnoreCase);
 
     private void PreventTimingAttack() => this.passwordHasher.Verify("password", "$argon2id$v=19$m=16,t=2,p=1$NlJRdlBSbDZhRVUzdTFYcQ$FbtOcbMs2IMTMHFE8WcSiQ");
 }

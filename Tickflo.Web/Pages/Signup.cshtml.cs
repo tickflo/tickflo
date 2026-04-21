@@ -52,7 +52,7 @@ public class SignupModel(IAuthenticationService authenticationService, TickfloCo
 
     public bool Invited { get; set; }
 
-    public async Task OnGetAsync([FromQuery] string? email)
+    public void OnGet([FromQuery] string? email)
     {
         if (!string.IsNullOrEmpty(email))
         {
@@ -100,6 +100,7 @@ public class SignupModel(IAuthenticationService authenticationService, TickfloCo
         var recoveryEmail = this.RecoveryEmail?.Trim() ?? string.Empty;
         var workspaceName = this.WorkspaceName?.Trim() ?? string.Empty;
         var password = this.Password ?? string.Empty;
+
         return workspaceName.Length > 0
             ? await this.authenticationService.SignupAsync(name, email, recoveryEmail, workspaceName, password)
             : await this.authenticationService.SignupInviteeAsync(name, email, recoveryEmail, password);
