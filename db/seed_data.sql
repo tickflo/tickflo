@@ -12,6 +12,9 @@ BEGIN
     );
     DELETE FROM public.reports WHERE workspace_id IN (SELECT id FROM public.workspaces WHERE slug IN ('tickflo-demo','techstart','global-services'));
     DELETE FROM public.ticket_history WHERE workspace_id IN (SELECT id FROM public.workspaces WHERE slug IN ('tickflo-demo','techstart','global-services'));
+    DELETE FROM public.ticket_comments WHERE ticket_id IN (
+        SELECT id FROM public.tickets WHERE workspace_id IN (SELECT id FROM public.workspaces WHERE slug IN ('tickflo-demo','techstart','global-services'))
+    );
     DELETE FROM public.ticket_inventory WHERE ticket_id IN (
         SELECT id FROM public.tickets WHERE workspace_id IN (SELECT id FROM public.workspaces WHERE slug IN ('tickflo-demo','techstart','global-services'))
     );
@@ -44,7 +47,32 @@ BEGIN
     DELETE FROM public.user_email_changes WHERE user_id IN (
         SELECT id FROM public.users WHERE email IN ('admin@demo.com','sarah@demo.com','mike@demo.com','lisa@demo.com','tom@demo.com','emma@demo.com')
     );
+    -- Clear emails queued/sent on behalf of demo users so the user rows can be removed.
+    -- The new email-notification flow (PR #113) produces rows in public.emails with
+    -- created_by/updated_by referencing demo users.
+    DELETE FROM public.emails WHERE
+        "to" IN ('admin@demo.com','sarah@demo.com','mike@demo.com','lisa@demo.com','tom@demo.com','emma@demo.com')
+        OR created_by IN (SELECT id FROM public.users WHERE email IN ('admin@demo.com','sarah@demo.com','mike@demo.com','lisa@demo.com','tom@demo.com','emma@demo.com'))
+        OR updated_by IN (SELECT id FROM public.users WHERE email IN ('admin@demo.com','sarah@demo.com','mike@demo.com','lisa@demo.com','tom@demo.com','emma@demo.com'));
     DELETE FROM public.users WHERE email IN ('admin@demo.com','sarah@demo.com','mike@demo.com','lisa@demo.com','tom@demo.com','emma@demo.com');
+
+    -- Resynchronize identity sequences so INSERTs below allocate IDs above any
+    -- rows that survived the reset (e.g. non-demo workspaces, app-generated data,
+    -- or restores that set explicit IDs without advancing the sequence).
+    PERFORM pg_catalog.setval(pg_get_serial_sequence('public.ticket_history', 'id'),
+        COALESCE((SELECT MAX(id) FROM public.ticket_history), 0) + 1, false);
+    PERFORM pg_catalog.setval(pg_get_serial_sequence('public.ticket_comments', 'id'),
+        COALESCE((SELECT MAX(id) FROM public.ticket_comments), 0) + 1, false);
+    PERFORM pg_catalog.setval(pg_get_serial_sequence('public.notifications', 'id'),
+        COALESCE((SELECT MAX(id) FROM public.notifications), 0) + 1, false);
+    PERFORM pg_catalog.setval(pg_get_serial_sequence('public.tickets', 'id'),
+        COALESCE((SELECT MAX(id) FROM public.tickets), 0) + 1, false);
+    PERFORM pg_catalog.setval(pg_get_serial_sequence('public.reports', 'id'),
+        COALESCE((SELECT MAX(id) FROM public.reports), 0) + 1, false);
+    PERFORM pg_catalog.setval(pg_get_serial_sequence('public.report_runs', 'id'),
+        COALESCE((SELECT MAX(id) FROM public.report_runs), 0) + 1, false);
+    PERFORM pg_catalog.setval(pg_get_serial_sequence('public.emails', 'id'),
+        COALESCE((SELECT MAX(id) FROM public.emails), 0) + 1, false);
 END $$;
 
 
@@ -494,26 +522,50 @@ JOIN public.inventory i ON i.workspace_id = w.id AND i.sku = v.inventory_sku;
 
 -- =============================================
 -- Ticket History
+-- action and field columns are integer-backed enums:
+--   TicketHistoryAction: 1=Created, 2=FieldChanged, 3=Assigned, 4=TeamAssigned,
+--     5=Unassigned, 6=ReassignmentNote, 7=Closed, 8=Reopened, 9=Resolved, 10=Cancelled
+--   TicketHistoryField:  1=Subject, 2=Description, 3=Type, 4=Priority, 5=Status,
+--     6=Contact, 7=AssignedUser, 8=AssignedTeam, 9=Location, 10=Inventory, 11=DueDate
 -- =============================================
 INSERT INTO public.ticket_history (workspace_id, ticket_id, created_by_user_id, action, field, old_value, new_value, note, created_at)
 SELECT w.id, t.id, u.id, v.action, v.field, v.old_value, v.new_value, v.note, v.created_at
 FROM (VALUES
-    ('tickflo-demo', 'Email not syncing on mobile device', 'mike@demo.com', 'status_change', 'status', 'New', 'In Progress', 'Starting investigation', NOW() - INTERVAL '1 hour'),
-    ('tickflo-demo', 'Email not syncing on mobile device', 'mike@demo.com', 'comment', NULL, NULL, NULL, 'Checked email server logs. Issue appears to be with device configuration.', NOW() - INTERVAL '45 minutes'),
-    ('tickflo-demo', 'VPN connection dropping frequently', 'mike@demo.com', 'status_change', 'status', 'New', 'In Progress', 'Assigned to infrastructure team', NOW() - INTERVAL '2 hours'),
-    ('tickflo-demo', 'VPN connection dropping frequently', 'mike@demo.com', 'comment', NULL, NULL, NULL, 'Updated VPN client to latest version. Monitoring for stability.', NOW() - INTERVAL '1 hour'),
-    ('tickflo-demo', 'Software license inquiry', 'lisa@demo.com', 'status_change', 'status', 'New', 'In Progress', 'Checking license availability', NOW() - INTERVAL '5 days'),
-    ('tickflo-demo', 'Software license inquiry', 'lisa@demo.com', 'comment', NULL, NULL, NULL, 'We have 5 available licenses. Sent details to Jessica.', NOW() - INTERVAL '4 days 12 hours'),
-    ('tickflo-demo', 'Software license inquiry', 'lisa@demo.com', 'status_change', 'status', 'In Progress', 'Resolved', 'Issue resolved', NOW() - INTERVAL '4 days'),
-    ('tickflo-demo', 'Cannot access shared drive', 'mike@demo.com', 'status_change', 'status', 'New', 'In Progress', 'Investigating permissions', NOW() - INTERVAL '7 days'),
-    ('tickflo-demo', 'Cannot access shared drive', 'mike@demo.com', 'comment', NULL, NULL, NULL, 'Found the issue - AD group membership was missing. Added user to correct group.', NOW() - INTERVAL '6 days 18 hours'),
-    ('tickflo-demo', 'Cannot access shared drive', 'mike@demo.com', 'status_change', 'status', 'In Progress', 'Resolved', 'Access restored', NOW() - INTERVAL '6 days'),
-    ('techstart', 'Login page not loading', 'tom@demo.com', 'status_change', 'status', 'Open', 'Working', 'Reproducing the issue', NOW() - INTERVAL '2 hours'),
-    ('techstart', 'Login page not loading', 'tom@demo.com', 'priority_change', 'priority', 'P2', 'P1', 'Escalating - affects multiple users', NOW() - INTERVAL '1 hour'),
-    ('techstart', 'Login page not loading', 'tom@demo.com', 'comment', NULL, NULL, NULL, 'Issue traced to caching problem. Deploying fix now.', NOW() - INTERVAL '30 minutes'),
-    ('global-services', 'HVAC system making loud noise', 'sarah@demo.com', 'status_change', 'status', 'Submitted', 'Assigned', 'Scheduled technician visit', NOW() - INTERVAL '4 hours'),
-    ('global-services', 'HVAC system making loud noise', 'sarah@demo.com', 'comment', NULL, NULL, NULL, 'HVAC technician will arrive at 2 PM today.', NOW() - INTERVAL '3 hours')
+    ('tickflo-demo', 'Email not syncing on mobile device', 'mike@demo.com', 1, NULL::int, NULL, NULL, NULL, NOW() - INTERVAL '1 hour 30 minutes'),
+    ('tickflo-demo', 'Email not syncing on mobile device', 'mike@demo.com', 3, NULL::int, NULL, NULL, 'Assigned to Mike', NOW() - INTERVAL '1 hour 15 minutes'),
+    ('tickflo-demo', 'Email not syncing on mobile device', 'mike@demo.com', 2, 5, 'New', 'In Progress', 'Starting investigation', NOW() - INTERVAL '1 hour'),
+    ('tickflo-demo', 'VPN connection dropping frequently', 'mike@demo.com', 4, NULL::int, NULL, NULL, 'Routed to infrastructure team', NOW() - INTERVAL '2 hours 30 minutes'),
+    ('tickflo-demo', 'VPN connection dropping frequently', 'mike@demo.com', 2, 5, 'New', 'In Progress', 'Assigned to infrastructure team', NOW() - INTERVAL '2 hours'),
+    ('tickflo-demo', 'Software license inquiry', 'lisa@demo.com', 2, 5, 'New', 'In Progress', 'Checking license availability', NOW() - INTERVAL '5 days'),
+    ('tickflo-demo', 'Software license inquiry', 'lisa@demo.com', 9, NULL::int, NULL, NULL, 'Marked as resolved', NOW() - INTERVAL '4 days'),
+    ('tickflo-demo', 'Cannot access shared drive', 'mike@demo.com', 2, 5, 'New', 'In Progress', 'Investigating permissions', NOW() - INTERVAL '7 days'),
+    ('tickflo-demo', 'Cannot access shared drive', 'mike@demo.com', 9, NULL::int, NULL, NULL, 'Access restored', NOW() - INTERVAL '6 days'),
+    ('tickflo-demo', 'Cannot access shared drive', 'mike@demo.com', 7, NULL::int, NULL, NULL, 'Closed after user confirmation', NOW() - INTERVAL '5 days 12 hours'),
+    ('techstart', 'Login page not loading', 'tom@demo.com', 2, 5, 'Open', 'Working', 'Reproducing the issue', NOW() - INTERVAL '2 hours'),
+    ('techstart', 'Login page not loading', 'tom@demo.com', 2, 4, 'P2', 'P1', 'Escalating - affects multiple users', NOW() - INTERVAL '1 hour'),
+    ('techstart', 'Login page not loading', 'tom@demo.com', 6, NULL::int, NULL, NULL, 'Reassigned from Lisa to Tom for frontend expertise', NOW() - INTERVAL '45 minutes'),
+    ('global-services', 'HVAC system making loud noise', 'sarah@demo.com', 1, NULL::int, NULL, NULL, NULL, NOW() - INTERVAL '5 hours'),
+    ('global-services', 'HVAC system making loud noise', 'sarah@demo.com', 2, 5, 'Submitted', 'Assigned', 'Scheduled technician visit', NOW() - INTERVAL '4 hours'),
+    ('global-services', 'HVAC system making loud noise', 'sarah@demo.com', 5, NULL::int, NULL, NULL, 'Removing previous assignee before routing', NOW() - INTERVAL '3 hours 30 minutes')
 ) AS v(workspace_slug, ticket_subject, user_email, action, field, old_value, new_value, note, created_at)
+JOIN public.workspaces w ON w.slug = v.workspace_slug
+JOIN public.tickets t ON t.workspace_id = w.id AND t.subject = v.ticket_subject
+JOIN public.users u ON u.email = v.user_email;
+
+-- =============================================
+-- Ticket Comments
+-- Demo comment threads (mix of internal notes and client-visible replies).
+-- =============================================
+INSERT INTO public.ticket_comments (workspace_id, ticket_id, created_by_user_id, content, is_visible_to_client, created_at)
+SELECT w.id, t.id, u.id, v.content, v.is_visible_to_client, v.created_at
+FROM (VALUES
+    ('tickflo-demo', 'Email not syncing on mobile device', 'mike@demo.com', 'Checked email server logs. Issue appears to be with device configuration.', false, NOW() - INTERVAL '45 minutes'),
+    ('tickflo-demo', 'VPN connection dropping frequently', 'mike@demo.com', 'Updated VPN client to latest version. Monitoring for stability.', true, NOW() - INTERVAL '1 hour'),
+    ('tickflo-demo', 'Software license inquiry', 'lisa@demo.com', 'We have 5 available licenses. Sent details to Jessica.', true, NOW() - INTERVAL '4 days 12 hours'),
+    ('tickflo-demo', 'Cannot access shared drive', 'mike@demo.com', 'Found the issue - AD group membership was missing. Added user to correct group.', false, NOW() - INTERVAL '6 days 18 hours'),
+    ('techstart', 'Login page not loading', 'tom@demo.com', 'Issue traced to caching problem. Deploying fix now.', true, NOW() - INTERVAL '30 minutes'),
+    ('global-services', 'HVAC system making loud noise', 'sarah@demo.com', 'HVAC technician will arrive at 2 PM today.', true, NOW() - INTERVAL '3 hours')
+) AS v(workspace_slug, ticket_subject, user_email, content, is_visible_to_client, created_at)
 JOIN public.workspaces w ON w.slug = v.workspace_slug
 JOIN public.tickets t ON t.workspace_id = w.id AND t.subject = v.ticket_subject
 JOIN public.users u ON u.email = v.user_email;
@@ -608,8 +660,11 @@ FROM (VALUES
     ('tickflo-demo', 'sarah@demo.com', 'workspace_invite', 'email', 'high', 'Welcome to Acme Corporation', '<p>You have been invited to join <strong>Acme Corporation</strong> workspace.</p><p>Click here to accept the invitation and get started.</p>', 'sent', NOW() - INTERVAL '3 days', 'admin@demo.com'),
     ('tickflo-demo', 'mike@demo.com', 'ticket_assigned', 'email', 'normal', 'Ticket #1001 assigned to you', '<p>A new ticket has been assigned to you:</p><p><strong>Title:</strong> Email not syncing on mobile device</p><p><strong>Priority:</strong> High</p>', 'sent', NOW() - INTERVAL '2 days', 'sarah@demo.com'),
     ('techstart', 'tom@demo.com', 'ticket_comment', 'email', 'normal', 'New comment on Ticket #1005', '<p>Lisa Johnson added a comment to your ticket:</p><blockquote>I have identified the root cause. Will update shortly.</blockquote>', 'sent', NOW() - INTERVAL '1 day', 'lisa@demo.com'),
-    ('tickflo-demo', 'sarah@demo.com', 'ticket_status_change', 'in_app', 'normal', 'Ticket #1001 status updated', 'Ticket status changed from Open to In Progress', 'sent', NOW() - INTERVAL '2 hours', 'mike@demo.com'),
+    ('tickflo-demo', 'sarah@demo.com', 'ticket_status_changed', 'in_app', 'normal', 'Ticket #1001 status updated', 'Ticket status changed from Open to In Progress', 'sent', NOW() - INTERVAL '2 hours', 'mike@demo.com'),
     ('tickflo-demo', 'mike@demo.com', 'ticket_assigned', 'in_app', 'normal', 'New ticket assigned', 'Ticket #1015 "Network connectivity issues" has been assigned to you', 'sent', NOW() - INTERVAL '1 hour', 'sarah@demo.com'),
+    ('tickflo-demo', 'lisa@demo.com', 'ticket_created_team', 'in_app', 'normal', 'New ticket for your team', 'A new ticket was created and routed to your team', 'sent', NOW() - INTERVAL '90 minutes', 'sarah@demo.com'),
+    ('tickflo-demo', 'mike@demo.com', 'ticket_unassigned', 'in_app', 'low', 'Ticket unassigned', 'Ticket #1012 was unassigned from you', 'sent', NOW() - INTERVAL '45 minutes', 'sarah@demo.com'),
+    ('techstart', 'tom@demo.com', 'ticket_status_changed_team', 'in_app', 'normal', 'Team ticket status updated', 'A ticket assigned to your team changed status', 'sent', NOW() - INTERVAL '20 minutes', 'lisa@demo.com'),
     ('techstart', 'lisa@demo.com', 'report_completed', 'in_app', 'low', 'Weekly report completed', 'Your weekly ticket report has finished processing', 'sent', NOW() - INTERVAL '30 minutes', NULL),
     ('global-services', 'emma@demo.com', 'mention', 'in_app', 'high', 'You were mentioned in a comment', 'Tom Wilson mentioned you in ticket #1012', 'pending', NOW() - INTERVAL '15 minutes', 'tom@demo.com'),
     ('tickflo-demo', 'sarah@demo.com', 'ticket_summary', 'email', 'low', 'Daily Ticket Summary', '<p>Your daily ticket summary for Acme Corporation:</p><ul><li>5 new tickets</li><li>3 resolved</li><li>2 pending your review</li></ul>', 'pending', NOW(), NULL),
@@ -636,14 +691,14 @@ FROM (VALUES
     ('admin@demo.com', 'workspace_invite', true, true, false, false),
     ('admin@demo.com', 'ticket_assigned', true, true, false, false),
     ('admin@demo.com', 'ticket_comment', true, true, false, false),
-    ('admin@demo.com', 'ticket_status_change', true, true, false, false),
+    ('admin@demo.com', 'ticket_status_changed', true, true, false, false),
     ('sarah@demo.com', 'workspace_invite', true, false, false, false),
     ('sarah@demo.com', 'ticket_assigned', true, true, false, false),
     ('sarah@demo.com', 'ticket_summary', false, true, false, false),
     ('sarah@demo.com', 'mention', true, true, true, false),
     ('mike@demo.com', 'ticket_assigned', false, true, false, false),
     ('mike@demo.com', 'ticket_comment', false, true, false, false),
-    ('mike@demo.com', 'ticket_status_change', false, true, false, false),
+    ('mike@demo.com', 'ticket_status_changed', false, true, false, false),
     ('mike@demo.com', 'mention', false, true, false, false),
     ('lisa@demo.com', 'workspace_invite', true, true, true, true),
     ('lisa@demo.com', 'ticket_assigned', true, true, false, true),
