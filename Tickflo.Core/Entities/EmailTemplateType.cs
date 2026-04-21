@@ -13,4 +13,7 @@ public enum EmailTemplateType
     WorkspaceInviteExistingUser = 5,
     WorkspaceInviteNewUser = 6,
     WorkspaceRemoval = 7,
+    TicketAssigned = 8,
+    TicketUpdated = 9,
+    TicketComment = 10,
 }

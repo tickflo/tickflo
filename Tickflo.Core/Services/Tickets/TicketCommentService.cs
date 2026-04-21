@@ -3,11 +3,7 @@ namespace Tickflo.Core.Services.Tickets;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-
-/// <summary>
-/// Handles the business logic for managing ticket comments with dual visibility support.
-/// Supports both internal-only and client-visible comments with full audit trails.
-/// </summary>
+using Tickflo.Core.Services.Notifications;
 
 /// <summary>
 /// Service for managing ticket comments with support for client-visible and internal-only comments.
@@ -38,6 +34,11 @@ public interface ITicketCommentService
     /// <returns>The newly created comment with assigned ID and timestamps</returns>
     /// <exception cref="InvalidOperationException">Thrown if content is empty or null</exception>
     public Task<TicketComment> AddCommentAsync(int workspaceId, int ticketId, int createdByUserId, string content, bool isVisibleToClient, CancellationToken ct = default);
+
+    /// <summary>
+    /// Creates a new comment and dispatches ticket notifications for that comment event.
+    /// </summary>
+    public Task<TicketComment> AddCommentAndNotifyAsync(int workspaceId, int ticketId, int createdByUserId, string content, bool isVisibleToClient, CancellationToken ct = default);
 
     /// <summary>
     /// Updates the content of an existing comment and records the update timestamp and user.
@@ -74,23 +75,26 @@ public interface ITicketCommentService
     public Task DeleteCommentAsync(int workspaceId, int commentId, CancellationToken ct = default);
 }
 
-public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentService
+public class TicketCommentService(
+    TickfloDbContext dbContext,
+    INotificationTriggerService notificationTriggerService) : ITicketCommentService
 {
+    private const int SystemUserId = 1;
+
     private readonly TickfloDbContext dbContext = dbContext;
+    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
     /// <summary>
     /// Retrieves comments for a ticket with visibility filtering based on view context.
     /// </summary>
     public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(int workspaceId, int ticketId, bool isClientView = false, CancellationToken ct = default)
     {
-        // Business rule: Workspace and ticket IDs must be positive
         ValidateIdentifiers(workspaceId, ticketId);
 
         var query = this.dbContext.TicketComments
             .Where(c => c.WorkspaceId == workspaceId && c.TicketId == ticketId)
             .OrderBy(c => c.CreatedAt);
 
-        // Business rule: Client view shows only comments marked as client-visible
         if (isClientView)
         {
             return await query
@@ -98,7 +102,6 @@ public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentSe
                 .ToListAsync(ct);
         }
 
-        // Internal view shows all comments (no filtering)
         return await query.ToListAsync(ct);
     }
 
@@ -107,14 +110,12 @@ public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentSe
     /// </summary>
     public async Task<TicketComment> AddCommentAsync(int workspaceId, int ticketId, int createdByUserId, string content, bool isVisibleToClient, CancellationToken ct = default)
     {
-        // Business rule: All identifiers must be positive
         ValidateIdentifiers(workspaceId, ticketId);
         if (createdByUserId <= 0)
         {
             throw new InvalidOperationException("Invalid user ID for comment creator");
         }
 
-        // Business rule: Comment content is required and must be non-empty
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new InvalidOperationException("Comment content cannot be empty");
@@ -134,34 +135,48 @@ public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentSe
         return comment;
     }
 
+    public async Task<TicketComment> AddCommentAndNotifyAsync(int workspaceId, int ticketId, int createdByUserId, string content, bool isVisibleToClient, CancellationToken ct = default)
+    {
+        var ticket = await this.dbContext.Tickets
+            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId, ct)
+            ?? throw new InvalidOperationException("Ticket not found");
+        var comment = await this.AddCommentAsync(workspaceId, ticketId, createdByUserId, content, isVisibleToClient, ct);
+
+        await this.notificationTriggerService.NotifyTicketCommentAddedAsync(
+            workspaceId,
+            ticket,
+            createdByUserId,
+            isVisibleToClient);
+
+        return comment;
+    }
+
     /// <summary>
     /// Creates a new comment from a client on a ticket.
     /// Automatically marks as visible to client and records the contact ID.
     /// </summary>
     public async Task<TicketComment> AddClientCommentAsync(int workspaceId, int ticketId, int contactId, string content, CancellationToken ct = default)
     {
-        // Business rule: All identifiers must be positive
         ValidateIdentifiers(workspaceId, ticketId);
         if (contactId <= 0)
         {
             throw new InvalidOperationException("Invalid contact ID for comment creator");
         }
 
-        // Business rule: Comment content is required and must be non-empty
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new InvalidOperationException("Comment content cannot be empty");
         }
 
-        // Use a system user ID (1) for client comments, track actual contact via CreatedByContactId
+        // Client comments are attributed to the system user; the actual contact is tracked via CreatedByContactId.
         var comment = new TicketComment
         {
             WorkspaceId = workspaceId,
             TicketId = ticketId,
-            CreatedByUserId = 1, // System user ID for client comments
-            CreatedByContactId = contactId, // Track actual client
+            CreatedByUserId = SystemUserId,
+            CreatedByContactId = contactId,
             Content = content.Trim(),
-            IsVisibleToClient = true, // Client comments are always visible to client
+            IsVisibleToClient = true,
         };
 
         this.dbContext.TicketComments.Add(comment);
@@ -174,14 +189,12 @@ public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentSe
     /// </summary>
     public async Task<TicketComment> UpdateCommentAsync(int workspaceId, int commentId, string content, int updatedByUserId, CancellationToken ct = default)
     {
-        // Business rule: All identifiers must be positive
         ValidateIdentifiers(workspaceId, commentId);
         if (updatedByUserId <= 0)
         {
             throw new InvalidOperationException("Invalid user ID for comment updater");
         }
 
-        // Business rule: Updated content is required and must be non-empty
         if (string.IsNullOrWhiteSpace(content))
         {
             throw new InvalidOperationException("Comment content cannot be empty");
@@ -191,7 +204,6 @@ public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentSe
             .FirstOrDefaultAsync(c => c.WorkspaceId == workspaceId && c.Id == commentId, ct)
             ?? throw new InvalidOperationException($"Comment {commentId} not found in workspace {workspaceId}");
 
-        // Update comment with new content and audit metadata
         comment.Content = content.Trim();
         comment.UpdatedAt = DateTime.UtcNow;
         comment.UpdatedByUserId = updatedByUserId;
@@ -206,7 +218,6 @@ public class TicketCommentService(TickfloDbContext dbContext) : ITicketCommentSe
     /// </summary>
     public async Task DeleteCommentAsync(int workspaceId, int commentId, CancellationToken ct = default)
     {
-        // Business rule: All identifiers must be positive
         ValidateIdentifiers(workspaceId, commentId);
 
         var comment = await this.dbContext.TicketComments

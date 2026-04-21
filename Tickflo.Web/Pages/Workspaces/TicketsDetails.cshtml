@@ -984,14 +984,14 @@
                 {
                   var actor = Model.Members.FirstOrDefault(m => m.Id == historyEntry.CreatedByUserId);
                   var actorName = actor != null ? (string.IsNullOrWhiteSpace(actor.Name) ? actor.Email : actor.Name) : $"User #{historyEntry.CreatedByUserId}";
-                  var actionDescription = Tickflo.Web.Utils.TicketHistoryFormatter.FormatActionDescription(historyEntry.Action, historyEntry.Field, historyEntry.Note);
+                  var actionDescription = Tickflo.Web.Utils.TicketHistoryFormatter.FormatActionDescription(historyEntry.Action, historyEntry.Field);
                   var showValueChange = Tickflo.Web.Utils.TicketHistoryFormatter.ShouldShowValueChange(historyEntry.Action);
                   
                   // Resolve user-friendly values
                   var oldValueDisplay = historyEntry.OldValue;
                   var newValueDisplay = historyEntry.NewValue;
                   
-                  if (historyEntry.Field == "AssignedUserId")
+                  if (historyEntry.Field == Tickflo.Core.Entities.TicketHistoryField.AssignedUser)
                   {
                     if (int.TryParse(historyEntry.OldValue, out var oldUserId))
                     {
@@ -1004,7 +1004,7 @@
                       newValueDisplay = newUser != null ? (string.IsNullOrWhiteSpace(newUser.Name) ? newUser.Email : newUser.Name) : historyEntry.NewValue;
                     }
                   }
-                  else if (historyEntry.Field == "ContactId")
+                  else if (historyEntry.Field == Tickflo.Core.Entities.TicketHistoryField.Contact)
                   {
                     if (int.TryParse(historyEntry.OldValue, out var oldContactId))
                     {
@@ -1033,39 +1033,39 @@
                         <span class="text-xs text-white/50">@historyEntry.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")</span>
                       </div>
                       <div class="text-sm text-white/80">
-                        @if ((historyEntry.Action ?? string.Empty) == "created")
+                        @if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.Created)
                         {
                           <span><i class="fa fa-plus-circle text-success mr-1"></i>@actionDescription</span>
                         }
-                        else if ((historyEntry.Action ?? string.Empty) == "assigned")
+                        else if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.Assigned)
                         {
                           <span><i class="fa fa-user-plus text-info mr-1"></i>@actionDescription</span>
                         }
-                        else if ((historyEntry.Action ?? string.Empty) == "team_assigned")
+                        else if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.TeamAssigned)
                         {
                           <span><i class="fa fa-users text-info mr-1"></i>@actionDescription</span>
                         }
-                        else if ((historyEntry.Action ?? string.Empty) == "unassigned")
+                        else if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.Unassigned)
                         {
                           <span><i class="fa fa-user-minus text-warning mr-1"></i>@actionDescription</span>
                         }
-                        else if ((historyEntry.Action ?? string.Empty) == "closed")
+                        else if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.Closed)
                         {
                           <span><i class="fa fa-check-circle text-success mr-1"></i>@actionDescription</span>
                         }
-                        else if ((historyEntry.Action ?? string.Empty) == "reopened")
+                        else if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.Reopened)
                         {
                           <span><i class="fa fa-undo text-info mr-1"></i>@actionDescription</span>
                         }
-                        else if ((historyEntry.Action ?? string.Empty) == "resolved")
+                        else if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.Resolved)
                         {
                           <span><i class="fa fa-check-double text-success mr-1"></i>@actionDescription</span>
                         }
-                        else if ((historyEntry.Action ?? string.Empty) == "cancelled")
+                        else if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.Cancelled)
                         {
                           <span><i class="fa fa-times-circle text-error mr-1"></i>@actionDescription</span>
                         }
-                        else if ((historyEntry.Action ?? string.Empty) == "reassignment_note")
+                        else if (historyEntry.Action == Tickflo.Core.Entities.TicketHistoryAction.ReassignmentNote)
                         {
                           <div>
                             <i class="fa fa-comment-dots text-info mr-1"></i>Added a note

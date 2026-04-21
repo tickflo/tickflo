@@ -426,3 +426,12 @@ dotnet_diagnostic.CA1304.severity = none
 dotnet_diagnostic.CA1311.severity = none
 dotnet_diagnostic.CA1862.severity = none
 dotnet_diagnostic.CA2254.severity = none
+
+##########################################
+# Test Project Overrides
+##########################################
+
+# Test method names intentionally use underscores as separators (MethodName_WhenCondition_ShouldOutcome).
+# CA1707 ("Remove the underscores from member name") conflicts with this project convention.
+[*Tests.cs]
+dotnet_diagnostic.CA1707.severity = none

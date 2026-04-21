@@ -3,10 +3,7 @@ namespace Tickflo.Core.Services.Tickets;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
-
-/// <summary>
-/// Handles the business workflow of closing and resolving tickets.
-/// </summary>
+using Tickflo.Core.Services.Notifications;
 
 /// <summary>
 /// Handles ticket closing and resolution workflows.
@@ -32,31 +29,14 @@ public interface ITicketClosingService
     /// <param name="reopenedByUserId">User reopening the ticket</param>
     /// <returns>The reopened ticket</returns>
     public Task<Ticket> ReopenTicketAsync(int workspaceId, int ticketId, string reason, int reopenedByUserId);
-
-    /// <summary>
-    /// Marks a ticket as resolved (awaiting confirmation).
-    /// </summary>
-    /// <param name="workspaceId">Workspace context</param>
-    /// <param name="ticketId">Ticket to resolve</param>
-    /// <param name="resolutionNote">Resolution details</param>
-    /// <param name="resolvedByUserId">User resolving the ticket</param>
-    /// <returns>The resolved ticket</returns>
-    public Task<Ticket> ResolveTicketAsync(int workspaceId, int ticketId, string resolutionNote, int resolvedByUserId);
-
-    /// <summary>
-    /// Cancels a ticket without resolution.
-    /// </summary>
-    /// <param name="workspaceId">Workspace context</param>
-    /// <param name="ticketId">Ticket to cancel</param>
-    /// <param name="cancellationReason">Reason for cancellation</param>
-    /// <param name="cancelledByUserId">User cancelling the ticket</param>
-    /// <returns>The cancelled ticket</returns>
-    public Task<Ticket> CancelTicketAsync(int workspaceId, int ticketId, string cancellationReason, int cancelledByUserId);
 }
 
-public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingService
+public class TicketClosingService(
+    TickfloDbContext dbContext,
+    INotificationTriggerService notificationTriggerService) : ITicketClosingService
 {
     private readonly TickfloDbContext dbContext = dbContext;
+    private readonly INotificationTriggerService notificationTriggerService = notificationTriggerService;
 
     /// <summary>
     /// Closes a ticket with a resolution note.
@@ -99,7 +79,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = closedByUserId,
-            Action = "closed",
+            Action = TicketHistoryAction.Closed,
             Note = $"Ticket closed. Resolution: {resolutionNote}",
             CreatedAt = DateTime.UtcNow
         };
@@ -107,7 +87,11 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
         this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
-        // Could add: Send notifications, update SLA metrics, trigger surveys, etc.
+        await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+            workspaceId,
+            ticket,
+            closedByUserId,
+            $"Ticket closed. Resolution: {resolutionNote}");
 
         return ticket;
     }
@@ -142,8 +126,10 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
         }
 
         var openStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == "open")
-            ?? throw new InvalidOperationException("'Open' status not found in workspace");
+            .Where(s => s.WorkspaceId == workspaceId && !s.IsClosedState)
+            .OrderBy(s => s.SortOrder)
+            .FirstOrDefaultAsync()
+            ?? throw new InvalidOperationException("No open status found in workspace");
 
         ticket.StatusId = openStatus.Id;
         ticket.UpdatedAt = DateTime.UtcNow;
@@ -156,7 +142,7 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
             WorkspaceId = workspaceId,
             TicketId = ticketId,
             CreatedByUserId = reopenedByUserId,
-            Action = "reopened",
+            Action = TicketHistoryAction.Reopened,
             Note = $"Ticket reopened. Reason: {reason}",
             CreatedAt = DateTime.UtcNow
         };
@@ -164,111 +150,11 @@ public class TicketClosingService(TickfloDbContext dbContext) : ITicketClosingSe
         this.dbContext.TicketHistory.Add(history);
         await this.dbContext.SaveChangesAsync();
 
-        // Could add: Notify original assignee, reset SLA timers, etc.
-
-        return ticket;
-    }
-
-    /// <summary>
-    /// Marks a ticket as resolved (awaiting closure confirmation).
-    /// </summary>
-    public async Task<Ticket> ResolveTicketAsync(
-        int workspaceId,
-        int ticketId,
-        string resolutionNote,
-        int resolvedByUserId)
-    {
-        var ticket = await this.dbContext.Tickets
-            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId)
-            ?? throw new InvalidOperationException("Ticket not found");
-
-        var closedStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.IsClosedState);
-
-        var resolvedStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == "resolved")
-            ?? throw new InvalidOperationException("'Resolved' status not found in workspace");
-
-        if (closedStatus != null && ticket.StatusId == closedStatus.Id)
-        {
-            throw new InvalidOperationException("Cannot resolve a closed ticket");
-        }
-
-        if (string.IsNullOrWhiteSpace(resolutionNote))
-        {
-            throw new InvalidOperationException("Resolution note is required");
-        }
-
-        ticket.StatusId = resolvedStatus.Id;
-        ticket.UpdatedAt = DateTime.UtcNow;
-
-        await this.dbContext.SaveChangesAsync();
-
-        var history = new TicketHistory
-        {
-            WorkspaceId = workspaceId,
-            TicketId = ticketId,
-            CreatedByUserId = resolvedByUserId,
-            Action = "resolved",
-            Note = $"Ticket resolved. {resolutionNote}",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        this.dbContext.TicketHistory.Add(history);
-        await this.dbContext.SaveChangesAsync();
-
-        // Could add: Start auto-close timer, request feedback, etc.
-
-        return ticket;
-    }
-
-    /// <summary>
-    /// Cancels a ticket without resolution.
-    /// </summary>
-    public async Task<Ticket> CancelTicketAsync(
-        int workspaceId,
-        int ticketId,
-        string cancellationReason,
-        int cancelledByUserId)
-    {
-        var ticket = await this.dbContext.Tickets
-            .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId)
-            ?? throw new InvalidOperationException("Ticket not found");
-
-        var closedStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.IsClosedState);
-
-        var cancelledStatus = await this.dbContext.TicketStatuses
-            .FirstOrDefaultAsync(s => s.WorkspaceId == workspaceId && s.Name.ToLower() == "cancelled")
-            ?? throw new InvalidOperationException("'Cancelled' status not found in workspace");
-
-        if (closedStatus != null && ticket.StatusId == closedStatus.Id)
-        {
-            throw new InvalidOperationException("Ticket is already closed");
-        }
-
-        if (string.IsNullOrWhiteSpace(cancellationReason))
-        {
-            throw new InvalidOperationException("Cancellation reason is required");
-        }
-
-        ticket.StatusId = cancelledStatus.Id;
-        ticket.UpdatedAt = DateTime.UtcNow;
-
-        await this.dbContext.SaveChangesAsync();
-
-        var history = new TicketHistory
-        {
-            WorkspaceId = workspaceId,
-            TicketId = ticketId,
-            CreatedByUserId = cancelledByUserId,
-            Action = "cancelled",
-            Note = $"Ticket cancelled. Reason: {cancellationReason}",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        this.dbContext.TicketHistory.Add(history);
-        await this.dbContext.SaveChangesAsync();
+        await this.notificationTriggerService.NotifyTicketUpdatedAsync(
+            workspaceId,
+            ticket,
+            reopenedByUserId,
+            $"Ticket reopened. Reason: {reason}");
 
         return ticket;
     }
