@@ -1,4 +1,4 @@
-﻿@page "/workspaces/{slug}"
+@page "/workspaces/{slug}"
 @using System.Text.Json
 @model Tickflo.Web.Pages.WorkspaceModel
 @{
@@ -13,10 +13,10 @@
     100);
 }
 
-<div class="flex flex-row gap-4">
+<div class="flex flex-row gap-2 md:gap-4">
     @await Html.PartialAsync("_WorkspaceSidebar", Model.Workspace?.Slug ?? "")
     <section
-        class="relative overflow-hidden p-6 flex-1 space-y-8 text-slate-100 rounded-3xl bg-linear-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
+        class="relative overflow-hidden p-3 md:p-6 flex-1 min-w-0 space-y-6 md:space-y-8 text-slate-100 rounded-3xl bg-linear-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
         @if (Model.ShowEmailConfirmationPrompt)
         {
             <div role="alert" class="alert alert-info rounded-3xl shadow-md border border-base-200/70" id="email-reminder">
@@ -368,7 +368,7 @@
                             </div>
                         </div>
                         <div class="overflow-x-auto">
-                            <table class="table table-zebra table-md">
+                            <table class="table table-zebra table-md table-stack">
                                 <thead>
                                     <tr>
                                         <th>Ticket</th>

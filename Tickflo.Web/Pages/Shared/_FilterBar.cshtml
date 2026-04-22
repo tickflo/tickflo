@@ -1,11 +1,11 @@
 @model Tickflo.Web.Pages.Shared.FilterBarView
-<form method="get" class="join md:join">
-  <input name="@Model.QueryParamName" value="@Model.QueryValue" placeholder="@Model.Placeholder" class="input join-item input-sm md:input-md bg-neutral-900/85 border border-white/10 text-slate-100" />
+<form method="get" class="flex flex-col gap-2 sm:flex-row sm:gap-0 sm:join w-full sm:w-auto">
+  <input name="@Model.QueryParamName" value="@Model.QueryValue" placeholder="@Model.Placeholder" class="input sm:join-item input-md sm:input-sm md:input-md bg-neutral-900/85 border border-white/10 text-slate-100 w-full sm:w-auto" />
   @if (Model.Selects != null && Model.Selects.Count > 0)
   {
     foreach (var sel in Model.Selects)
     {
-      var cls = string.IsNullOrWhiteSpace(sel.CssClass) ? "select join-item select-sm md:select-md bg-neutral-900/85 border border-white/10 text-slate-100" : sel.CssClass!;
+      var cls = string.IsNullOrWhiteSpace(sel.CssClass) ? "select sm:join-item select-md sm:select-sm md:select-md bg-neutral-900/85 border border-white/10 text-slate-100 w-full sm:w-auto" : sel.CssClass!;
       <select name="@sel.Name" class="@cls">
         @foreach (var opt in sel.Options)
         {
@@ -14,5 +14,5 @@
       </select>
     }
   }
-  <button class="btn btn-soft join-item btn-sm rounded-full">@Model.SubmitLabel</button>
+  <button class="btn btn-soft sm:join-item btn-md sm:btn-sm rounded-2xl sm:rounded-full w-full sm:w-auto min-h-11 sm:min-h-0">@Model.SubmitLabel</button>
 </form>

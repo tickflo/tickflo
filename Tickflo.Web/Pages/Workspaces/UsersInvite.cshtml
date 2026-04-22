@@ -3,9 +3,9 @@
 @{
     ViewData["Title"] = "Invite User";
 }
-<div class="flex flex-row gap-4">
+<div class="flex flex-row gap-2 md:gap-4">
     @await Html.PartialAsync("_WorkspaceSidebar", Model.WorkspaceSlug)
-    <section class="p-6 flex-1">
+    <section class="p-3 md:p-6 flex-1 min-w-0">
         @await Html.PartialAsync("_WorkspaceHeader", new Tickflo.Web.Pages.Shared.WorkspaceHeaderView { Slug = Model.WorkspaceSlug, Name = Model.Workspace?.Name ?? "Workspace", SectionTitle = "Invite User", AllowNewAction = Model.CanCreateUsers, NewActionLabel = "Invite User", NewActionHref = $"/workspaces/{Model.WorkspaceSlug}/users/invite" })
         <div class="card bg-base-100 shadow-sm rounded-3xl mt-4 max-w-xl rounded-3xl">
             <div class="card-body">

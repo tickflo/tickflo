@@ -4,9 +4,9 @@
     ViewData["Title"] = (Model.Role == null || Model.Role.Id == 0) ? "New Role" : "Edit Role";
 }
 
-<div class="flex flex-row gap-4">
+<div class="flex flex-row gap-2 md:gap-4">
     @await Html.PartialAsync("_WorkspaceSidebar", Model.WorkspaceSlug)
-    <section class="p-6 flex-1">
+    <section class="p-3 md:p-6 flex-1 min-w-0">
         @await Html.PartialAsync("_WorkspaceHeader", new Tickflo.Web.Pages.Shared.WorkspaceHeaderView { Slug = Model.WorkspaceSlug, Name = Model.WorkspaceSlug, SectionTitle = ((Model.Role == null || Model.Role.Id == 0) ? "New User Role" : "Edit User Role") })
 
         <div class="card bg-base-100 shadow-sm rounded-3xl mt-4 rounded-3xl">
@@ -29,7 +29,7 @@
                     <div class="text-sm opacity-70">Control view/edit/create access for each section. For Tickets, choose scope: All, Only Mine, or My Team.</div>
 
                     <div class="overflow-x-auto rounded-box bg-base-100">
-                        <table class="table table-sm table-zebra w-full">
+                        <table class="table table-sm table-zebra w-full table-stack">
                             <thead>
                                 <tr>
                                     <th>Section</th>

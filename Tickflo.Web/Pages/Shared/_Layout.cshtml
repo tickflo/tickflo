@@ -95,19 +95,25 @@
     }
     else
     {
-        <header class="navbar glass-panel shadow-xl rounded-3xl sticky top-4 max-w-7xl mx-auto px-4 md:px-6">
-            <div class="w-full flex items-center gap-4">
-                <div class="flex-1 flex items-center gap-3">
+        <header class="navbar glass-panel shadow-xl rounded-3xl sticky top-2 md:top-4 max-w-7xl mx-auto px-3 md:px-6">
+            <div class="w-full flex items-center gap-2 md:gap-4">
+                @if (isAuthenticated)
+                {
+                    <button type="button" id="drawer-toggle" class="btn btn-ghost btn-sm lg:hidden min-h-11" aria-label="Open navigation" aria-controls="mobile-drawer" aria-expanded="false">
+                        <i class="fa fa-bars text-lg"></i>
+                    </button>
+                }
+                <div class="flex-1 flex items-center gap-3 min-w-0">
                     <a href="@logoHref" class="flex items-center gap-3">
                         <img src="~/img/logo.png" alt="Tickflo" class="h-8" />
                     </a>
                 </div>
-                <div class="flex-none flex items-center gap-2">
-                    <a href="/workspaces" class="btn btn-soft btn-sm rounded-full gap-2">
+                <div class="flex-none flex items-center gap-1 md:gap-2">
+                    <a href="/workspaces" class="btn btn-soft btn-sm rounded-full gap-2" aria-label="Workspaces">
                         <i class="fa fa-layer-group"></i>
-                        Workspaces
+                        <span class="hidden sm:inline">Workspaces</span>
                     </a>
-                    <a href="/notifications" class="btn btn-soft btn-sm rounded-full gap-2 relative">
+                    <a href="/notifications" class="btn btn-soft btn-sm rounded-full gap-2 relative" aria-label="Notifications">
                         <i class="fa fa-bell"></i>
                         @if (unreadNotificationCount > 0)
                         {
@@ -120,9 +126,11 @@
         </header>
     }
 
-    <main class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-8">
+    <main class="max-w-7xl mx-auto px-3 md:px-6 lg:px-8 py-4 md:py-8">
         @RenderBody()
     </main>
+
+    <div class="mobile-drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
 
     <script>
         function setThemeCookie(value) {
@@ -130,6 +138,37 @@
             expires.setFullYear(expires.getFullYear() + 1);
             document.cookie = `theme=${value}; path=/; expires=${expires.toUTCString()}`;
         }
+
+        (function () {
+            const htmlEl = document.documentElement;
+            const toggle = document.getElementById('drawer-toggle');
+            const backdrop = document.getElementById('drawer-backdrop');
+            function closeDrawer() {
+                htmlEl.classList.remove('drawer-open');
+                if (toggle) toggle.setAttribute('aria-expanded', 'false');
+            }
+            function openDrawer() {
+                if (!document.querySelector('.mobile-drawer')) return;
+                htmlEl.classList.add('drawer-open');
+                if (toggle) toggle.setAttribute('aria-expanded', 'true');
+            }
+            if (toggle) {
+                toggle.addEventListener('click', function () {
+                    if (htmlEl.classList.contains('drawer-open')) closeDrawer(); else openDrawer();
+                });
+            }
+            if (backdrop) backdrop.addEventListener('click', closeDrawer);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeDrawer();
+            });
+            document.addEventListener('click', function (e) {
+                const link = e.target && e.target.closest && e.target.closest('.mobile-drawer a[href]');
+                if (link) closeDrawer();
+            });
+            window.addEventListener('resize', function () {
+                if (window.matchMedia('(min-width: 1024px)').matches) closeDrawer();
+            });
+        })();
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"
         integrity="sha512-7rhBJh1om/W5Ztx7WiYOR9h2wlSaTmPyQMoHFtbT/FVNIA12y6S6I8HY9mrBS1uJ3dSU/R3qaSAXsGYuRjMDxg=="

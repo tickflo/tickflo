@@ -4,9 +4,9 @@
     ViewData["Title"] = "Tickets";
 }
 
-<div class="flex flex-row gap-4">
+<div class="flex flex-row gap-2 md:gap-4">
     @await Html.PartialAsync("_WorkspaceSidebar", Model.WorkspaceSlug)
-    <section class="relative overflow-hidden p-6 flex-1 space-y-8 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
+    <section class="relative overflow-hidden p-3 md:p-6 flex-1 min-w-0 space-y-6 md:space-y-8 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
 @await Html.PartialAsync("_WorkspaceHeader", new Tickflo.Web.Pages.Shared.WorkspaceHeaderView { Slug = Model.WorkspaceSlug, Name = Model.Workspace?.Name ?? "Workspace", SectionTitle = "Tickets", NewActionLabel = "New Ticket", NewActionHref = $"/workspaces/{Model.WorkspaceSlug}/tickets/0", AllowNewAction = Model.CanCreateTickets })
 
 <div class="grid gap-4">
@@ -22,12 +22,12 @@
                 var openStatusName = "Open";
                 var closedStatusName = "Closed";
             }
-            <div class="flex flex-wrap gap-2">
-                <a class="btn btn-sm btn-ghost border border-white/10 @(string.IsNullOrWhiteSpace(Model.Status) ? "btn-active" : string.Empty)" href="?@chipBase&Status=">All</a>
-                <a class="btn btn-sm btn-ghost border border-white/10 @(string.Equals(Model.Status, openStatusName, StringComparison.OrdinalIgnoreCase) ? "btn-active" : string.Empty)" href="?@chipBase&Status=@openStatusName">Open</a>
-                <a class="btn btn-sm btn-ghost border border-white/10 @(string.Equals(Model.Status, closedStatusName, StringComparison.OrdinalIgnoreCase) ? "btn-active" : string.Empty)" href="?@chipBase&Status=@closedStatusName">Closed</a>
-                <a class="btn btn-sm btn-ghost border border-white/10 @((Model.AssigneeUserId.HasValue && Model.AssigneeUserId.Value == -1) ? "btn-active" : string.Empty)" href="?@chipBase&AssigneeUserId=-1">Unassigned</a>
-                <a class="btn btn-sm btn-ghost border border-white/10 @(Model.Mine ? "btn-active" : string.Empty)" href="?@chipBase&Mine=true">Mine</a>
+            <div class="flex flex-nowrap overflow-x-auto snap-x snap-mandatory gap-2 -mx-1 px-1 md:flex-wrap md:overflow-visible">
+                <a class="btn btn-sm btn-ghost border border-white/10 snap-start shrink-0 min-h-11 sm:min-h-0 @(string.IsNullOrWhiteSpace(Model.Status) ? "btn-active" : string.Empty)" href="?@chipBase&Status=">All</a>
+                <a class="btn btn-sm btn-ghost border border-white/10 snap-start shrink-0 min-h-11 sm:min-h-0 @(string.Equals(Model.Status, openStatusName, StringComparison.OrdinalIgnoreCase) ? "btn-active" : string.Empty)" href="?@chipBase&Status=@openStatusName">Open</a>
+                <a class="btn btn-sm btn-ghost border border-white/10 snap-start shrink-0 min-h-11 sm:min-h-0 @(string.Equals(Model.Status, closedStatusName, StringComparison.OrdinalIgnoreCase) ? "btn-active" : string.Empty)" href="?@chipBase&Status=@closedStatusName">Closed</a>
+                <a class="btn btn-sm btn-ghost border border-white/10 snap-start shrink-0 min-h-11 sm:min-h-0 @((Model.AssigneeUserId.HasValue && Model.AssigneeUserId.Value == -1) ? "btn-active" : string.Empty)" href="?@chipBase&AssigneeUserId=-1">Unassigned</a>
+                <a class="btn btn-sm btn-ghost border border-white/10 snap-start shrink-0 min-h-11 sm:min-h-0 @(Model.Mine ? "btn-active" : string.Empty)" href="?@chipBase&Mine=true">Mine</a>
             </div>
         </div>
     </div>
@@ -236,8 +236,8 @@
         observer.observe(filterPanel, { attributes: true, attributeFilter: ['class'] });
     </script>
 
-    <!-- Tickets Table -->
-    <div class="card bg-neutral-900/85 backdrop-blur shadow-2xl rounded-3xl text-slate-100">
+    <!-- Tickets Table (desktop) -->
+    <div class="card bg-neutral-900/85 backdrop-blur shadow-2xl rounded-3xl text-slate-100 hidden md:block">
       <div class="card-body p-0">
         <div class="overflow-x-auto">
           <table class="table table-sm table-zebra align-middle min-w-[720px]">
@@ -398,6 +398,78 @@
           </table>
         </div>
       </div>
+    </div>
+
+    <!-- Tickets Cards (mobile) -->
+    <div class="md:hidden space-y-3">
+        @if (!Model.Tickets.Any())
+        {
+            <div class="card bg-neutral-900/85 backdrop-blur rounded-2xl text-slate-100">
+                <div class="card-body items-center text-center gap-3 opacity-70">
+                    <i class="fa fa-ticket text-3xl"></i>
+                    <p class="text-base">No tickets found</p>
+                    <p class="text-sm">Try adjusting your filters or create a new ticket</p>
+                </div>
+            </div>
+        }
+        @foreach (var ticket in Model.Tickets)
+        {
+            var rowQsMobile = $"Query={Model.Query}&Type={Model.Type}&Status={Model.Status}&Priority={Model.Priority}&ContactQuery={Model.ContactQuery}&Mine={Model.Mine}&AssigneeUserId={Model.AssigneeUserId}&LocationId={Model.LocationId}&PageNumber={Model.PageNumber}&PageSize={Model.PageSize}";
+
+            var mTypeName = ticket.TicketTypeId.HasValue ? Model.TypesList.FirstOrDefault(x => x.Id == ticket.TicketTypeId.Value)?.Name ?? "Unknown" : "Unknown";
+            var mTcolor = Model.TypeColorByName.TryGetValue(mTypeName, out var mTclr) ? mTclr : "neutral";
+            var mTIsHex = mTcolor.StartsWith("#");
+            var mTCls = mTIsHex ? "badge badge-soft rounded-full" : $"badge badge-soft badge-{mTcolor} rounded-full";
+            var mTStyle = mTIsHex ? $"background-color: {mTcolor}; color: #fff;" : null;
+
+            var mPriorityName = ticket.PriorityId.HasValue ? Model.PrioritiesList.FirstOrDefault(x => x.Id == ticket.PriorityId.Value)?.Name ?? "Unknown" : "Unknown";
+            var mPcolor = Model.PriorityColorByName.TryGetValue(mPriorityName, out var mPclr) ? mPclr : "neutral";
+            var mPIsHex = mPcolor.StartsWith("#");
+            var mPCls = mPIsHex ? "badge badge-soft rounded-full" : $"badge badge-soft badge-{mPcolor} rounded-full";
+            var mPStyle = mPIsHex ? $"background-color: {mPcolor}; color: #fff;" : null;
+
+            var mStatusName = ticket.StatusId.HasValue ? Model.Statuses.FirstOrDefault(x => x.Id == ticket.StatusId.Value)?.Name ?? "Unknown" : "Unknown";
+            var mScolor = Model.StatusColorByName.TryGetValue(mStatusName, out var mSclr) ? mSclr : "neutral";
+            var mSIsHex = mScolor.StartsWith("#");
+            var mSCls = mSIsHex ? "badge badge-soft rounded-full" : $"badge badge-soft badge-{mScolor} rounded-full";
+            var mSStyle = mSIsHex ? $"background-color: {mScolor}; color: #fff;" : null;
+
+            <a href="/workspaces/@Model.WorkspaceSlug/tickets/@ticket.Id?@rowQsMobile"
+               class="card bg-neutral-900/80 backdrop-blur rounded-2xl border border-white/5 hover:border-white/15 transition-colors block no-underline">
+                <div class="card-body p-4 gap-2">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[11px] uppercase tracking-wider font-semibold text-white/40 mb-1">
+                                Ticket #@ticket.Id
+                            </div>
+                            <div class="font-semibold text-blue-300 break-words">@ticket.Subject</div>
+                        </div>
+                        <span class="@mSCls text-xs font-semibold shrink-0" style="@mSStyle">@mStatusName</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 text-xs">
+                        <span class="@mTCls text-xs" style="@mTStyle">@mTypeName</span>
+                        <span class="@mPCls text-xs font-semibold" style="@mPStyle">@mPriorityName</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2 text-xs text-white/60 pt-1 border-t border-white/5">
+                        <div class="min-w-0 truncate">
+                            @if (ticket.AssignedTeamId.HasValue && Model.TeamsById.TryGetValue(ticket.AssignedTeamId.Value, out var mTeam))
+                            {
+                                <span><i class="fa fa-users mr-1"></i>@mTeam.Name</span>
+                            }
+                            else if (ticket.AssignedUserId.HasValue && Model.UsersById.TryGetValue(ticket.AssignedUserId.Value, out var mUser))
+                            {
+                                <span><i class="fa fa-user mr-1"></i>@mUser.Name</span>
+                            }
+                            else
+                            {
+                                <span class="opacity-60">Unassigned</span>
+                            }
+                        </div>
+                        <span class="shrink-0 opacity-70">@ticket.CreatedAt.ToLocalTime().ToString("MMM dd")</span>
+                    </div>
+                </div>
+            </a>
+        }
     </div>
 
     <div class="toast" id="assign-toast" style="display:none;">
@@ -615,21 +687,21 @@
                         </select>
                     </div>
                 </div>
-                <div class="join">
+                <div class="join w-full sm:w-auto">
                     @{
                         var prev = Model.PageNumber > 1 ? Model.PageNumber - 1 : 1;
                         var next = (Model.PageNumber * Model.PageSize) < Model.Total ? Model.PageNumber + 1 : Model.PageNumber;
                         var baseQs = $"Query={Model.Query}&Type={Model.Type}&Status={Model.Status}&Priority={Model.Priority}&ContactQuery={Model.ContactQuery}&Mine={Model.Mine}&AssigneeUserId={Model.AssigneeUserId}&LocationId={Model.LocationId}&PageSize={Model.PageSize}";
                         var totalPages = (Model.Total + Model.PageSize - 1) / Model.PageSize;
                     }
-                    <a class="btn btn-soft join-item btn-sm @(Model.PageNumber <= 1 ? "btn-disabled" : "")" href="?@baseQs&PageNumber=@prev">
-                        <i class="fa fa-chevron-left"></i> Previous
+                    <a class="btn btn-soft join-item btn-sm flex-1 sm:flex-none min-h-11 sm:min-h-0 @(Model.PageNumber <= 1 ? "btn-disabled" : "")" href="?@baseQs&PageNumber=@prev">
+                        <i class="fa fa-chevron-left"></i> <span class="hidden sm:inline">Previous</span>
                     </a>
-                    <button class="btn btn-soft join-item btn-sm" disabled>
+                    <button class="btn btn-soft join-item btn-sm flex-1 sm:flex-none min-h-11 sm:min-h-0" disabled>
                         @Model.PageNumber / @totalPages
                     </button>
-                    <a class="btn btn-soft join-item btn-sm @(((Model.PageNumber * Model.PageSize) >= Model.Total) ? "btn-disabled" : "")" href="?@baseQs&PageNumber=@next">
-                        Next <i class="fa fa-chevron-right"></i>
+                    <a class="btn btn-soft join-item btn-sm flex-1 sm:flex-none min-h-11 sm:min-h-0 @(((Model.PageNumber * Model.PageSize) >= Model.Total) ? "btn-disabled" : "")" href="?@baseQs&PageNumber=@next">
+                        <span class="hidden sm:inline">Next</span> <i class="fa fa-chevron-right"></i>
                     </a>
                 </div>
             </div>
