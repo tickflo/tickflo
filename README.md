@@ -24,7 +24,6 @@ Tickflo is a full-featured help desk and ticketing system designed for teams tha
 
 - [.NET SDK](https://dotnet.microsoft.com/download)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
-- [dbmate](https://github.com/amacneil/dbmate#installation)
 
 ### Installation
 
@@ -49,9 +48,6 @@ docker compose up -d
 # Or if you prefer to run the app locally:
 docker compose up -d db s3
 
-# Run migrations
-dbmate up
-
 # Run the app
 dotnet run --project Tickflo.Web
 ```
@@ -65,7 +61,6 @@ Tickflo.Web/         # Razor Pages web application
 Tickflo.Core/        # Business logic & data access
 Tickflo.API/         # REST API
 Tickflo.CoreTest/    # Tests
-db/                  # Database schema & migrations
 ```
 
 **Tech Stack:**
@@ -84,10 +79,6 @@ dotnet build
 # Run tests
 dotnet test
 
-# Database migrations
-dbmate new migration_name  # Create
-dbmate up                  # Apply
-dbmate down                # Rollback
 ```
 
 ## 🤝 Contributing
