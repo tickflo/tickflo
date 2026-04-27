@@ -627,6 +627,14 @@ namespace Tickflo.Core.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by");
+
                     b.Property<string>("DefinitionJson")
                         .HasColumnType("text")
                         .HasColumnName("definition_json");
@@ -664,6 +672,14 @@ namespace Tickflo.Core.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("schedule_type");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int?>("UpdatedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("updated_by");
 
                     b.Property<int>("WorkspaceId")
                         .HasColumnType("integer")
@@ -1100,15 +1116,15 @@ namespace Tickflo.Core.Migrations
                         .HasColumnName("unit_price");
 
                     b.HasKey("Id")
-                        .HasName("pk_ticket_inventories");
+                        .HasName("pk_ticket_inventory");
 
                     b.HasIndex("InventoryId")
-                        .HasDatabaseName("ix_ticket_inventories_inventory_id");
+                        .HasDatabaseName("ix_ticket_inventory_inventory_id");
 
                     b.HasIndex("TicketId")
-                        .HasDatabaseName("ix_ticket_inventories_ticket_id");
+                        .HasDatabaseName("ix_ticket_inventory_ticket_id");
 
-                    b.ToTable("ticket_inventories", (string)null);
+                    b.ToTable("ticket_inventory", (string)null);
                 });
 
             modelBuilder.Entity("Tickflo.Core.Entities.TicketPriority", b =>
@@ -1309,6 +1325,65 @@ namespace Tickflo.Core.Migrations
                         .HasName("pk_users");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("Tickflo.Core.Entities.UserEmailChange", b =>
+                {
+                    b.Property<int>("UserId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("UserId"));
+
+                    b.Property<int>("ConfirmMaxAge")
+                        .HasColumnType("integer")
+                        .HasColumnName("confirm_max_age");
+
+                    b.Property<string>("ConfirmToken")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("confirm_token");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("NewEmail")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("new");
+
+                    b.Property<string>("OldEmail")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("old");
+
+                    b.Property<int>("UndoMaxAge")
+                        .HasColumnType("integer")
+                        .HasColumnName("undo_max_age");
+
+                    b.Property<string>("UndoToken")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("undo_token");
+
+                    b.Property<DateTime?>("UndoneAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("undone_at");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_user_email_changes");
+
+                    b.ToTable("user_email_changes", (string)null);
                 });
 
             modelBuilder.Entity("Tickflo.Core.Entities.UserNotificationPreference", b =>
@@ -1520,14 +1595,14 @@ namespace Tickflo.Core.Migrations
                         .HasForeignKey("InventoryId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_ticket_inventories_inventory_inventory_id");
+                        .HasConstraintName("fk_ticket_inventory_inventory_inventory_id");
 
                     b.HasOne("Tickflo.Core.Entities.Ticket", "Ticket")
                         .WithMany("TicketInventories")
                         .HasForeignKey("TicketId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_ticket_inventories_tickets_ticket_id");
+                        .HasConstraintName("fk_ticket_inventory_tickets_ticket_id");
 
                     b.Navigation("Inventory");
 

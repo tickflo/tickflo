@@ -91,6 +91,20 @@
                             <span>Users</span>
                         </a>
                     </li>
+                    <li>
+                        <a class="@(IsActive("/Admin/EmailLog") ? "active menu-active" : null) rounded-2xl flex items-center gap-2"
+                            asp-page="/Admin/EmailLog">
+                            <i class="fa fa-envelope"></i>
+                            <span>Email Log</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="@(IsActive("/Admin/ResetDemoData") ? "active menu-active" : null) rounded-2xl flex items-center gap-2"
+                            asp-page="/Admin/ResetDemoData">
+                            <i class="fa fa-refresh"></i>
+                            <span>Reset Demo Data</span>
+                        </a>
+                    </li>
                 }
             </ul>
         </nav>

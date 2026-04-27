@@ -130,6 +130,7 @@ builder.Services.AddScoped<IEmailSendService, EmailSendService>();
 builder.Services.AddScoped<IReportingService, ReportingService>();
 builder.Services.AddScoped<IAppContext, Tickflo.Web.AppContext>();
 builder.Services.AddScoped<IEmailLogService, EmailLogService>();
+builder.Services.AddScoped<IDemoDataSeeder, DemoDataSeeder>();
 
 // Temporary services (TODO: Move logic to Core)
 builder.Services.AddScoped<ITempTeamService, TempTeamService>();
@@ -188,6 +189,12 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<TickfloDbContext>();
     await dbContext.Database.MigrateAsync();
+
+    var demoDataSeeder = scope.ServiceProvider.GetRequiredService<IDemoDataSeeder>();
+    if (!await demoDataSeeder.DemoWorkspaceExistsAsync())
+    {
+        await demoDataSeeder.SeedDemoDataAsync();
+    }
 }
 
 if (!app.Environment.IsDevelopment())
