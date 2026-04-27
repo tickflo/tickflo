@@ -10,15 +10,16 @@
 @if (user != null)
 {
     <div class="dropdown dropdown-end">
-        <div tabindex="0" role="button" class="btn btn-soft rounded-full">
-            <div class="avatar mr-2" id="userAvatarContainer">
+        <div tabindex="0" role="button" class="btn btn-soft rounded-full pl-1 pr-2 sm:pl-2 sm:pr-3"
+             aria-label="Account menu">
+            <div class="avatar sm:mr-2" id="userAvatarContainer">
                 <div class="w-8 rounded-full ring ring-white/15 ring-offset-2 ring-offset-transparent">
                     <img src="/users/@user.Id/avatar" alt="Avatar" />
                 </div>
             </div>
-            <span class="max-w-40 truncate text-slate-100">@user.Name</span>
+            <span class="hidden sm:inline max-w-40 truncate text-slate-100">@user.Name</span>
         </div>
-        <ul class="dropdown-content menu user-menu-panel w-56 p-2">
+        <ul class="dropdown-content menu user-menu-panel w-[min(14rem,calc(100vw-1rem))] p-2">
             <li>
                 <a href="/profile" class="rounded-xl hover:bg-white/5" onclick="(e) => e.currentTarget.blur()">
                     <i class="fa fa-user"></i> Profile
@@ -34,20 +35,26 @@
             {
                 <li class="menu-title">System</li>
                 <li><a href="/system/emails">
-                        <i class="fa fa-envelope"></i>
-                        Email Log
-                    </a></li>
-            }
-            <li>
-                <form method="post" asp-page="/Logout">
-                    <button type="submit" class="rounded-xl hover:bg-white/5">
-                        <i class="fa fa-sign-out-alt"></i>
-                        Logout
-                    </button>
-                </form>
+                    <i class="fa fa-envelope"></i>
+                    Email Log
+                </a>
             </li>
-        </ul>
-    </div>
+            <li><a href="/system/reset-demo-data">
+                <i class="fa fa-refresh"></i>
+                <span>Reset Demo Data</span>
+            </a>
+        </li>
+    }
+    <li>
+        <form method="post" asp-page="/Logout">
+            <button type="submit" class="rounded-xl hover:bg-white/5">
+                <i class="fa fa-sign-out-alt"></i>
+                Logout
+            </button>
+        </form>
+    </li>
+</ul>
+</div>
 }
 else
 {

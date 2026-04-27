@@ -4,9 +4,9 @@
     ViewData["Title"] = "Ticket Details";
 }
 
-<div class="flex flex-row gap-6">
+<div class="flex flex-row gap-2 md:gap-6">
   @await Html.PartialAsync("_WorkspaceSidebar", Model.WorkspaceSlug)
-  <section class="relative overflow-hidden p-6 flex-1 space-y-6 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
+  <section class="relative overflow-hidden p-3 md:p-6 flex-1 min-w-0 space-y-4 md:space-y-6 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
 @{
   var sectionTitle = (Model.Ticket == null || Model.Ticket.Id == 0) ? "New Ticket" : "Ticket Details";
 }
@@ -358,20 +358,22 @@
             
             <div id="inventory-products-section" class="space-y-3">
               <!-- Add Inventory Controls -->
-              <div class="flex flex-wrap gap-2 items-center p-3 bg-neutral-900/80 rounded-lg border border-white/10">
-                <input id="inventory-search" class="input flex-1 min-w-[200px] bg-neutral-900/80 focus:bg-neutral-950" list="inventory-list" placeholder="Search by name or SKU..." />
-                <div class="flex items-center gap-2">
-                  <label class="text-xs text-white/60">Qty:</label>
-                  <input id="inventory-qty" type="number" min="1" value="1" class="input w-20 bg-neutral-900/80 focus:bg-neutral-950" />
-                </div>
-                <button type="button" class="btn btn-primary btn-sm" id="add-inventory-btn">
-                  <i class="fa fa-plus mr-1"></i>Add Item
-                </button>
-                <div class="ml-auto flex items-center gap-2">
-                  <span id="invoice-count" class="badge badge-ghost">0 items</span>
-                  <button type="button" class="btn btn-ghost btn-xs" id="clear-invoice-btn">
-                    <i class="fa fa-trash mr-1"></i>Clear All
+              <div class="p-3 bg-neutral-900/80 rounded-lg border border-white/10 space-y-2">
+                <input id="inventory-search" class="input w-full bg-neutral-900/80 focus:bg-neutral-950" list="inventory-list" placeholder="Search by name or SKU..." />
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="flex items-center gap-2">
+                    <label class="text-xs text-white/60" for="inventory-qty">Qty:</label>
+                    <input id="inventory-qty" type="number" min="1" value="1" class="input input-sm w-20 bg-neutral-900/80 focus:bg-neutral-950" />
+                  </div>
+                  <button type="button" class="btn btn-primary btn-sm flex-1 sm:flex-none min-h-11 sm:min-h-0" id="add-inventory-btn">
+                    <i class="fa fa-plus mr-1"></i>Add Item
                   </button>
+                  <div class="w-full sm:w-auto sm:ml-auto flex items-center justify-between sm:justify-end gap-2">
+                    <span id="invoice-count" class="badge badge-ghost">0 items</span>
+                    <button type="button" class="btn btn-ghost btn-xs" id="clear-invoice-btn">
+                      <i class="fa fa-trash mr-1"></i>Clear All
+                    </button>
+                  </div>
                 </div>
               </div>
               
@@ -387,7 +389,7 @@
                 <table class="table table-sm w-full" id="invoice-table">
                   <thead>
                     <tr class="border-b border-white/10">
-                      <th class="bg-neutral-950/50 text-white/60">SKU</th>
+                      <th class="hidden sm:table-cell bg-neutral-950/50 text-white/60">SKU</th>
                       <th class="bg-neutral-950/50 text-white/60">Item Name</th>
                       <th class="bg-neutral-950/50 text-white/60 text-center">Quantity</th>
                       <th class="bg-neutral-950/50 text-white/60 text-right">Unit Price</th>
@@ -417,12 +419,12 @@
           </div>
 
           <!-- Form Actions -->
-          <div class="flex flex-wrap gap-3 justify-end pt-4 border-t border-white/10">
+          <div class="flex flex-col-reverse sm:flex-row flex-wrap gap-2 sm:gap-3 sm:justify-end pt-4 border-t border-white/10">
             @{ var saveLabel = (Model.Ticket != null && Model.Ticket.Id > 0) ? "Update Ticket" : "Create Ticket"; }
-            <a class="btn btn-ghost" asp-page="/Workspaces/Tickets" asp-route-slug="@Model.WorkspaceSlug" asp-preserve-query>
+            <a class="btn btn-ghost w-full sm:w-auto min-h-11 sm:min-h-0" asp-page="/Workspaces/Tickets" asp-route-slug="@Model.WorkspaceSlug" asp-preserve-query>
               <i class="fa fa-times mr-1"></i>Cancel
             </a>
-            <button class="btn btn-primary" type="submit" id="ticket-save-btn" @(canSubmit ? "" : "disabled")>
+            <button class="btn btn-primary w-full sm:w-auto min-h-11 sm:min-h-0" type="submit" id="ticket-save-btn" @(canSubmit ? "" : "disabled")>
               <i class="fa @(isNewTicket ? "fa-plus" : "fa-save") mr-1"></i>@saveLabel
             </button>
           </div>
@@ -504,8 +506,8 @@
                 invoiceItems.forEach((item, idx) => {
                   const row = document.createElement('tr');
                   row.className = 'hover:bg-neutral-900/40';
-                  row.innerHTML = `<td class='font-mono text-xs'>${item.sku}</td>
-                                   <td class='font-medium'>${item.name}</td>
+                  row.innerHTML = `<td class='hidden sm:table-cell font-mono text-xs'>${item.sku}</td>
+                                   <td class='font-medium'><div>${item.name}</div><div class='sm:hidden text-xs font-mono text-white/40'>${item.sku}</div></td>
                                    <td>
                                      <div class='flex items-center justify-center gap-1'>
                                        <button type='button' class='btn btn-xs btn-ghost' data-action='dec' data-idx='${idx}'>

@@ -4,9 +4,9 @@
   ViewData["Title"] = (Model.Item == null || Model.Item.Id == 0) ? "New Inventory" : "Edit Inventory";
 }
 
-<div class="flex flex-row gap-4">
+<div class="flex flex-row gap-2 md:gap-4">
   @await Html.PartialAsync("_WorkspaceSidebar", Model.WorkspaceSlug)
-  <section class="relative overflow-hidden p-6 flex-1 space-y-8 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
+  <section class="relative overflow-hidden p-3 md:p-6 flex-1 min-w-0 space-y-6 md:space-y-8 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
 @await Html.PartialAsync("_WorkspaceHeader", new Tickflo.Web.Pages.Shared.WorkspaceHeaderView { Slug = Model.WorkspaceSlug, Name = Model.Workspace?.Name ?? "Workspace", SectionTitle = ((Model.Item == null || Model.Item.Id == 0) ? "New Inventory" : "Edit Inventory"), AllowNewAction = Model.CanCreateInventory, NewActionLabel = "New Item", NewActionHref = $"/workspaces/{Model.WorkspaceSlug}/inventory/0/edit" })
 
 <div class="card bg-neutral-900/85 backdrop-blur shadow-2xl rounded-3xl text-slate-100">

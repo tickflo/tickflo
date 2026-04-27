@@ -1,14 +1,15 @@
 @model Tickflo.Web.Pages.Shared.ActionRowView
-<div class="join md:join">
+<div class="flex flex-col gap-2 sm:flex-row sm:gap-0 sm:join w-full sm:w-auto">
   @foreach (var action in Model.Actions)
   {
+    var btnClass = $"{action.ButtonClass} sm:join-item btn-md sm:btn-sm w-full sm:w-auto min-h-11 sm:min-h-0";
     if (!string.IsNullOrWhiteSpace(action.Href) && !action.Disabled)
     {
-      <a class="@action.ButtonClass join-item btn-sm" href="@action.Href">@action.Label</a>
+      <a class="@btnClass" href="@action.Href">@action.Label</a>
     }
     else
     {
-      <button class="@action.ButtonClass join-item btn-sm" disabled>@action.Label</button>
+      <button class="@btnClass" disabled>@action.Label</button>
     }
   }
 </div>

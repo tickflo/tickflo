@@ -14,6 +14,7 @@ public class Ticket : IWorkspaceEntity
     public int? StatusId { get; set; }
     public int? AssignedUserId { get; set; }
     public int? AssignedTeamId { get; set; }
+    public string? InventoryRef { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

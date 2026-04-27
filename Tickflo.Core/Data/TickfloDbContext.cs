@@ -34,6 +34,7 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
     public DbSet<FileStorage> FileStorages => this.Set<FileStorage>();
     public DbSet<EmailTemplate> EmailTemplates => this.Set<EmailTemplate>();
     public DbSet<Email> Emails => this.Set<Email>();
+    public DbSet<UserEmailChange> UserEmailChanges => this.Set<UserEmailChange>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -90,6 +91,9 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
             .HasIndex(cl => new { cl.WorkspaceId, cl.ContactId });
 
         modelBuilder.Entity<TicketInventory>()
+            .ToTable("ticket_inventory");
+
+        modelBuilder.Entity<TicketInventory>()
             .HasOne(ti => ti.Ticket)
             .WithMany(t => t.TicketInventories)
             .HasForeignKey(ti => ti.TicketId);
@@ -98,6 +102,9 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
             .HasOne(ti => ti.Inventory)
             .WithMany()
             .HasForeignKey(ti => ti.InventoryId);
+
+        modelBuilder.Entity<Inventory>()
+            .ToTable("inventory");
 
         modelBuilder.Entity<Inventory>()
             .HasIndex(i => new { i.WorkspaceId, i.Sku })
@@ -114,6 +121,9 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
         modelBuilder.Entity<TicketType>()
             .HasIndex(t => new { t.WorkspaceId, t.Name })
             .IsUnique();
+
+        modelBuilder.Entity<TicketHistory>()
+            .ToTable("ticket_history");
 
         modelBuilder.Entity<TicketHistory>()
             .HasIndex(h => new { h.WorkspaceId, h.TicketId, h.CreatedAt });
@@ -151,14 +161,17 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
             .HasKey(unp => new { unp.UserId, unp.NotificationType });
 
         // File storage
-        modelBuilder.Entity<FileStorage>()
-            .HasIndex(fs => new { fs.WorkspaceId, fs.CreatedAt });
-        modelBuilder.Entity<FileStorage>()
-            .HasIndex(fs => new { fs.WorkspaceId, fs.Category });
-        modelBuilder.Entity<FileStorage>()
-            .HasIndex(fs => new { fs.RelatedEntityType, fs.RelatedEntityId });
-        modelBuilder.Entity<FileStorage>()
-            .HasIndex(fs => fs.Path);
+        modelBuilder.Entity<FileStorage>(entity =>
+        {
+            entity.ToTable("file_storage");
+            entity.Property(fs => fs.CreatedByUserId).HasColumnName("created_by");
+            entity.Property(fs => fs.UpdatedByUserId).HasColumnName("updated_by");
+
+            entity.HasIndex(fs => new { fs.WorkspaceId, fs.CreatedAt });
+            entity.HasIndex(fs => new { fs.WorkspaceId, fs.Category });
+            entity.HasIndex(fs => fs.Path);
+            entity.HasIndex(fs => new { fs.RelatedEntityType, fs.RelatedEntityId });
+        });
 
         modelBuilder.Entity<Email>(entity =>
         {
@@ -167,6 +180,13 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
                 .HasConversion(
                     v => JsonSerializer.Serialize(v),
                     v => JsonSerializer.Deserialize<Dictionary<string, string>>(v) ?? new Dictionary<string, string>());
+        });
+
+        modelBuilder.Entity<UserEmailChange>(entity =>
+        {
+            entity.HasKey(uec => uec.UserId);
+            entity.Property(uec => uec.OldEmail).HasColumnName("old");
+            entity.Property(uec => uec.NewEmail).HasColumnName("new");
         });
     }
 }

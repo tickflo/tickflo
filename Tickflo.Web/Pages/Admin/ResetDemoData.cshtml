@@ -1,0 +1,32 @@
+@page "/system/reset-demo-data"
+@model Tickflo.Web.Pages.Admin.ResetDemoDataModel
+@{
+    ViewData["Title"] = "Reset Demo Data";
+}
+
+<h1 class="text-2xl font-bold mb-6">Reset Demo Data</h1>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success mb-4">
+        <span>@TempData["SuccessMessage"]</span>
+    </div>
+}
+
+<div class="card bg-base-100 shadow max-w-lg">
+    <div class="card-body">
+        <p class="mb-4">
+            This will <strong>delete all data</strong> in the demo workspaces
+            (<code>tickflo-demo</code>, <code>techstart</code>, <code>global-services</code>)
+            and re-insert the original seed data.
+        </p>
+        <p class="mb-6 text-warning font-semibold">This action cannot be undone.</p>
+
+        <form method="post">
+            <div class="flex gap-3">
+                <button type="submit" class="btn btn-error">Yes, Reset Demo Data</button>
+                <a href="/" class="btn btn-ghost">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
