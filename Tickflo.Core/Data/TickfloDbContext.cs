@@ -151,14 +151,17 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
             .HasKey(unp => new { unp.UserId, unp.NotificationType });
 
         // File storage
-        modelBuilder.Entity<FileStorage>()
-            .HasIndex(fs => new { fs.WorkspaceId, fs.CreatedAt });
-        modelBuilder.Entity<FileStorage>()
-            .HasIndex(fs => new { fs.WorkspaceId, fs.Category });
-        modelBuilder.Entity<FileStorage>()
-            .HasIndex(fs => new { fs.RelatedEntityType, fs.RelatedEntityId });
-        modelBuilder.Entity<FileStorage>()
-            .HasIndex(fs => fs.Path);
+        modelBuilder.Entity<FileStorage>(entity =>
+        {
+            entity.ToTable("file_storage");
+            entity.Property(fs => fs.CreatedByUserId).HasColumnName("created_by");
+            entity.Property(fs => fs.UpdatedByUserId).HasColumnName("updated_by");
+
+            entity.HasIndex(fs => new { fs.WorkspaceId, fs.CreatedAt });
+            entity.HasIndex(fs => new { fs.WorkspaceId, fs.Category });
+            entity.HasIndex(fs => fs.Path);
+            entity.HasIndex(fs => new { fs.RelatedEntityType, fs.RelatedEntityId });
+        });
 
         modelBuilder.Entity<Email>(entity =>
         {

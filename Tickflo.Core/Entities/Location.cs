@@ -8,4 +8,8 @@ public class Location
     public string Address { get; set; } = string.Empty;
     public bool Active { get; set; } = true;
     public int? DefaultAssigneeUserId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public int? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public int? UpdatedBy { get; set; }
 }

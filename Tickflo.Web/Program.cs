@@ -184,6 +184,12 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<TickfloDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
