@@ -267,10 +267,10 @@ Avoid:
 
 ## Schema changes
 
-* **NEVER** change existing migration files that have been merged (assume anything on `dev` is merged/immutable).
-* **Always** create new migrations for schema changes (do not "fix" old migrations).
-* Migrations must follow **dbmate migration format**.
-* It's okay to edit migrations **only** if they were created on the current branch and have not been merged.
+* Use **Entity Framework Core migrations** for all schema changes
+* Create a new migration with `dotnet ef migrations add MigrationName --project Tickflo.Core --startup-project Tickflo.Web`
+* Apply migrations with `dotnet ef database update --project Tickflo.Core --startup-project Tickflo.Web`
+* Never edit an already-applied migration — always create a new one
 
 ---
 
@@ -334,7 +334,7 @@ MethodName_WhenCondition_ShouldExpectedOutcome
 * Large static helper classes
 * Overly generic abstractions
 * Hard-coded domain/system strings where an enum or reference table is appropriate
-* Editing merged migrations instead of creating a new dbmate-format migration
+* Editing already-applied EF Core migrations instead of creating a new one
 
 ---
 

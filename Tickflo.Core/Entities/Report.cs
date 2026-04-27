@@ -8,6 +8,11 @@ public class Report : IWorkspaceEntity
     public bool Ready { get; set; }
     public DateTime? LastRun { get; set; }
 
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public int? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public int? UpdatedBy { get; set; }
+
     // JSON definition describing data source, fields, filters, ordering
     public string? DefinitionJson { get; set; }
 

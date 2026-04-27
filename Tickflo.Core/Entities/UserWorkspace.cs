@@ -9,5 +9,6 @@ public class UserWorkspace
     public int CreatedBy { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public int? UpdatedBy { get; set; }
+    public string Role { get; set; } = "Member";
     public Workspace Workspace { get; set; } = null!;
 }

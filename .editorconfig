@@ -435,3 +435,10 @@ dotnet_diagnostic.CA2254.severity = none
 # CA1707 ("Remove the underscores from member name") conflicts with this project convention.
 [*Tests.cs]
 dotnet_diagnostic.CA1707.severity = none
+##########################################
+# Generated Migrations
+##########################################
+
+# CA1861: EF Core generates inline array literals in migration files (generated code).
+[**/Migrations/*.cs]
+dotnet_diagnostic.CA1861.severity = none
