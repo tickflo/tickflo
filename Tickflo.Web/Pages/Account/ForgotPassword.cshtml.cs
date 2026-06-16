@@ -33,7 +33,7 @@ public class ForgotPasswordModel(IPasswordResetRequestService passwordResetReque
             this.Submitted = true;
             return this.Page();
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             this.ErrorMessage = ex.Message;
             return this.Page();
