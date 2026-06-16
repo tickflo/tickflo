@@ -10,15 +10,14 @@ public partial class SeedForgotPasswordEmailTemplate : Migration
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        // Existing rows pre-date the TokenType concept. Default them
-        // all to Login (1) so the auth middleware can still resolve
-        // them as session tokens.
-        migrationBuilder.AddColumn<int>(
-            name: "type_id",
+        // The session-token middleware looks tokens up by value on every
+        // authenticated request. The composite PK (user_id, token) does
+        // not help that query, so add a unique index on the value column.
+        migrationBuilder.CreateIndex(
+            name: "ix_tokens_token",
             table: "tokens",
-            type: "integer",
-            nullable: false,
-            defaultValue: 1);
+            column: "token",
+            unique: true);
 
         migrationBuilder.InsertData(
             table: "email_templates",
@@ -43,8 +42,8 @@ public partial class SeedForgotPasswordEmailTemplate : Migration
     {
         migrationBuilder.Sql("DELETE FROM email_templates WHERE template_type_id = 2 AND version = 1;");
 
-        migrationBuilder.DropColumn(
-            name: "type_id",
+        migrationBuilder.DropIndex(
+            name: "ix_tokens_token",
             table: "tokens");
     }
 }

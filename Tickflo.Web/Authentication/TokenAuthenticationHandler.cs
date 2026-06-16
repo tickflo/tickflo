@@ -44,6 +44,21 @@ public class TokenAuthenticationHandler(
             return AuthenticateResult.Fail("Token expired");
         }
 
+        // Invalidate tokens issued before the user was last updated. This
+        // covers both the password-reset use case (SetPasswordWithTokenAsync
+        // bumps user.UpdatedAt when the token is consumed) and any other
+        // user-profile change that should kick every active session.
+        var user = await this.db.Users.FindAsync(token.UserId);
+        if (user == null)
+        {
+            return AuthenticateResult.Fail("Invalid token");
+        }
+
+        if (user.UpdatedAt.HasValue && token.CreatedAt <= user.UpdatedAt.Value)
+        {
+            return AuthenticateResult.Fail("Token invalidated by user update");
+        }
+
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, $"{token.UserId}"),

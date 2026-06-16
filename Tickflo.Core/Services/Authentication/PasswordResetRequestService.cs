@@ -43,17 +43,13 @@ public class PasswordResetRequestService(
             return;
         }
 
-        // Invalidate any prior password-reset tokens for this user.
-        // Session (Login) tokens are deliberately left alone.
-        var priorResetTokens = await this.dbContext.Tokens
-            .Where(t => t.UserId == user.Id && t.TypeId == (int)TokenType.PasswordReset)
-            .ToListAsync();
-        if (priorResetTokens.Count > 0)
-        {
-            this.dbContext.Tokens.RemoveRange(priorResetTokens);
-        }
-
-        var resetToken = new Token(user.Id, ResetTokenMaxAgeInSeconds, TokenType.PasswordReset);
+        // Any prior password-reset token is implicitly invalidated the
+        // moment the user successfully sets a new password (that flow
+        // bumps user.UpdatedAt, and ValidateResetTokenAsync rejects any
+        // token older than that timestamp). We do not have to delete the
+        // old row here — the new token has a unique Value, and the old
+        // one will fail validation as soon as a successful reset occurs.
+        var resetToken = new Token(user.Id, ResetTokenMaxAgeInSeconds);
         await this.dbContext.Tokens.AddAsync(resetToken);
         await this.dbContext.SaveChangesAsync();
 

@@ -34,7 +34,7 @@ public class PasswordSetupService(
         }
 
         var token = await this.dbContext.Tokens
-            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
+            .FirstOrDefaultAsync(t => t.Value == tokenValue);
         if (token == null)
         {
             return new TokenValidationResult(false, "Invalid or expired token.", null, null);
@@ -42,8 +42,6 @@ public class PasswordSetupService(
 
         if (DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
         {
-            this.dbContext.Tokens.Remove(token);
-            await this.dbContext.SaveChangesAsync();
             return new TokenValidationResult(false, "Reset link has expired.", null, null);
         }
 
@@ -51,6 +49,15 @@ public class PasswordSetupService(
         if (user == null)
         {
             return new TokenValidationResult(false, "User not found.", null, null);
+        }
+
+        // A successful password reset bumps user.UpdatedAt (see
+        // SetPasswordWithTokenAsync). If this token is older than that
+        // bump, the user has already reset their password using some
+        // other token, and this one is stale.
+        if (user.UpdatedAt.HasValue && token.CreatedAt <= user.UpdatedAt.Value)
+        {
+            return new TokenValidationResult(false, "Reset link has already been used.", null, null);
         }
 
         return new TokenValidationResult(true, null, user.Id, user.Email);
@@ -98,10 +105,15 @@ public class PasswordSetupService(
 
         // Re-fetch the token to avoid a stale read between validation and use.
         var token = await this.dbContext.Tokens
-            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
+            .FirstOrDefaultAsync(t => t.Value == tokenValue);
         if (token == null || DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
         {
             return new SetPasswordResult(false, "Invalid or expired token.", null, null, user.Id, user.Email);
+        }
+
+        if (user.UpdatedAt.HasValue && token.CreatedAt <= user.UpdatedAt.Value)
+        {
+            return new SetPasswordResult(false, "Reset link has already been used.", null, null, user.Id, user.Email);
         }
 
         var passwordHash = this.passwordHasher.Hash($"{user.Email}{newPassword}");
@@ -109,11 +121,11 @@ public class PasswordSetupService(
         user.UpdatedAt = DateTime.UtcNow;
         this.dbContext.Users.Update(user);
 
-        // Consume the reset token so it cannot be reused.
-        this.dbContext.Tokens.Remove(token);
-
         // Issue a fresh session token so the caller can log the user in.
-        var sessionToken = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60, TokenType.Login);
+        // The reset token itself is left in place: it is now stale because
+        // user.UpdatedAt > token.CreatedAt, and the unique index on Value
+        // means we never issue a colliding one.
+        var sessionToken = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
         await this.dbContext.Tokens.AddAsync(sessionToken);
 
         string? workspaceSlug = null;
@@ -151,7 +163,7 @@ public class PasswordSetupService(
         user.UpdatedAt = DateTime.UtcNow;
         this.dbContext.Users.Update(user);
 
-        var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60, TokenType.Login);
+        var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
         await this.dbContext.Tokens.AddAsync(token);
 
         string? workspaceSlug = null;

@@ -1260,12 +1260,12 @@ namespace Tickflo.Core.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("max_age");
 
-                    b.Property<int>("TypeId")
-                        .HasColumnType("integer")
-                        .HasColumnName("type_id");
-
                     b.HasKey("UserId", "Value")
                         .HasName("pk_tokens");
+
+                    b.HasIndex("Value")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tokens_token");
 
                     b.ToTable("tokens", (string)null);
                 });

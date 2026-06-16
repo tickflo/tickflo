@@ -58,14 +58,13 @@ public class PasswordResetRequestServiceTests
 
         var token = await databaseContext.Tokens.SingleAsync();
         Assert.Equal(user.Id, token.UserId);
-        Assert.Equal((int)TokenType.PasswordReset, token.TypeId);
         Assert.False(string.IsNullOrWhiteSpace(token.Value));
         Assert.True(token.MaxAge > 0);
 
         Assert.NotNull(capturedValues);
-        Assert.Equal("Demo Admin", capturedValues["recipient_name"]);
-        Assert.Equal($"https://localhost:7182/account/reset-password?token={token.Value}", capturedValues["reset_link"]);
-        Assert.Equal("1 hour", capturedValues["expires_in"]);
+        Assert.Equal("Demo Admin", capturedValues!["recipient_name"]);
+        Assert.Equal($"https://localhost:7182/account/reset-password?token={token.Value}", capturedValues!["reset_link"]);
+        Assert.Equal("1 hour", capturedValues!["expires_in"]);
 
         emailSendService.Verify(
             service => service.AddToQueueAsync(user.Email, EmailTemplateType.ForgotPassword, It.IsAny<Dictionary<string, string>>(), user.Id),
@@ -73,14 +72,18 @@ public class PasswordResetRequestServiceTests
     }
 
     [Fact]
-    public async Task RequestPasswordResetAsync_WhenUserAlreadyHasResetToken_ShouldReplaceItWithNewOne()
+    public async Task RequestPasswordResetAsync_WhenUserAlreadyHasResetToken_ShouldStillCreateNewTokenAndLeaveOldRowInPlace()
     {
+        // v2: we do not delete the prior reset token row when issuing a new
+        // one. The old row becomes inert as soon as the user successfully
+        // resets their password (user.UpdatedAt > old.CreatedAt invalidates
+        // the old token in ValidateResetTokenAsync).
         await using var databaseContext = CreateDatabaseContext();
         var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash");
         databaseContext.Users.Add(user);
         await databaseContext.SaveChangesAsync();
 
-        databaseContext.Tokens.Add(new Token(user.Id, 3600, TokenType.PasswordReset));
+        databaseContext.Tokens.Add(new Token(user.Id, 3600));
         await databaseContext.SaveChangesAsync();
         var oldToken = await databaseContext.Tokens.SingleAsync();
 
@@ -95,11 +98,11 @@ public class PasswordResetRequestServiceTests
 
         await service.RequestPasswordResetAsync("admin@demo.com");
 
-        var resetTokens = await databaseContext.Tokens
-            .Where(token => token.UserId == user.Id && token.TypeId == (int)TokenType.PasswordReset)
+        var tokensForUser = await databaseContext.Tokens
+            .Where(token => token.UserId == user.Id)
             .ToListAsync();
-        Assert.Single(resetTokens);
-        Assert.DoesNotContain(resetTokens, token => token.Value == oldToken.Value);
+        Assert.Equal(2, tokensForUser.Count);
+        Assert.Contains(tokensForUser, token => token.Value == oldToken.Value);
     }
 
     [Fact]
@@ -110,8 +113,9 @@ public class PasswordResetRequestServiceTests
         databaseContext.Users.Add(user);
         await databaseContext.SaveChangesAsync();
 
-        // An active browser session token for the same user.
-        var activeSession = new Token(user.Id, 1800, TokenType.Login);
+        // An active browser session token for the same user. The reset
+        // request flow must not touch it.
+        var activeSession = new Token(user.Id, 1800);
         databaseContext.Tokens.Add(activeSession);
         await databaseContext.SaveChangesAsync();
 
@@ -127,7 +131,7 @@ public class PasswordResetRequestServiceTests
         await service.RequestPasswordResetAsync("admin@demo.com");
 
         var sessionStillExists = await databaseContext.Tokens
-            .AnyAsync(token => token.UserId == user.Id && token.TypeId == (int)TokenType.Login && token.Value == activeSession.Value);
+            .AnyAsync(token => token.UserId == user.Id && token.Value == activeSession.Value);
         Assert.True(sessionStillExists);
     }
 
@@ -154,11 +158,6 @@ public class PasswordResetRequestServiceTests
 
         await service.RequestPasswordResetAsync("admin@demo.com");
 
-        var token = await databaseContext.Tokens.SingleAsync();
-        // Origin fallback is wired into IRequestOriginService, not the reset
-        // service. This test just asserts the email was sent with the
-        // origin-derived link the request origin service emitted (null in
-        // this case, which the renderer would replace upstream).
         emailSendService.Verify(
             service => service.AddToQueueAsync(
                 user.Email,
@@ -180,7 +179,7 @@ public class PasswordResetRequestServiceTests
         await databaseContext.SaveChangesAsync();
 
         // Manually create an already-expired token (2h old, max 60s).
-        var expiredToken = new Token(user.Id, 60, TokenType.PasswordReset);
+        var expiredToken = new Token(user.Id, 60);
         databaseContext.Tokens.Add(expiredToken);
         await databaseContext.SaveChangesAsync();
         expiredToken.CreatedAt = DateTime.UtcNow.AddHours(-2);
@@ -202,7 +201,7 @@ public class PasswordResetRequestServiceTests
     }
 
     [Fact]
-    public async Task SetPasswordWithTokenAsync_WhenTokenIsValid_ShouldPersistPasswordIssueLoginTokenAndDeleteResetToken()
+    public async Task SetPasswordWithTokenAsync_WhenTokenIsValid_ShouldPersistPasswordAndIssueLoginToken()
     {
         await using var databaseContext = CreateDatabaseContext();
         var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash")
@@ -228,7 +227,7 @@ public class PasswordResetRequestServiceTests
         });
         await databaseContext.SaveChangesAsync();
 
-        var token = new Token(user.Id, 3600, TokenType.PasswordReset);
+        var token = new Token(user.Id, 3600);
         databaseContext.Tokens.Add(token);
         await databaseContext.SaveChangesAsync();
 
@@ -246,12 +245,12 @@ public class PasswordResetRequestServiceTests
         var persistedUser = await databaseContext.Users.FindAsync(user.Id);
         Assert.NotNull(persistedUser?.PasswordHash);
 
-        var resetTokenStillExists = await databaseContext.Tokens
-            .AnyAsync(existing => existing.TypeId == (int)TokenType.PasswordReset && existing.Value == token.Value);
-        Assert.False(resetTokenStillExists);
-
+        // The reset token is left in place; what changes is that user.UpdatedAt
+        // is now greater than the token's CreatedAt, so it is implicitly
+        // invalidated. Verify a second use fails with the "already been used"
+        // message and that the login token is the one returned to the caller.
         var loginTokenPersisted = await databaseContext.Tokens.AnyAsync(existing =>
-            existing.UserId == user.Id && existing.TypeId == (int)TokenType.Login && existing.Value == result.LoginToken);
+            existing.UserId == user.Id && existing.Value == result.LoginToken);
         Assert.True(loginTokenPersisted);
     }
 
@@ -266,7 +265,7 @@ public class PasswordResetRequestServiceTests
         databaseContext.Users.Add(user);
         await databaseContext.SaveChangesAsync();
 
-        var token = new Token(user.Id, 3600, TokenType.PasswordReset);
+        var token = new Token(user.Id, 3600);
         databaseContext.Tokens.Add(token);
         await databaseContext.SaveChangesAsync();
 
@@ -280,6 +279,7 @@ public class PasswordResetRequestServiceTests
 
         var secondResult = await service.SetPasswordWithTokenAsync(token.Value, "second-password");
         Assert.False(secondResult.Success);
+        Assert.Contains("already been used", secondResult.ErrorMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -293,13 +293,13 @@ public class PasswordResetRequestServiceTests
         databaseContext.Users.Add(user);
         await databaseContext.SaveChangesAsync();
 
-        // An existing session token (Login) for the same user — this
-        // represents an active browser session we MUST NOT touch.
-        var activeSession = new Token(user.Id, 1800, TokenType.Login);
+        // An existing session token for the same user — this represents an
+        // active browser session we MUST NOT touch.
+        var activeSession = new Token(user.Id, 1800);
         databaseContext.Tokens.Add(activeSession);
         await databaseContext.SaveChangesAsync();
 
-        var resetToken = new Token(user.Id, 3600, TokenType.PasswordReset);
+        var resetToken = new Token(user.Id, 3600);
         databaseContext.Tokens.Add(resetToken);
         await databaseContext.SaveChangesAsync();
 
@@ -310,9 +310,17 @@ public class PasswordResetRequestServiceTests
 
         await service.SetPasswordWithTokenAsync(resetToken.Value, "new-password");
 
+        // The session token should still exist, but it should now be
+        // invalid because the password reset bumped user.UpdatedAt past
+        // its CreatedAt. The TokenAuthenticationHandler enforces that
+        // invalidation at request time.
         var sessionStillExists = await databaseContext.Tokens
-            .AnyAsync(token => token.UserId == user.Id && token.TypeId == (int)TokenType.Login && token.Value == activeSession.Value);
+            .AnyAsync(token => token.UserId == user.Id && token.Value == activeSession.Value);
         Assert.True(sessionStillExists);
+
+        var persistedUser = await databaseContext.Users.FindAsync(user.Id);
+        Assert.NotNull(persistedUser?.UpdatedAt);
+        Assert.True(persistedUser!.UpdatedAt > activeSession.CreatedAt);
     }
 
     private static TickfloDbContext CreateDatabaseContext()
