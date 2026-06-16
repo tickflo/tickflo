@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+
 public record TokenValidationResult(bool IsValid, string? ErrorMessage, int? UserId, string? UserEmail);
 public record SetPasswordResult(bool Success, string? ErrorMessage, string? LoginToken, string? WorkspaceSlug, int? UserId, string? UserEmail);
 
@@ -15,12 +16,11 @@ public interface IPasswordSetupService
     public Task<SetPasswordResult> SetInitialPasswordAsync(int userId, string newPassword);
 }
 
-
 public class PasswordSetupService(
     TickfloDbContext dbContext,
     TickfloConfig tickfloConfig,
-    IPasswordHasher passwordHasher
-    ) : IPasswordSetupService
+    IPasswordHasher passwordHasher)
+    : IPasswordSetupService
 {
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly TickfloConfig tickfloConfig = tickfloConfig;
@@ -33,10 +33,18 @@ public class PasswordSetupService(
             return new TokenValidationResult(false, "Missing token.", null, null);
         }
 
-        var token = await this.dbContext.Tokens.FirstOrDefaultAsync(t => t.Value == tokenValue);
+        var token = await this.dbContext.Tokens
+            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
         if (token == null)
         {
             return new TokenValidationResult(false, "Invalid or expired token.", null, null);
+        }
+
+        if (DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
+        {
+            this.dbContext.Tokens.Remove(token);
+            await this.dbContext.SaveChangesAsync();
+            return new TokenValidationResult(false, "Reset link has expired.", null, null);
         }
 
         var user = await this.dbContext.Users.FindAsync(token.UserId);
@@ -88,13 +96,36 @@ public class PasswordSetupService(
             return new SetPasswordResult(false, "User not found.", null, null, null, null);
         }
 
+        // Re-fetch the token to avoid a stale read between validation and use.
+        var token = await this.dbContext.Tokens
+            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
+        if (token == null || DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
+        {
+            return new SetPasswordResult(false, "Invalid or expired token.", null, null, user.Id, user.Email);
+        }
+
         var passwordHash = this.passwordHasher.Hash($"{user.Email}{newPassword}");
         user.PasswordHash = passwordHash;
         user.UpdatedAt = DateTime.UtcNow;
         this.dbContext.Users.Update(user);
+
+        // Consume the reset token so it cannot be reused.
+        this.dbContext.Tokens.Remove(token);
+
+        // Issue a fresh session token so the caller can log the user in.
+        var sessionToken = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60, TokenType.Login);
+        await this.dbContext.Tokens.AddAsync(sessionToken);
+
+        string? workspaceSlug = null;
+        var userWorkspace = await this.dbContext.UserWorkspaces.Include(w => w.Workspace).FirstOrDefaultAsync(w => w.UserId == user.Id && w.Accepted);
+        if (userWorkspace != null)
+        {
+            workspaceSlug = userWorkspace.Workspace.Slug;
+        }
+
         await this.dbContext.SaveChangesAsync();
 
-        return new SetPasswordResult(true, null, null, null, user.Id, user.Email);
+        return new SetPasswordResult(true, null, sessionToken.Value, workspaceSlug, user.Id, user.Email);
     }
 
     public async Task<SetPasswordResult> SetInitialPasswordAsync(int userId, string newPassword)
@@ -120,7 +151,7 @@ public class PasswordSetupService(
         user.UpdatedAt = DateTime.UtcNow;
         this.dbContext.Users.Update(user);
 
-        var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
+        var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60, TokenType.Login);
         await this.dbContext.Tokens.AddAsync(token);
 
         string? workspaceSlug = null;
@@ -135,5 +166,3 @@ public class PasswordSetupService(
         return new SetPasswordResult(true, null, token.Value, workspaceSlug, user.Id, user.Email);
     }
 }
-
-

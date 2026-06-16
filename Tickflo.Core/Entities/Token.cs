@@ -11,7 +11,17 @@ public class Token
     public string Value { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
     public int MaxAge { get; set; }
+
+    public int TypeId { get; set; } = (int)TokenType.Login;
+
+    [NotMapped]
+    public TokenType Type
+    {
+        get => (TokenType)this.TypeId;
+        set => this.TypeId = (int)value;
+    }
 
     private Token()
     {
@@ -22,5 +32,13 @@ public class Token
         this.UserId = userId;
         this.Value = SecureTokenGenerator.GenerateToken(16);
         this.MaxAge = maxAgeInSeconds;
+    }
+
+    public Token(int userId, int maxAgeInSeconds, TokenType type)
+    {
+        this.UserId = userId;
+        this.Value = SecureTokenGenerator.GenerateToken(16);
+        this.MaxAge = maxAgeInSeconds;
+        this.TypeId = (int)type;
     }
 }
