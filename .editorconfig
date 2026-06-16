@@ -442,3 +442,16 @@ dotnet_diagnostic.CA1707.severity = none
 # CA1861: EF Core generates inline array literals in migration files (generated code).
 [**/Migrations/*.cs]
 dotnet_diagnostic.CA1861.severity = none
+
+##########################################
+# Sync-Method Suggestions
+##########################################
+
+# IDE0390 / IDE0391: "Method can be made synchronous" / "Method can be made synchronous (and can be made non-static)".
+# These fire on a handful of legacy one-line async methods that throw NotImplementedException or return constant
+# results. The newer .NET SDK (10.0.9+) auto-fixes them with awkward patterns like
+# `Task.FromResult<T>(throw new NotImplementedException(...))` (C# 13 throw expressions), which we don't want
+# in the codebase. Suppress the diagnostics; keep IDE0290 (Make method async) on, which is the useful direction.
+[*.{cs,csx,cake}]
+dotnet_diagnostic.IDE0390.severity = none
+dotnet_diagnostic.IDE0391.severity = none
