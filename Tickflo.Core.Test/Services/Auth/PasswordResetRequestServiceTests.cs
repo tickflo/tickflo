@@ -62,9 +62,9 @@ public class PasswordResetRequestServiceTests
         Assert.True(token.MaxAge > 0);
 
         Assert.NotNull(capturedValues);
-        Assert.Equal("Demo Admin", capturedValues!["recipient_name"]);
-        Assert.Equal($"https://localhost:7182/account/reset-password?token={token.Value}", capturedValues!["reset_link"]);
-        Assert.Equal("1 hour", capturedValues!["expires_in"]);
+        Assert.Equal("Demo Admin", capturedValues["recipient_name"]);
+        Assert.Equal($"https://localhost:7182/account/reset-password?token={token.Value}", capturedValues["reset_link"]);
+        Assert.Equal("1 hour", capturedValues["expires_in"]);
 
         emailSendService.Verify(
             service => service.AddToQueueAsync(user.Email, EmailTemplateType.ForgotPassword, It.IsAny<Dictionary<string, string>>(), user.Id),
@@ -320,7 +320,7 @@ public class PasswordResetRequestServiceTests
 
         var persistedUser = await databaseContext.Users.FindAsync(user.Id);
         Assert.NotNull(persistedUser?.UpdatedAt);
-        Assert.True(persistedUser!.UpdatedAt > activeSession.CreatedAt);
+        Assert.True(persistedUser.UpdatedAt > activeSession.CreatedAt);
     }
 
     private static TickfloDbContext CreateDatabaseContext()
