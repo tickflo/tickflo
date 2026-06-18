@@ -22,7 +22,8 @@ public class PasswordResetRequestServiceTests
         var service = new PasswordResetRequestService(
             databaseContext,
             emailSendService.Object,
-            requestOriginService.Object);
+            requestOriginService.Object,
+            new TickfloConfig());
 
         await service.RequestPasswordResetAsync("nobody@example.com");
 
@@ -52,7 +53,8 @@ public class PasswordResetRequestServiceTests
         var service = new PasswordResetRequestService(
             databaseContext,
             emailSendService.Object,
-            requestOriginService.Object);
+            requestOriginService.Object,
+            new TickfloConfig());
 
         await service.RequestPasswordResetAsync("admin@demo.com");
 
@@ -94,7 +96,8 @@ public class PasswordResetRequestServiceTests
         var service = new PasswordResetRequestService(
             databaseContext,
             emailSendService.Object,
-            requestOriginService.Object);
+            requestOriginService.Object,
+            new TickfloConfig());
 
         await service.RequestPasswordResetAsync("admin@demo.com");
 
@@ -126,7 +129,8 @@ public class PasswordResetRequestServiceTests
         var service = new PasswordResetRequestService(
             databaseContext,
             emailSendService.Object,
-            requestOriginService.Object);
+            requestOriginService.Object,
+            new TickfloConfig());
 
         await service.RequestPasswordResetAsync("admin@demo.com");
 
@@ -147,14 +151,15 @@ public class PasswordResetRequestServiceTests
         var requestOriginService = new Mock<IRequestOriginService>();
         requestOriginService.Setup(service => service.GetCurrentOrigin()).Returns((string?)null!);
 
-        // TickfloConfig is owned by the request origin service in this code
-        // path; when GetCurrentOrigin returns null the service should fall
-        // back to the config-supplied BaseUrl. (The service is constructed
-        // without a TickfloConfig dependency on purpose.)
+        // When GetCurrentOrigin returns null the origin fallback is not
+        // yet implemented — the reset link will start with a null origin.
+        // This test verifies the code doesn't crash and the email is still
+        // enqueued, even with a broken origin.
         var service = new PasswordResetRequestService(
             databaseContext,
             emailSendService.Object,
-            requestOriginService.Object);
+            requestOriginService.Object,
+            new TickfloConfig());
 
         await service.RequestPasswordResetAsync("admin@demo.com");
 
@@ -179,7 +184,7 @@ public class PasswordResetRequestServiceTests
         await databaseContext.SaveChangesAsync();
 
         // Manually create an already-expired token (2h old, max 60s).
-        var expiredToken = new Token(user.Id, 60);
+        var expiredToken = new Token(user.Id, 60, TokenType.PasswordReset);
         databaseContext.Tokens.Add(expiredToken);
         await databaseContext.SaveChangesAsync();
         expiredToken.CreatedAt = DateTime.UtcNow.AddHours(-2);
@@ -189,7 +194,8 @@ public class PasswordResetRequestServiceTests
         var service = new PasswordSetupService(
             databaseContext,
             new TickfloConfig { SessionTimeoutMinutes = 20 },
-            new Argon2idPasswordHasher());
+            new Argon2idPasswordHasher(),
+            new PasswordValidationService());
 
         var result = await service.SetPasswordWithTokenAsync(expiredToken.Value, "new-password");
 
@@ -227,14 +233,15 @@ public class PasswordResetRequestServiceTests
         });
         await databaseContext.SaveChangesAsync();
 
-        var token = new Token(user.Id, 3600);
+        var token = new Token(user.Id, 3600, TokenType.PasswordReset);
         databaseContext.Tokens.Add(token);
         await databaseContext.SaveChangesAsync();
 
         var service = new PasswordSetupService(
             databaseContext,
             new TickfloConfig { SessionTimeoutMinutes = 20 },
-            new Argon2idPasswordHasher());
+            new Argon2idPasswordHasher(),
+            new PasswordValidationService());
 
         var result = await service.SetPasswordWithTokenAsync(token.Value, "new-password");
 
@@ -265,14 +272,15 @@ public class PasswordResetRequestServiceTests
         databaseContext.Users.Add(user);
         await databaseContext.SaveChangesAsync();
 
-        var token = new Token(user.Id, 3600);
+        var token = new Token(user.Id, 3600, TokenType.PasswordReset);
         databaseContext.Tokens.Add(token);
         await databaseContext.SaveChangesAsync();
 
         var service = new PasswordSetupService(
             databaseContext,
             new TickfloConfig { SessionTimeoutMinutes = 20 },
-            new Argon2idPasswordHasher());
+            new Argon2idPasswordHasher(),
+            new PasswordValidationService());
 
         var firstResult = await service.SetPasswordWithTokenAsync(token.Value, "first-password");
         Assert.True(firstResult.Success);
@@ -299,14 +307,15 @@ public class PasswordResetRequestServiceTests
         databaseContext.Tokens.Add(activeSession);
         await databaseContext.SaveChangesAsync();
 
-        var resetToken = new Token(user.Id, 3600);
+        var resetToken = new Token(user.Id, 3600, TokenType.PasswordReset);
         databaseContext.Tokens.Add(resetToken);
         await databaseContext.SaveChangesAsync();
 
         var service = new PasswordSetupService(
             databaseContext,
             new TickfloConfig { SessionTimeoutMinutes = 20 },
-            new Argon2idPasswordHasher());
+            new Argon2idPasswordHasher(),
+            new PasswordValidationService());
 
         await service.SetPasswordWithTokenAsync(resetToken.Value, "new-password");
 

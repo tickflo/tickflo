@@ -45,7 +45,8 @@ public class PasswordSetupServiceTests
         var passwordSetupService = new PasswordSetupService(
             databaseContext,
             new TickfloConfig { SessionTimeoutMinutes = 20 },
-            new Argon2idPasswordHasher());
+            new Argon2idPasswordHasher(),
+            new PasswordValidationService());
 
         var result = await passwordSetupService.SetInitialPasswordAsync(user.Id, "demo-password");
 

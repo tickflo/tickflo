@@ -14,6 +14,15 @@ public class Token
 
     public int MaxAge { get; set; }
 
+    public int TypeId { get; set; } = (int)TokenType.Session;
+
+    [NotMapped]
+    public TokenType Type
+    {
+        get => (TokenType)this.TypeId;
+        set => this.TypeId = (int)value;
+    }
+
     private Token()
     {
     }
@@ -23,5 +32,21 @@ public class Token
         this.UserId = userId;
         this.Value = SecureTokenGenerator.GenerateToken(16);
         this.MaxAge = maxAgeInSeconds;
+    }
+
+    public Token(int userId, int maxAgeInSeconds, TokenType type)
+    {
+        this.UserId = userId;
+        this.Value = SecureTokenGenerator.GenerateToken(16);
+        this.MaxAge = maxAgeInSeconds;
+        this.TypeId = (int)type;
+    }
+
+    public Token(int userId, int maxAgeInSeconds, TokenType type, int tokenByteLength)
+    {
+        this.UserId = userId;
+        this.Value = SecureTokenGenerator.GenerateToken(tokenByteLength);
+        this.MaxAge = maxAgeInSeconds;
+        this.TypeId = (int)type;
     }
 }

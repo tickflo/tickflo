@@ -19,12 +19,14 @@ public interface IPasswordSetupService
 public class PasswordSetupService(
     TickfloDbContext dbContext,
     TickfloConfig tickfloConfig,
-    IPasswordHasher passwordHasher)
+    IPasswordHasher passwordHasher,
+    IPasswordValidationService passwordValidationService)
     : IPasswordSetupService
 {
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly TickfloConfig tickfloConfig = tickfloConfig;
     private readonly IPasswordHasher passwordHasher = passwordHasher;
+    private readonly IPasswordValidationService passwordValidationService = passwordValidationService;
 
     public async Task<TokenValidationResult> ValidateResetTokenAsync(string tokenValue)
     {
@@ -34,7 +36,7 @@ public class PasswordSetupService(
         }
 
         var token = await this.dbContext.Tokens
-            .FirstOrDefaultAsync(t => t.Value == tokenValue);
+            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
         if (token == null)
         {
             return new TokenValidationResult(false, "Invalid or expired token.", null, null);
@@ -92,9 +94,10 @@ public class PasswordSetupService(
             return new SetPasswordResult(false, validation.ErrorMessage, null, null, null, null);
         }
 
-        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        var passwordValidation = this.passwordValidationService.Validate(newPassword);
+        if (!passwordValidation.IsValid)
         {
-            return new SetPasswordResult(false, "Password must be at least 8 characters long.", null, null, validation.UserId, validation.UserEmail);
+            return new SetPasswordResult(false, passwordValidation.ErrorMessage, null, null, validation.UserId, validation.UserEmail);
         }
 
         var user = await this.dbContext.Users.FindAsync(validation.UserId.Value);
@@ -105,10 +108,15 @@ public class PasswordSetupService(
 
         // Re-fetch the token to avoid a stale read between validation and use.
         var token = await this.dbContext.Tokens
-            .FirstOrDefaultAsync(t => t.Value == tokenValue);
-        if (token == null || DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
+            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
+        if (token == null)
         {
             return new SetPasswordResult(false, "Invalid or expired token.", null, null, user.Id, user.Email);
+        }
+
+        if (DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
+        {
+            return new SetPasswordResult(false, "Reset link has expired.", null, null, user.Id, user.Email);
         }
 
         if (user.UpdatedAt.HasValue && token.CreatedAt <= user.UpdatedAt.Value)
@@ -125,7 +133,10 @@ public class PasswordSetupService(
         // The reset token itself is left in place: it is now stale because
         // user.UpdatedAt > token.CreatedAt, and the unique index on Value
         // means we never issue a colliding one.
-        var sessionToken = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
+        var sessionToken = new Token(
+            user.Id,
+            this.tickfloConfig.SessionTimeoutMinutes * 60,
+            TokenType.Session);
         await this.dbContext.Tokens.AddAsync(sessionToken);
 
         string? workspaceSlug = null;
@@ -153,9 +164,10 @@ public class PasswordSetupService(
             return new SetPasswordResult(false, "Password already set.", null, null, user.Id, user.Email);
         }
 
-        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        var passwordValidation = this.passwordValidationService.Validate(newPassword);
+        if (!passwordValidation.IsValid)
         {
-            return new SetPasswordResult(false, "Password must be at least 8 characters long.", null, null, user.Id, user.Email);
+            return new SetPasswordResult(false, passwordValidation.ErrorMessage, null, null, user.Id, user.Email);
         }
 
         var passwordHash = this.passwordHasher.Hash($"{user.Email}{newPassword}");
@@ -163,7 +175,10 @@ public class PasswordSetupService(
         user.UpdatedAt = DateTime.UtcNow;
         this.dbContext.Users.Update(user);
 
-        var token = new Token(user.Id, this.tickfloConfig.SessionTimeoutMinutes * 60);
+        var token = new Token(
+            user.Id,
+            this.tickfloConfig.SessionTimeoutMinutes * 60,
+            TokenType.Session);
         await this.dbContext.Tokens.AddAsync(token);
 
         string? workspaceSlug = null;
