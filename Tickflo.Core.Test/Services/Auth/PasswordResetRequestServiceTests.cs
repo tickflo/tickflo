@@ -65,7 +65,7 @@ public class PasswordResetRequestServiceTests
 
         Assert.NotNull(capturedValues);
         Assert.Equal("Demo Admin", capturedValues["recipient_name"]);
-        Assert.Equal($"https://localhost:7182/account/reset-password?token={token.Value}", capturedValues["reset_link"]);
+        Assert.Equal($"https://localhost:7182/reset-password?token={token.Value}", capturedValues["reset_link"]);
         Assert.Equal("1 hour", capturedValues["expires_in"]);
 
         emailSendService.Verify(

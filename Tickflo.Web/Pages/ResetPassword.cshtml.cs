@@ -1,4 +1,4 @@
-namespace Tickflo.Web.Pages.Account;
+namespace Tickflo.Web.Pages;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;

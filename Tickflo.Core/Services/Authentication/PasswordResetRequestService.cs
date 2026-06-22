@@ -63,7 +63,7 @@ public class PasswordResetRequestService(
         await this.dbContext.SaveChangesAsync();
 
         var origin = this.requestOriginService.GetCurrentOrigin();
-        var resetLink = $"{origin}/account/reset-password?token={Uri.EscapeDataString(resetToken.Value)}";
+        var resetLink = $"{origin}/reset-password?token={Uri.EscapeDataString(resetToken.Value)}";
 
         await this.emailSendService.AddToQueueAsync(
             user.Email,
