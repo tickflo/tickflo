@@ -208,7 +208,7 @@ else
     app.UseMiniProfiler();
 }
 
-app.UseStatusCodePages(async context =>
+app.UseStatusCodePages(context =>
 {
     var response = context.HttpContext.Response;
 
@@ -217,6 +217,8 @@ app.UseStatusCodePages(async context =>
         var returnUrl = HttpUtility.UrlEncode(context.HttpContext.Request.Path + context.HttpContext.Request.QueryString);
         response.Redirect($"/login?returnUrl={returnUrl}");
     }
+
+    return Task.CompletedTask;
 });
 
 app.UseHttpsRedirection();

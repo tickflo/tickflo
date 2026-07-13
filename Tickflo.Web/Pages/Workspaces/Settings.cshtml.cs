@@ -28,14 +28,14 @@ public partial class SettingsModel(IWorkspaceService workspaceService, IWorkspac
     public bool IsWorkspaceAdmin { get; private set; }
     public bool IsSystemAdmin { get; private set; }
 
-    private async Task<(int userId, bool isAdmin)> ResolveUserAsync()
+    private Task<(int userId, bool isAdmin)> ResolveUserAsync()
     {
         if (!this.TryGetUserId(out var uid))
         {
-            return (0, false);
+            return Task.FromResult((0, false));
         }
         // isAdmin is computed via view service; return uid and false placeholder
-        return (uid, false);
+        return Task.FromResult((uid, false));
     }
 
     private async Task<bool> EnsurePermissionsAsync(int userId)

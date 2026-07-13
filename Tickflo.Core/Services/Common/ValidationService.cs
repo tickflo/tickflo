@@ -189,17 +189,17 @@ public partial class ValidationService(TickfloDbContext dbContext) : IValidation
         return result;
     }
 
-    public async Task<ValidationResult> ValidateTeamNameAsync(int workspaceId, string teamName, int? excludeTeamId = null)
+    public Task<ValidationResult> ValidateTeamNameAsync(int workspaceId, string teamName, int? excludeTeamId = null)
     {
         var result = new ValidationResult();
 
         if (!ValidateRequired("Name", teamName, result))
         {
-            return result;
+            return Task.FromResult(result);
         }
 
         ValidateMaxLength("Name", teamName, MaxTeamNameLength, result);
-        return result;
+        return Task.FromResult(result);
     }
 
     private static bool ValidateRequired(string field, string value, ValidationResult result)
