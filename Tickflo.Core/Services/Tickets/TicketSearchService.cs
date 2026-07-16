@@ -308,11 +308,10 @@ public class TicketSearchService(TickfloDbContext dbContext) : ITicketSearchServ
             .OrderBy(t => t.UpdatedAt)];
     }
 
-    public async Task<List<Ticket>> GetByTagAsync(
+    public Task<List<Ticket>> GetByTagAsync(
         int workspaceId,
         string tag) =>
-        // Tags not implemented in current Ticket schema
-        [];
+        Task.FromResult<List<Ticket>>([]);
 
     public async Task<List<Dictionary<string, object>>> GetBulkDataForExportAsync(
         int workspaceId,

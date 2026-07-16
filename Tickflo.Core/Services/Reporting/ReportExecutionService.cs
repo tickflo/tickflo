@@ -62,10 +62,8 @@ public class ReportExecutionService(
         return await this.reportingService.ExecuteAsync(workspaceId, report, ct);
     }
 
-    public async Task<ReportRunPage> GetRunPageAsync(int runId, int page, int pageSize, CancellationToken ct = default) =>
-        // Note: ReportRun doesn't expose workspace_id directly, would need to refactor this
-        // For now, assume workspaceId can be passed or derived from context
-        throw new NotImplementedException("Requires workspace context to be added to ReportRun");
+    public Task<ReportRunPage> GetRunPageAsync(int runId, int page, int pageSize, CancellationToken ct = default) =>
+        Task.FromException<ReportRunPage>(new NotImplementedException("Requires workspace context to be added to ReportRun"));
 
     public IReadOnlyDictionary<string, string[]> GetAvailableDataSources() => this.reportingService.GetAvailableSources();
 
