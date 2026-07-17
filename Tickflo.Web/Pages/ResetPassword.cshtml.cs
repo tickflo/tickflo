@@ -3,6 +3,7 @@ namespace Tickflo.Web.Pages;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
+using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
 
 public class ResetPasswordModel(
@@ -35,11 +36,18 @@ public class ResetPasswordModel(
             return this.Page();
         }
 
-        var validation = await this.passwordSetupService.ValidateResetTokenAsync(this.Token);
-        this.IsTokenValid = validation.IsValid;
-        if (this.IsTokenValid && !string.IsNullOrEmpty(validation.UserEmail))
+        try
         {
-            this.MaskedEmail = MaskEmail(validation.UserEmail);
+            var (_, userEmail) = await this.passwordSetupService.ValidateResetTokenAsync(this.Token);
+            this.IsTokenValid = true;
+            if (!string.IsNullOrEmpty(userEmail))
+            {
+                this.MaskedEmail = MaskEmail(userEmail);
+            }
+        }
+        catch (Exception)
+        {
+            this.IsTokenValid = false;
         }
 
         return this.Page();
@@ -65,37 +73,48 @@ public class ResetPasswordModel(
 
         if (!this.ModelState.IsValid)
         {
-            this.IsTokenValid = true;
-            var revalidation = await this.passwordSetupService.ValidateResetTokenAsync(this.Token);
-            if (revalidation.IsValid && !string.IsNullOrEmpty(revalidation.UserEmail))
+            try
             {
-                this.MaskedEmail = MaskEmail(revalidation.UserEmail);
+                var (_, userEmail) = await this.passwordSetupService.ValidateResetTokenAsync(this.Token);
+                this.IsTokenValid = true;
+                if (!string.IsNullOrEmpty(userEmail))
+                {
+                    this.MaskedEmail = MaskEmail(userEmail);
+                }
             }
+            catch (Exception)
+            {
+                this.IsTokenValid = false;
+            }
+
             return this.Page();
         }
 
-        var result = await this.passwordSetupService.SetPasswordWithTokenAsync(this.Token, this.Password);
-        if (!result.Success || string.IsNullOrEmpty(result.LoginToken))
+        try
         {
-            this.ErrorMessage = result.ErrorMessage ?? "We couldn't reset your password. Please request a new link.";
+            var result = await this.passwordSetupService.SetPasswordWithTokenAsync(this.Token, this.Password);
+
+            this.Response.Cookies.Append(this.config.SessionCookieName, result.LoginToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = this.Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddMinutes(this.config.SessionTimeoutMinutes),
+            });
+
+            if (!string.IsNullOrEmpty(result.WorkspaceSlug))
+            {
+                return this.Redirect($"/workspaces/{result.WorkspaceSlug}");
+            }
+
+            return this.Redirect("/");
+        }
+        catch (BadRequestException ex)
+        {
+            this.ErrorMessage = ex.Message;
             this.IsTokenValid = false;
             return this.Page();
         }
-
-        this.Response.Cookies.Append(this.config.SessionCookieName, result.LoginToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = this.Request.IsHttps,
-            SameSite = SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddMinutes(this.config.SessionTimeoutMinutes),
-        });
-
-        if (!string.IsNullOrEmpty(result.WorkspaceSlug))
-        {
-            return this.Redirect($"/workspaces/{result.WorkspaceSlug}");
-        }
-
-        return this.Redirect("/");
     }
 
     private static string MaskEmail(string email)

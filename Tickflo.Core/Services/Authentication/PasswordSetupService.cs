@@ -4,16 +4,16 @@ using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Exceptions;
 
-public record TokenValidationResult(bool IsValid, string? ErrorMessage, int? UserId, string? UserEmail);
-public record SetPasswordResult(bool Success, string? ErrorMessage, string? LoginToken, string? WorkspaceSlug, int? UserId, string? UserEmail);
+public record PasswordSetResult(string LoginToken, string? WorkspaceSlug, int UserId, string? UserEmail);
 
 public interface IPasswordSetupService
 {
-    public Task<TokenValidationResult> ValidateResetTokenAsync(string tokenValue);
-    public Task<TokenValidationResult> ValidateInitialUserAsync(int userId);
-    public Task<SetPasswordResult> SetPasswordWithTokenAsync(string tokenValue, string newPassword);
-    public Task<SetPasswordResult> SetInitialPasswordAsync(int userId, string newPassword);
+    public Task<(int UserId, string UserEmail)> ValidateResetTokenAsync(string tokenValue);
+    public Task<(int UserId, string UserEmail)> ValidateInitialUserAsync(int userId);
+    public Task<PasswordSetResult> SetPasswordWithTokenAsync(string tokenValue, string newPassword);
+    public Task<PasswordSetResult> SetInitialPasswordAsync(int userId, string newPassword);
 }
 
 public class PasswordSetupService(
@@ -28,29 +28,29 @@ public class PasswordSetupService(
     private readonly IPasswordHasher passwordHasher = passwordHasher;
     private readonly IPasswordValidationService passwordValidationService = passwordValidationService;
 
-    public async Task<TokenValidationResult> ValidateResetTokenAsync(string tokenValue)
+    public async Task<(int UserId, string UserEmail)> ValidateResetTokenAsync(string tokenValue)
     {
         if (string.IsNullOrWhiteSpace(tokenValue))
         {
-            return new TokenValidationResult(false, "Missing token.", null, null);
+            throw new BadRequestException("Missing token.");
         }
 
         var token = await this.dbContext.Tokens
             .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
         if (token == null)
         {
-            return new TokenValidationResult(false, "Invalid or expired token.", null, null);
+            throw new BadRequestException("Invalid or expired token.");
         }
 
         if (DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
         {
-            return new TokenValidationResult(false, "Reset link has expired.", null, null);
+            throw new BadRequestException("Reset link has expired.");
         }
 
         var user = await this.dbContext.Users.FindAsync(token.UserId);
         if (user == null)
         {
-            return new TokenValidationResult(false, "User not found.", null, null);
+            throw new BadRequestException("User not found.");
         }
 
         // A successful password reset bumps user.UpdatedAt (see
@@ -59,51 +59,44 @@ public class PasswordSetupService(
         // other token, and this one is stale.
         if (user.UpdatedAt.HasValue && token.CreatedAt <= user.UpdatedAt.Value)
         {
-            return new TokenValidationResult(false, "Reset link has already been used.", null, null);
+            throw new BadRequestException("Reset link has already been used.");
         }
 
-        return new TokenValidationResult(true, null, user.Id, user.Email);
+        return (user.Id, user.Email);
     }
 
-    public async Task<TokenValidationResult> ValidateInitialUserAsync(int userId)
+    public async Task<(int UserId, string UserEmail)> ValidateInitialUserAsync(int userId)
     {
         if (userId <= 0)
         {
-            return new TokenValidationResult(false, "Missing user id.", null, null);
+            throw new BadRequestException("Missing user id.");
         }
 
         var user = await this.dbContext.Users.FindAsync(userId);
         if (user == null)
         {
-            return new TokenValidationResult(false, "User not found.", null, null);
+            throw new BadRequestException("User not found.");
         }
 
         if (user.PasswordHash != null)
         {
-            return new TokenValidationResult(false, "Password already set.", user.Id, user.Email);
+            return (user.Id, user.Email);
         }
 
-        return new TokenValidationResult(true, null, user.Id, user.Email);
+        return (user.Id, user.Email);
     }
 
-    public async Task<SetPasswordResult> SetPasswordWithTokenAsync(string tokenValue, string newPassword)
+    public async Task<PasswordSetResult> SetPasswordWithTokenAsync(string tokenValue, string newPassword)
     {
-        var validation = await this.ValidateResetTokenAsync(tokenValue);
-        if (!validation.IsValid || validation.UserId == null)
-        {
-            return new SetPasswordResult(false, validation.ErrorMessage, null, null, null, null);
-        }
+        var (userId, userEmail) = await this.ValidateResetTokenAsync(tokenValue);
 
-        var passwordValidation = this.passwordValidationService.Validate(newPassword);
-        if (!passwordValidation.IsValid)
-        {
-            return new SetPasswordResult(false, passwordValidation.ErrorMessage, null, null, validation.UserId, validation.UserEmail);
-        }
+        // passwordValidationService.Validate throws BadRequestException on failure
+        this.passwordValidationService.Validate(newPassword);
 
-        var user = await this.dbContext.Users.FindAsync(validation.UserId.Value);
+        var user = await this.dbContext.Users.FindAsync(userId);
         if (user == null)
         {
-            return new SetPasswordResult(false, "User not found.", null, null, null, null);
+            throw new BadRequestException("User not found.");
         }
 
         // Re-fetch the token to avoid a stale read between validation and use.
@@ -111,17 +104,17 @@ public class PasswordSetupService(
             .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
         if (token == null)
         {
-            return new SetPasswordResult(false, "Invalid or expired token.", null, null, user.Id, user.Email);
+            throw new BadRequestException("Invalid or expired token.");
         }
 
         if (DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
         {
-            return new SetPasswordResult(false, "Reset link has expired.", null, null, user.Id, user.Email);
+            throw new BadRequestException("Reset link has expired.");
         }
 
         if (user.UpdatedAt.HasValue && token.CreatedAt <= user.UpdatedAt.Value)
         {
-            return new SetPasswordResult(false, "Reset link has already been used.", null, null, user.Id, user.Email);
+            throw new BadRequestException("Reset link has already been used.");
         }
 
         var passwordHash = this.passwordHasher.Hash($"{user.Email}{newPassword}");
@@ -148,27 +141,24 @@ public class PasswordSetupService(
 
         await this.dbContext.SaveChangesAsync();
 
-        return new SetPasswordResult(true, null, sessionToken.Value, workspaceSlug, user.Id, user.Email);
+        return new PasswordSetResult(sessionToken.Value, workspaceSlug, user.Id, user.Email);
     }
 
-    public async Task<SetPasswordResult> SetInitialPasswordAsync(int userId, string newPassword)
+    public async Task<PasswordSetResult> SetInitialPasswordAsync(int userId, string newPassword)
     {
         var user = await this.dbContext.Users.FindAsync(userId);
         if (user == null)
         {
-            return new SetPasswordResult(false, "User not found.", null, null, null, null);
+            throw new BadRequestException("User not found.");
         }
 
         if (user.PasswordHash != null)
         {
-            return new SetPasswordResult(false, "Password already set.", null, null, user.Id, user.Email);
+            throw new BadRequestException("Password already set.");
         }
 
-        var passwordValidation = this.passwordValidationService.Validate(newPassword);
-        if (!passwordValidation.IsValid)
-        {
-            return new SetPasswordResult(false, passwordValidation.ErrorMessage, null, null, user.Id, user.Email);
-        }
+        // passwordValidationService.Validate throws BadRequestException on failure
+        this.passwordValidationService.Validate(newPassword);
 
         var passwordHash = this.passwordHasher.Hash($"{user.Email}{newPassword}");
         user.PasswordHash = passwordHash;
@@ -190,6 +180,6 @@ public class PasswordSetupService(
 
         await this.dbContext.SaveChangesAsync();
 
-        return new SetPasswordResult(true, null, token.Value, workspaceSlug, user.Id, user.Email);
+        return new PasswordSetResult(token.Value, workspaceSlug, user.Id, user.Email);
     }
 }

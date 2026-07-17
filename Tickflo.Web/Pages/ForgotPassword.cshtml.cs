@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
 using Tickflo.Core.Services.Authentication;
+using Tickflo.Core.Utils;
 
 public class ForgotPasswordModel(
     IPasswordResetRequestService passwordResetRequestService,
@@ -19,7 +20,7 @@ public class ForgotPasswordModel(
 
     public string? ErrorMessage { get; private set; }
 
-    public string ExpiresIn => FormatExpiresIn(this.tickfloConfig.PasswordResetTokenMaxAgeSeconds);
+    public string ExpiresIn => DurationFormatter.FormatExpiresIn(this.tickfloConfig.PasswordResetTokenMaxAgeSeconds);
 
     public void OnGet()
     {
@@ -46,20 +47,4 @@ public class ForgotPasswordModel(
         }
     }
 
-    private static string FormatExpiresIn(int maxAgeInSeconds)
-    {
-        if (maxAgeInSeconds % 3600 == 0)
-        {
-            var hours = maxAgeInSeconds / 3600;
-            return hours == 1 ? "1 hour" : $"{hours} hours";
-        }
-
-        if (maxAgeInSeconds % 60 == 0)
-        {
-            var minutes = maxAgeInSeconds / 60;
-            return minutes == 1 ? "1 minute" : $"{minutes} minutes";
-        }
-
-        return $"{maxAgeInSeconds} seconds";
     }
-}

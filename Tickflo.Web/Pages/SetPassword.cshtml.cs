@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
+using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
 
 [AllowAnonymous]
@@ -27,51 +28,52 @@ public class SetPasswordModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
-        var validation = await this.passwordSetupService.ValidateInitialUserAsync(this.UserId);
-        if (!validation.IsValid)
+        try
+        {
+            var (_, userEmail) = await this.passwordSetupService.ValidateInitialUserAsync(this.UserId);
+            this.UserEmail = userEmail;
+            return this.Page();
+        }
+        catch (Exception)
         {
             return this.Redirect("/login");
         }
-
-        this.UserEmail = validation.UserEmail;
-        return this.Page();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
-        var validation = await this.passwordSetupService.ValidateInitialUserAsync(this.UserId);
-        if (!validation.IsValid || validation.UserId == null)
+        try
         {
-            return this.Redirect("/login");
-        }
+            var (userId, userEmail) = await this.passwordSetupService.ValidateInitialUserAsync(this.UserId);
+            this.UserEmail = userEmail;
 
-        if (!this.ModelState.IsValid)
+            if (!this.ModelState.IsValid)
+            {
+                return this.Page();
+            }
+
+            var result = await this.passwordSetupService.SetInitialPasswordAsync(userId, this.Input.Password);
+
+            this.Response.Cookies.Append(this.config.SessionCookieName, result.LoginToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = this.Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddMinutes(this.config.SessionTimeoutMinutes)
+            });
+
+            if (!string.IsNullOrWhiteSpace(result.WorkspaceSlug))
+            {
+                return this.Redirect($"/workspaces/{result.WorkspaceSlug}");
+            }
+
+            return this.Redirect("/");
+        }
+        catch (BadRequestException ex)
         {
-            this.UserEmail = validation.UserEmail;
+            this.ErrorMessage = ex.Message;
             return this.Page();
         }
-
-        var result = await this.passwordSetupService.SetInitialPasswordAsync(validation.UserId.Value, this.Input.Password);
-        if (!result.Success || string.IsNullOrWhiteSpace(result.LoginToken))
-        {
-            this.ErrorMessage = result.ErrorMessage ?? "Could not set password.";
-            this.UserEmail = validation.UserEmail;
-            return this.Page();
-        }
-        this.Response.Cookies.Append(this.config.SessionCookieName, result.LoginToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = this.Request.IsHttps,
-            SameSite = SameSiteMode.Lax,
-            Expires = DateTimeOffset.UtcNow.AddMinutes(this.config.SessionTimeoutMinutes)
-        });
-
-        if (!string.IsNullOrWhiteSpace(result.WorkspaceSlug))
-        {
-            return this.Redirect($"/workspaces/{result.WorkspaceSlug}");
-        }
-
-        return this.Redirect("/");
     }
 }
 
@@ -89,4 +91,3 @@ public class SetPasswordInput
     [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
     public string ConfirmPassword { get; set; } = "";
 }
-

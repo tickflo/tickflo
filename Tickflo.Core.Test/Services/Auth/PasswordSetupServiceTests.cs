@@ -50,7 +50,6 @@ public class PasswordSetupServiceTests
 
         var result = await passwordSetupService.SetInitialPasswordAsync(user.Id, "demo-password");
 
-        Assert.True(result.Success);
         Assert.False(string.IsNullOrWhiteSpace(result.LoginToken));
         Assert.Equal(workspace.Slug, result.WorkspaceSlug);
 

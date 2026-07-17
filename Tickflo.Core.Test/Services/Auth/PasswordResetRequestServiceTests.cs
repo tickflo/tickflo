@@ -5,6 +5,7 @@ using Moq;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
 using Tickflo.Core.Services.Email;
 using Tickflo.Core.Services.Web;
@@ -151,10 +152,6 @@ public class PasswordResetRequestServiceTests
         var requestOriginService = new Mock<IRequestOriginService>();
         requestOriginService.Setup(service => service.GetCurrentOrigin()).Returns((string?)null!);
 
-        // When GetCurrentOrigin returns null the origin fallback is not
-        // yet implemented — the reset link will start with a null origin.
-        // This test verifies the code doesn't crash and the email is still
-        // enqueued, even with a broken origin.
         var service = new PasswordResetRequestService(
             databaseContext,
             emailSendService.Object,
@@ -173,7 +170,7 @@ public class PasswordResetRequestServiceTests
     }
 
     [Fact]
-    public async Task SetPasswordWithTokenAsync_WhenTokenIsExpired_ShouldFailAndNotPersistPassword()
+    public async Task SetPasswordWithTokenAsync_WhenTokenIsExpired_ShouldThrowBadRequestAndNotPersistPassword()
     {
         await using var databaseContext = CreateDatabaseContext();
         var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash")
@@ -197,10 +194,9 @@ public class PasswordResetRequestServiceTests
             new Argon2idPasswordHasher(),
             new PasswordValidationService());
 
-        var result = await service.SetPasswordWithTokenAsync(expiredToken.Value, "new-password");
-
-        Assert.False(result.Success);
-        Assert.Contains("expired", result.ErrorMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        var ex = await Assert.ThrowsAsync<BadRequestException>(
+            () => service.SetPasswordWithTokenAsync(expiredToken.Value, "new-password"));
+        Assert.Contains("expired", ex.Message, StringComparison.OrdinalIgnoreCase);
 
         var persistedUser = await databaseContext.Users.FindAsync(user.Id);
         Assert.Null(persistedUser?.PasswordHash);
@@ -245,7 +241,6 @@ public class PasswordResetRequestServiceTests
 
         var result = await service.SetPasswordWithTokenAsync(token.Value, "new-password");
 
-        Assert.True(result.Success);
         Assert.False(string.IsNullOrWhiteSpace(result.LoginToken));
         Assert.Equal(workspace.Slug, result.WorkspaceSlug);
 
@@ -262,7 +257,7 @@ public class PasswordResetRequestServiceTests
     }
 
     [Fact]
-    public async Task SetPasswordWithTokenAsync_WhenTokenHasAlreadyBeenUsed_ShouldFail()
+    public async Task SetPasswordWithTokenAsync_WhenTokenHasAlreadyBeenUsed_ShouldThrowBadRequest()
     {
         await using var databaseContext = CreateDatabaseContext();
         var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash")
@@ -282,12 +277,13 @@ public class PasswordResetRequestServiceTests
             new Argon2idPasswordHasher(),
             new PasswordValidationService());
 
-        var firstResult = await service.SetPasswordWithTokenAsync(token.Value, "first-password");
-        Assert.True(firstResult.Success);
+        // First use succeeds.
+        await service.SetPasswordWithTokenAsync(token.Value, "first-password");
 
-        var secondResult = await service.SetPasswordWithTokenAsync(token.Value, "second-password");
-        Assert.False(secondResult.Success);
-        Assert.Contains("already been used", secondResult.ErrorMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        // Second use should throw — token already consumed.
+        var ex = await Assert.ThrowsAsync<BadRequestException>(
+            () => service.SetPasswordWithTokenAsync(token.Value, "second-password"));
+        Assert.Contains("already been used", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

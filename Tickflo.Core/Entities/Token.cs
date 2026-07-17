@@ -42,11 +42,4 @@ public class Token
         this.TypeId = (int)type;
     }
 
-    public Token(int userId, int maxAgeInSeconds, TokenType type, int tokenByteLength)
-    {
-        this.UserId = userId;
-        this.Value = SecureTokenGenerator.GenerateToken(tokenByteLength);
-        this.MaxAge = maxAgeInSeconds;
-        this.TypeId = (int)type;
-    }
 }

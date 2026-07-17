@@ -1,36 +1,32 @@
 namespace Tickflo.Core.Services.Authentication;
 
-public record PasswordValidationResult(bool IsValid, string? ErrorMessage)
-{
-    public const int MinLength = 8;
-}
+using Tickflo.Core.Exceptions;
 
 public interface IPasswordValidationService
 {
-    public PasswordValidationResult Validate(string? password, string? confirmPassword = null);
+    public const int MinLength = 8;
+
+    public void Validate(string? password, string? confirmPassword = null);
 }
 
 public class PasswordValidationService : IPasswordValidationService
 {
-    public PasswordValidationResult Validate(string? password, string? confirmPassword = null)
+    public void Validate(string? password, string? confirmPassword = null)
     {
         if (string.IsNullOrWhiteSpace(password))
         {
-            return new PasswordValidationResult(false, $"Password must be at least {PasswordValidationResult.MinLength} characters long.");
+            throw new BadRequestException($"Password must be at least {IPasswordValidationService.MinLength} characters long.");
         }
 
-        if (password.Length < PasswordValidationResult.MinLength)
+        if (password.Length < IPasswordValidationService.MinLength)
         {
-            return new PasswordValidationResult(
-                false,
-                $"Password must be at least {PasswordValidationResult.MinLength} characters long.");
+            throw new BadRequestException(
+                $"Password must be at least {IPasswordValidationService.MinLength} characters long.");
         }
 
         if (confirmPassword is not null && !string.Equals(password, confirmPassword, StringComparison.Ordinal))
         {
-            return new PasswordValidationResult(false, "Passwords do not match.");
+            throw new BadRequestException("Passwords do not match.");
         }
-
-        return new PasswordValidationResult(true, null);
     }
 }
