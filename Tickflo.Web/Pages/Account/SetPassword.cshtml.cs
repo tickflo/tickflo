@@ -3,6 +3,7 @@ namespace Tickflo.Web.Pages.Account;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
 
 public class SetPasswordModel(IPasswordSetupService passwordSetupService) : PageModel
@@ -27,11 +28,15 @@ public class SetPasswordModel(IPasswordSetupService passwordSetupService) : Page
 
     public async Task<IActionResult> OnGetAsync()
     {
-        var validation = await this.passwordSetupService.ValidateResetTokenAsync(this.Token);
-        if (!validation.IsValid)
+        try
         {
-            this.Error = validation.ErrorMessage;
+            await this.passwordSetupService.ValidateResetTokenAsync(this.Token);
         }
+        catch (BadRequestException ex)
+        {
+            this.Error = ex.Message;
+        }
+
         return this.Page();
     }
 
@@ -39,23 +44,28 @@ public class SetPasswordModel(IPasswordSetupService passwordSetupService) : Page
     {
         if (!this.ModelState.IsValid)
         {
-            var validation = await this.passwordSetupService.ValidateResetTokenAsync(this.Token);
-            if (!validation.IsValid)
+            try
             {
-                this.Error = validation.ErrorMessage;
+                await this.passwordSetupService.ValidateResetTokenAsync(this.Token);
             }
+            catch (BadRequestException ex)
+            {
+                this.Error = ex.Message;
+            }
+
             return this.Page();
         }
 
-        var result = await this.passwordSetupService.SetPasswordWithTokenAsync(this.Token, this.Password);
-        if (!result.Success)
+        try
         {
-            this.Error = result.ErrorMessage;
+            await this.passwordSetupService.SetPasswordWithTokenAsync(this.Token, this.Password);
+            this.TempData["Message"] = "Password updated. You can now sign in.";
+            return this.Redirect("/login");
+        }
+        catch (BadRequestException ex)
+        {
+            this.Error = ex.Message;
             return this.Page();
         }
-
-        this.TempData["Message"] = "Password updated. You can now sign in.";
-        return this.Redirect("/login");
     }
 }
-
