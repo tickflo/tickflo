@@ -36,22 +36,14 @@ public class PasswordSetupService(
         }
 
         var token = await this.dbContext.Tokens
-            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
-        if (token is null)
-        {
-            throw new BadRequestException("Invalid or expired token.");
-        }
+            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset) ?? throw new BadRequestException("Invalid or expired token.");
 
         if (DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
         {
             throw new BadRequestException("Reset link has expired.");
         }
 
-        var user = await this.dbContext.Users.FindAsync(token.UserId);
-        if (user is null)
-        {
-            throw new BadRequestException("User not found.");
-        }
+        var user = await this.dbContext.Users.FindAsync(token.UserId) ?? throw new BadRequestException("User not found.");
 
         // A successful password reset bumps user.UpdatedAt (see
         // SetPasswordWithTokenAsync). If this token is older than that
@@ -72,11 +64,7 @@ public class PasswordSetupService(
             throw new BadRequestException("Missing user id.");
         }
 
-        var user = await this.dbContext.Users.FindAsync(userId);
-        if (user is null)
-        {
-            throw new BadRequestException("User not found.");
-        }
+        var user = await this.dbContext.Users.FindAsync(userId) ?? throw new BadRequestException("User not found.");
 
         if (user.PasswordHash != null)
         {
@@ -93,19 +81,11 @@ public class PasswordSetupService(
         // passwordValidationService.Validate throws BadRequestException on failure
         this.passwordValidationService.Validate(newPassword);
 
-        var user = await this.dbContext.Users.FindAsync(userId);
-        if (user is null)
-        {
-            throw new BadRequestException("User not found.");
-        }
+        var user = await this.dbContext.Users.FindAsync(userId) ?? throw new BadRequestException("User not found.");
 
         // Re-fetch the token to avoid a stale read between validation and use.
         var token = await this.dbContext.Tokens
-            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset);
-        if (token is null)
-        {
-            throw new BadRequestException("Invalid or expired token.");
-        }
+            .FirstOrDefaultAsync(t => t.Value == tokenValue && t.TypeId == (int)TokenType.PasswordReset) ?? throw new BadRequestException("Invalid or expired token.");
 
         if (DateTime.UtcNow > token.CreatedAt.AddSeconds(token.MaxAge))
         {
@@ -146,11 +126,7 @@ public class PasswordSetupService(
 
     public async Task<PasswordSetResult> SetInitialPasswordAsync(int userId, string newPassword)
     {
-        var user = await this.dbContext.Users.FindAsync(userId);
-        if (user is null)
-        {
-            throw new BadRequestException("User not found.");
-        }
+        var user = await this.dbContext.Users.FindAsync(userId) ?? throw new BadRequestException("User not found.");
 
         if (user.PasswordHash != null)
         {
