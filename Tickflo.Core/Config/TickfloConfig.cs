@@ -17,7 +17,6 @@ public class TickfloConfig
     public int SessionTimeoutMinutes { get; set; }
     public string SessionCookieName { get; set; } = "tickflo_session";
     public int PasswordResetTokenMaxAgeSeconds { get; set; } = 60 * 60;
-    public int PasswordResetTokenByteLength { get; set; } = 16;
     public UserConfig User { get; set; } = new();
     public ContactConfig Contact { get; set; } = new();
     public LocationConfig Location { get; set; } = new();

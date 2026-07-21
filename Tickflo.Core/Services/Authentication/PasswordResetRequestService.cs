@@ -47,8 +47,7 @@ public class PasswordResetRequestService(
         var resetToken = new Token(
             user.Id,
             this.tickfloConfig.PasswordResetTokenMaxAgeSeconds,
-            TokenType.PasswordReset,
-            this.tickfloConfig.PasswordResetTokenByteLength);
+            TokenType.PasswordReset);
         await this.dbContext.Tokens.AddAsync(resetToken);
         await this.dbContext.SaveChangesAsync();
 

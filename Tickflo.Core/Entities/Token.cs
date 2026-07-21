@@ -27,17 +27,10 @@ public class Token
     {
     }
 
-    public Token(int userId, int maxAgeInSeconds, int byteLength = 16)
+    public Token(int userId, int maxAgeInSeconds, TokenType type = TokenType.Session)
     {
         this.UserId = userId;
-        this.Value = SecureTokenGenerator.GenerateToken(byteLength);
-        this.MaxAge = maxAgeInSeconds;
-    }
-
-    public Token(int userId, int maxAgeInSeconds, TokenType type, int byteLength = 16)
-    {
-        this.UserId = userId;
-        this.Value = SecureTokenGenerator.GenerateToken(byteLength);
+        this.Value = SecureTokenGenerator.GenerateToken(16);
         this.MaxAge = maxAgeInSeconds;
         this.TypeId = (int)type;
     }
