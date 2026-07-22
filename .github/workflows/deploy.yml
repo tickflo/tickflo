@@ -87,7 +87,6 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY_STAGE }}
           script: |
             set -e
-            export PATH="/usr/local/bin:$PATH"
 
             docker pull ${{ env.IMAGE_NAME }}:stage
             docker stop ${{ env.CONTAINER_NAME }} || true
@@ -97,17 +96,7 @@ jobs:
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               --network tickflo \
-              -e PostgresHost=${{ secrets.POSTGRES_HOST_STAGE }} \
-              -e PostgresUser=${{ secrets.POSTGRES_USER_STAGE }} \
-              -e PostgresPassword=${{ secrets.POSTGRES_PASSWORD_STAGE }} \
-              -e PostresDatabase=${{ secrets.POSTGRES_DB_STAGE }} \
-              -e BaseUrl=https://stage.tickflo.co \
-              -e S3EndPoint=https://storage.tickflo.co \
-              -e S3AccessKey=${{ secrets.S3_ACCESS_KEY_STAGE }} \
-              -e S3SecretKey=${{ secrets.S3_SECRET_KEY_STAGE }} \
-              -e S3Bucket=tickflo-stage \
-              -e S3Region=us-east-1 \
-              -e MailgunApiKey=${{ secrets.MAILGUN_KEY_STAGE }} \
+              --env-file ~/docker/tickflo/stage.web.env \
               ${{ env.IMAGE_NAME }}:stage
 
             docker image prune -f
@@ -160,7 +149,6 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY_PROD }}
           script: |
             set -e
-            export PATH="/usr/local/bin:$PATH"
 
             docker pull ${{ env.IMAGE_NAME }}:latest
 
