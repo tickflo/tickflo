@@ -87,6 +87,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY_STAGE }}
           script: |
             set -e
+            export PATH="/usr/local/bin:$PATH"
 
             docker pull ${{ env.IMAGE_NAME }}:stage
             docker stop ${{ env.CONTAINER_NAME }} || true
@@ -159,6 +160,7 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY_PROD }}
           script: |
             set -e
+            export PATH="/usr/local/bin:$PATH"
 
             docker pull ${{ env.IMAGE_NAME }}:latest
 
