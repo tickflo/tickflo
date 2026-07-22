@@ -170,7 +170,8 @@ public partial class AuthenticationService(
             EmailTemplateType.Signup,
             new Dictionary<string, string>
             {
-                { "confirmation_link", confirmationLink }
+                { "confirmation_link", confirmationLink },
+                { "recipient_name", user.Name },
             });
     }
 
