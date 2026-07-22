@@ -726,6 +726,14 @@ public partial class InitialSchema : Migration
             table: "workspaces",
             column: "slug",
             unique: true);
+
+        migrationBuilder.InsertData(
+            table: "email_templates",
+            columns: ["template_type_id", "version", "subject", "body", "created_at"],
+            values: [1, 0,
+                "Welcome to Tickflo — Confirm your email address",
+                "Hi,\n\nThanks for creating your Tickflo account! Please confirm your email address to get started.\n\n{{confirmation_link}}\n\nThis confirmation link will expire soon. If you did not sign up for Tickflo, please ignore this email.\n\nThanks,\nThe Tickflo Team",
+                new DateTime(2026, 4, 27, 0, 0, 0, 0, DateTimeKind.Utc) ]);
     }
 
     /// <inheritdoc />

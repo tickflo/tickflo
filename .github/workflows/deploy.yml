@@ -24,6 +24,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set up QEMU for multi-arch
+        uses: docker/setup-qemu-action@v3
+
       - name: Build image
         uses: docker/build-push-action@v5
         with:
@@ -31,6 +34,7 @@ jobs:
           file: docker/web/Dockerfile
           target: runtime
           push: false
+          platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -51,6 +55,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set up QEMU for multi-arch
+        uses: docker/setup-qemu-action@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -65,6 +72,7 @@ jobs:
           file: docker/web/Dockerfile
           target: runtime
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.IMAGE_NAME }}:stage
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
@@ -87,18 +95,8 @@ jobs:
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
-              --network ubuntu \
-              -e PostgresHost=${{ secrets.POSTGRES_HOST_STAGE }} \
-              -e PostgresUser=${{ secrets.POSTGRES_USER_STAGE }} \
-              -e PostgresPassword=${{ secrets.POSTGRES_PASSWORD_STAGE }} \
-              -e PostresDatabase=${{ secrets.POSTGRES_DB_STAGE }} \
-              -e BaseUrl=https://stage.tickflo.co \
-              -e S3EndPoint=https://storage.tickflo.co \
-              -e S3AccessKey=${{ secrets.S3_ACCESS_KEY_STAGE }} \
-              -e S3SecretKey=${{ secrets.S3_SECRET_KEY_STAGE }} \
-              -e S3Bucket=tickflo-stage \
-              -e S3Region=us-east-1 \
-              -e MailgunApiKey=${{ secrets.MAILGUN_KEY_STAGE }} \
+              --network tickflo \
+              --env-file ~/docker/tickflo/stage.web.env \
               ${{ env.IMAGE_NAME }}:stage
 
             docker image prune -f
@@ -119,6 +117,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set up QEMU for multi-arch
+        uses: docker/setup-qemu-action@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -133,6 +134,7 @@ jobs:
           file: docker/web/Dockerfile
           target: runtime
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
@@ -156,18 +158,8 @@ jobs:
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
-              --network ubuntu \
-              -e PostgresHost=${{ secrets.POSTGRES_HOST_PROD }} \
-              -e PostgresUser=${{ secrets.POSTGRES_USER_PROD }} \
-              -e PostgresPassword=${{ secrets.POSTGRES_PASSWORD_PROD }} \
-              -e PostresDatabase=${{ secrets.POSTGRES_DB_PROD }} \
-              -e BaseUrl=https://app.tickflo.co \
-              -e S3EndPoint=https://storage.tickflo.co \
-              -e S3AccessKey=${{ secrets.S3_ACCESS_KEY_PROD }} \
-              -e S3SecretKey=${{ secrets.S3_SECRET_KEY_PROD }} \
-              -e S3Bucket=tickflo \
-              -e S3Region=us-east-1 \
-              -e MailgunApiKey=${{ secrets.MAILGUN_KEY_PROD }} \
+              --network tickflo \
+              --env-file ~/docker/tickflo/web.env \
               ${{ env.IMAGE_NAME }}:latest
 
             docker image prune -f

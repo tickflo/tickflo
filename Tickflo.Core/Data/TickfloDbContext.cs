@@ -40,8 +40,15 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.Entity<Token>()
-            .HasKey(t => new { t.UserId, t.Value });
+        modelBuilder.Entity<Token>(entity =>
+        {
+            entity.HasKey(t => new { t.UserId, t.Value });
+
+            // The session-token middleware looks tokens up by value on every
+            // authenticated request. The composite PK (user_id, token) does
+            // not help that query, so add a unique index on the value column.
+            entity.HasIndex(t => t.Value).IsUnique();
+        });
 
         modelBuilder.Entity<UserWorkspace>(entity =>
         {

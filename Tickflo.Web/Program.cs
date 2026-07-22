@@ -45,9 +45,11 @@ var connectionString = $"Host={appConfig.PostgresHost};Port=5432;Database={appCo
 builder.Services.AddSingleton(appConfig);
 builder.Services.AddSingleton(settingsConfig);
 builder.Services.AddScoped<IPasswordHasher, Argon2idPasswordHasher>();
+builder.Services.AddScoped<IPasswordValidationService, PasswordValidationService>();
 builder.Services.AddSignalR();
 builder.Services.AddScoped<Tickflo.Core.Services.Authentication.IAuthenticationService, Tickflo.Core.Services.Authentication.AuthenticationService>();
 builder.Services.AddScoped<IPasswordSetupService, PasswordSetupService>();
+builder.Services.AddScoped<IPasswordResetRequestService, PasswordResetRequestService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -208,7 +210,7 @@ else
     app.UseMiniProfiler();
 }
 
-app.UseStatusCodePages(async context =>
+app.UseStatusCodePages(context =>
 {
     var response = context.HttpContext.Response;
 
@@ -217,6 +219,8 @@ app.UseStatusCodePages(async context =>
         var returnUrl = HttpUtility.UrlEncode(context.HttpContext.Request.Path + context.HttpContext.Request.QueryString);
         response.Redirect($"/login?returnUrl={returnUrl}");
     }
+
+    return Task.CompletedTask;
 });
 
 app.UseHttpsRedirection();

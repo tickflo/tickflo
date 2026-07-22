@@ -31,17 +31,36 @@ public class TokenAuthenticationHandler(
             return AuthenticateResult.NoResult();
         }
 
-        var token = await this.db.Tokens.FirstOrDefaultAsync(t => t.Value == tokenValue);
-        if (token == null)
+        // Load token and user in a single query so the CreatedAt > UpdatedAt
+        // invalidation check (see below) does not cost an extra round-trip.
+        var tokenQuery = from t in this.db.Tokens
+                         join u in this.db.Users on t.UserId equals u.Id
+                         where t.Value == tokenValue
+                         select new { Token = t, User = u };
+
+        var result = await tokenQuery.FirstOrDefaultAsync();
+        if (result == null)
         {
             return AuthenticateResult.Fail("Invalid token");
         }
+
+        var token = result.Token;
+        var user = result.User;
 
         // Use TimeProvider instead of ISystemClock
         var now = this.Options.TimeProvider?.GetUtcNow() ?? TimeProvider.System.GetUtcNow();
         if (token.CreatedAt.AddSeconds(token.MaxAge) < now)
         {
             return AuthenticateResult.Fail("Token expired");
+        }
+
+        // Invalidate tokens issued before the user was last updated. This
+        // covers both the password-reset use case (SetPasswordWithTokenAsync
+        // bumps user.UpdatedAt when the token is consumed) and any other
+        // user-profile change that should kick every active session.
+        if (user.UpdatedAt.HasValue && token.CreatedAt <= user.UpdatedAt.Value)
+        {
+            return AuthenticateResult.Fail("Token invalidated by user update");
         }
 
         var claims = new[]
