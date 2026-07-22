@@ -159,6 +159,7 @@ jobs:
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               --network tickflo \
+              -p 8080:8080 \
               --env-file ~/docker/tickflo/web.env \
               ${{ env.IMAGE_NAME }}:latest
 
