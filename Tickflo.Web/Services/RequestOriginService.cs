@@ -11,12 +11,18 @@ public class RequestOriginService(IHttpContextAccessor httpContextAccessor, Tick
 
     public string GetCurrentOrigin()
     {
-        var request = this.httpContextAccessor.HttpContext?.Request;
-        if (request == null || !request.Host.HasValue || string.IsNullOrWhiteSpace(request.Scheme))
+        // Always prefer the configured BaseUrl — it is authoritative (and correct behind a TLS-terminating proxy)
+        if (!string.IsNullOrWhiteSpace(this.config.BaseUrl))
         {
-            return this.config.BaseUrl?.TrimEnd('/') ?? "";
+            return this.config.BaseUrl.TrimEnd('/');
         }
 
-        return $"{request.Scheme}://{request.Host}";
+        var request = this.httpContextAccessor.HttpContext?.Request;
+        if (request != null && request.Host.HasValue && !string.IsNullOrWhiteSpace(request.Scheme))
+        {
+            return $"{request.Scheme}://{request.Host}";
+        }
+
+        return "";
     }
 }
