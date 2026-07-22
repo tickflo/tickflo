@@ -96,7 +96,7 @@ jobs:
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
-              --network ubuntu \
+              --network tickflo \
               -e PostgresHost=${{ secrets.POSTGRES_HOST_STAGE }} \
               -e PostgresUser=${{ secrets.POSTGRES_USER_STAGE }} \
               -e PostgresPassword=${{ secrets.POSTGRES_PASSWORD_STAGE }} \
@@ -170,7 +170,7 @@ jobs:
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
-              --network ubuntu \
+              --network tickflo \
               -e PostgresHost=${{ secrets.POSTGRES_HOST_PROD }} \
               -e PostgresUser=${{ secrets.POSTGRES_USER_PROD }} \
               -e PostgresPassword=${{ secrets.POSTGRES_PASSWORD_PROD }} \
