@@ -1,0 +1,79 @@
+@page "/workspaces/{slug}/dashboard/{id:int}/edit"
+@model Tickflo.Web.Pages.Workspaces.DashboardEditModel
+@{
+    ViewData["Title"] = Model.IsNew ? "New Widget" : "Edit Widget";
+}
+
+<div class="flex flex-row gap-2 md:gap-4">
+    @await Html.PartialAsync("_WorkspaceSidebar", Model.WorkspaceSlug)
+    <section class="relative overflow-hidden p-3 md:p-6 flex-1 min-w-0 space-y-6 md:space-y-8 text-slate-100 rounded-3xl bg-gradient-to-br from-[#0c1220] via-[#0b101b] to-[#0a0f18]">
+        @await Html.PartialAsync("_WorkspaceHeader", new Tickflo.Web.Pages.Shared.WorkspaceHeaderView { Slug = Model.WorkspaceSlug, Name = Model.Workspace?.Name ?? "Workspace", SectionTitle = Model.IsNew ? "New Widget" : "Edit Widget", NewActionLabel = null, NewActionHref = null, AllowNewAction = false })
+
+        <form method="post" class="card bg-neutral-900/85 backdrop-blur shadow-2xl rounded-3xl text-slate-100">
+            <div class="card-body space-y-4">
+                <div asp-validation-summary="All" class="text-error text-sm"></div>
+
+                <div class="form-control">
+                    <label class="label" asp-for="Name"><span class="label-text">Name</span></label>
+                    <input asp-for="Name" class="input input-bordered" placeholder="Critical Wazuh alerts" />
+                    <span asp-validation-for="Name" class="text-error text-sm"></span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label" asp-for="Type"><span class="label-text">Source type</span></label>
+                        <select asp-for="Type" asp-items="Model.TypeOptions" class="select select-bordered"></select>
+                    </div>
+                    <div class="form-control">
+                        <label class="label" asp-for="RefreshIntervalSeconds"><span class="label-text">Refresh (seconds)</span></label>
+                        <input asp-for="RefreshIntervalSeconds" type="number" min="10" class="input input-bordered" />
+                        <span asp-validation-for="RefreshIntervalSeconds" class="text-error text-sm"></span>
+                    </div>
+                </div>
+
+                <div class="form-control">
+                    <label class="label" asp-for="WidgetUrl"><span class="label-text">URL</span></label>
+                    <input asp-for="WidgetUrl" class="input input-bordered" placeholder="https://192.168.0.50:55000" />
+                    <span asp-validation-for="WidgetUrl" class="text-error text-sm"></span>
+                </div>
+
+                <div class="form-control">
+                    <label class="label" asp-for="Secret"><span class="label-text">Secret / password</span></label>
+                    <input asp-for="Secret" type="password" class="input input-bordered" placeholder="Leave blank to keep the existing secret" />
+                    <label class="label"><span class="label-text-alt">Stored encrypted. For HTTP/JSON this is the bearer token; for Wazuh it is the API password.</span></label>
+                </div>
+
+                @if (!Model.IsNew)
+                {
+                    <label class="cursor-pointer flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3">
+                        <input asp-for="ClearSecret" type="checkbox" class="checkbox checkbox-sm" />
+                        <span class="text-sm">Clear the stored secret</span>
+                    </label>
+                }
+
+                <div class="form-control">
+                    <label class="label" asp-for="ConfigJson"><span class="label-text">Config (JSON)</span></label>
+                    <textarea asp-for="ConfigJson" rows="5" class="textarea textarea-bordered font-mono text-sm"></textarea>
+                    <label class="label"><span class="label-text-alt">HTTP/JSON: {"jsonPath":"data.count","expect":"0"} · Wazuh agents: {"metric":"agents","apiUsername":"wazuh-wui"} · Wazuh critical alerts: {"metric":"criticalAlerts","indexerUrl":"https://HOST:9200","indexerUsername":"admin"}</span></label>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label" asp-for="SortOrder"><span class="label-text">Sort order</span></label>
+                        <input asp-for="SortOrder" type="number" class="input input-bordered" />
+                        <span asp-validation-for="SortOrder" class="text-error text-sm"></span>
+                    </div>
+                    <label class="cursor-pointer flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3">
+                        <input asp-for="IsEnabled" type="checkbox" class="checkbox checkbox-sm" />
+                        <span class="text-sm">Enabled</span>
+                    </label>
+                </div>
+
+                <div class="card-actions justify-end pt-2">
+                    <a class="btn btn-ghost" asp-page="./Dashboard" asp-route-slug="@Model.WorkspaceSlug">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Save widget</button>
+                </div>
+            </div>
+        </form>
+    </section>
+</div>

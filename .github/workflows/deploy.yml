@@ -97,6 +97,7 @@ jobs:
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               --network tickflo \
+              -v tickflo_dp_keys_stage:/app/data-protection-keys \
               --env-file ~/docker/tickflo/stage.web.env \
               ${{ env.IMAGE_NAME }}:stage
 
@@ -161,6 +162,7 @@ jobs:
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               --network tickflo \
+              -v tickflo_dp_keys:/app/data-protection-keys \
               -p 8080:8080 \
               --env-file ~/docker/tickflo/web.env \
               ${{ env.IMAGE_NAME }}:latest
