@@ -14,7 +14,7 @@ using Tickflo.Core.Services.Widgets;
 /// own username; the widget's <see cref="Widget.ApiKeyCiphertext"/> holds the password
 /// for the selected metric's backend.
 /// </summary>
-public sealed record WazuhWidgetConfig(string? Metric, string? IndexerUrl, string? IndexerUsername, string? ApiUsername);
+public sealed record WazuhWidgetConfig(string? Metric, string? IndexerUrl, string? IndexerUsername, string? ApiUsername, bool SkipTlsVerify);
 
 /// <summary>
 /// Reads a metric from a Wazuh deployment. <c>agents</c> queries the manager API
@@ -46,8 +46,7 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
                 return new WidgetFetchResult(null, WidgetHealth.Error, "A Wazuh widget requires a password.");
             }
 
-            var client = this.httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(15);
+            var client = WidgetHttpClient.Create(this.httpClientFactory, config.SkipTlsVerify);
 
             var metric = string.IsNullOrWhiteSpace(config.Metric) ? AgentsMetric : config.Metric;
             if (metric.Equals(CriticalAlertsMetric, StringComparison.OrdinalIgnoreCase))
@@ -158,11 +157,11 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
         try
         {
             return JsonSerializer.Deserialize<WazuhWidgetConfig>(configJson, ConfigJsonOptions)
-                ?? new WazuhWidgetConfig(null, null, null, null);
+                ?? new WazuhWidgetConfig(null, null, null, null, false);
         }
         catch
         {
-            return new WazuhWidgetConfig(null, null, null, null);
+            return new WazuhWidgetConfig(null, null, null, null, false);
         }
     }
 }
