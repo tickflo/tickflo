@@ -7,6 +7,7 @@ public class TickfloConfig
     public string PostresDatabase { get; set; } = string.Empty;
     public string PostgresHost { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "https://app.tickflo.co";
+    public string DataProtectionKeyPath { get; set; } = string.Empty;
     public string S3EndPoint { get; set; } = string.Empty;
     public string S3AccessKey { get; set; } = string.Empty;
     public string S3SecretKey { get; set; } = string.Empty;

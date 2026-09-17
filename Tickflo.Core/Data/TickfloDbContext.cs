@@ -38,6 +38,7 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
     public DbSet<InboundEmailRoute> InboundEmailRoutes => this.Set<InboundEmailRoute>();
     public DbSet<InboundEmail> InboundEmails => this.Set<InboundEmail>();
     public DbSet<InboundEmailAttachment> InboundEmailAttachments => this.Set<InboundEmailAttachment>();
+    public DbSet<Widget> Widgets => this.Set<Widget>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -238,6 +239,15 @@ public class TickfloDbContext(DbContextOptions<TickfloDbContext> options) : DbCo
             entity.Property(a => a.FileName).IsRequired().HasMaxLength(512);
             entity.Property(a => a.ContentType).IsRequired().HasMaxLength(256);
             entity.HasIndex(a => new { a.InboundEmailId });
+        });
+
+        modelBuilder.Entity<Widget>(entity =>
+        {
+            entity.HasIndex(w => new { w.WorkspaceId, w.SortOrder });
+            entity.HasOne<Workspace>()
+                .WithMany()
+                .HasForeignKey(w => w.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -12,6 +12,7 @@
     var statusFilter = query?["status"].ToString() ?? string.Empty;
     var uidStr = HttpContextAccessor.HttpContext?.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
     bool isAdmin = false;
+    bool isWorkspaceAdmin = false;
     int workspaceId = 0;
     var perms = new Dictionary<string, Tickflo.Core.Data.EffectiveSectionPermission>(StringComparer.OrdinalIgnoreCase);
     if (int.TryParse(uidStr, out var uid))
@@ -29,6 +30,10 @@
             if (ws != null)
             {
                 workspaceId = ws.Id;
+                var adminTask = dbContext.UserWorkspaceRoles
+                    .Include(uwr => uwr.Role)
+                    .AnyAsync(uwr => uwr.UserId == uid && uwr.WorkspaceId == workspaceId && uwr.Role.Admin);
+                isWorkspaceAdmin = adminTask.Result;
                 var pTask = RolePermsService.GetEffectivePermissionsForUserAsync(workspaceId, uid);
                 pTask.Wait();
                 perms = pTask.Result ?? perms;
@@ -64,10 +69,16 @@
                 {
                     var isDashboard = IsActive($"/workspaces/{slug}") && !IsActive("/contacts") && !IsActive("/tickets") &&
                     !IsActive("/reports") && !IsActive("/locations") && !IsActive("/inventory") && !IsActive("/users") &&
-                    !IsActive("/settings");
+                    !IsActive("/settings") && !IsActive("/dashboard");
                     <li><a class="@(isDashboard ? "active menu-active" : null) rounded-2xl flex items-center gap-2"
                             asp-page="/Workspace" asp-route-slug="@slug"><i
                                 class="fa fa-house"></i><span>Dashboard</span></a></li>
+                }
+                @if (isWorkspaceAdmin)
+                {
+                    <li><a class="@(IsActive("/dashboard") ? "active menu-active" : null) rounded-2xl flex items-center gap-2"
+                            asp-page="/Workspaces/Dashboard" asp-route-slug="@slug"><i
+                                class="fa fa-gauge-high"></i><span>Status</span></a></li>
                 }
                 @if (canContacts)
                 {
