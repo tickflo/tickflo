@@ -11,7 +11,7 @@ using Tickflo.Core.Services.Widgets;
 /// Configuration for the generic HTTP/JSON widget, deserialized from
 /// <see cref="Widget.ConfigJson"/>.
 /// </summary>
-public sealed record GenericHttpWidgetConfig(string? JsonPath, string? Expect);
+public sealed record GenericHttpWidgetConfig(string? JsonPath, string? Expect, bool SkipTlsVerify);
 
 /// <summary>
 /// Reads a value from any public JSON HTTP endpoint. The value is located via a dot
@@ -35,8 +35,7 @@ public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory, Tickf
             await WidgetUrlSafety.EnsureSafeUrlAsync(widget.Url, this.tickfloConfig.AllowPrivateWidgetTargets, cancellationToken);
 
             var config = ParseConfig(widget.ConfigJson);
-            var client = this.httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(15);
+            var client = WidgetHttpClient.Create(this.httpClientFactory, config.SkipTlsVerify);
 
             using var request = new HttpRequestMessage(HttpMethod.Get, widget.Url);
             if (!string.IsNullOrWhiteSpace(secret))
@@ -92,11 +91,11 @@ public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory, Tickf
         try
         {
             return JsonSerializer.Deserialize<GenericHttpWidgetConfig>(configJson, ConfigJsonOptions)
-                ?? new GenericHttpWidgetConfig(null, null);
+                ?? new GenericHttpWidgetConfig(null, null, false);
         }
         catch
         {
-            return new GenericHttpWidgetConfig(null, null);
+            return new GenericHttpWidgetConfig(null, null, false);
         }
     }
 
