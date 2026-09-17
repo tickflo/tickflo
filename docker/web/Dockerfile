@@ -56,8 +56,12 @@ COPY --from=node-build /src/wwwroot/css/dist.css ./wwwroot/css/dist.css
 # Remove the original site.css if it exists
 RUN rm -f ./wwwroot/css/site.css
 
-# Create non-root user and transfer ownership
-RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
+# Create non-root user and transfer ownership. The Data Protection key-ring
+# directory is pre-created and appuser-owned so a named volume mounted over it
+# (tickflo_dp_keys / tickflo_dp_keys_stage) is writable by the non-root app.
+RUN adduser --disabled-password --gecos "" --uid 1000 appuser \
+    && mkdir -p /app/data-protection-keys \
+    && chown -R appuser:appuser /app
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
