@@ -3,6 +3,7 @@ namespace Tickflo.Web.Services;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Tickflo.Core.Config;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Widgets;
 
@@ -18,11 +19,12 @@ public sealed record GenericHttpWidgetConfig(string? JsonPath, string? Expect);
 /// reports <see cref="WidgetHealth.Critical"/> if the value differs from it.
 /// URLs are validated against SSRF and responses are size-bounded.
 /// </summary>
-public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory) : IWidgetSource
+public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory, TickfloConfig tickfloConfig) : IWidgetSource
 {
     private const int MaxResponseBytes = 1_048_576; // 1 MB
 
     private readonly IHttpClientFactory httpClientFactory = httpClientFactory;
+    private readonly TickfloConfig tickfloConfig = tickfloConfig;
 
     public WidgetType Type => WidgetType.HttpJson;
 
@@ -30,7 +32,7 @@ public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory) : IWi
     {
         try
         {
-            await WidgetUrlSafety.EnsureSafeUrlAsync(widget.Url, cancellationToken);
+            await WidgetUrlSafety.EnsureSafeUrlAsync(widget.Url, this.tickfloConfig.AllowPrivateWidgetTargets, cancellationToken);
 
             var config = ParseConfig(widget.ConfigJson);
             var client = this.httpClientFactory.CreateClient();
@@ -83,11 +85,13 @@ public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory) : IWi
         throw new InvalidOperationException("The widget response exceeded the 1 MB size limit.");
     }
 
+    private static readonly JsonSerializerOptions ConfigJsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     private static GenericHttpWidgetConfig ParseConfig(string configJson)
     {
         try
         {
-            return JsonSerializer.Deserialize<GenericHttpWidgetConfig>(configJson)
+            return JsonSerializer.Deserialize<GenericHttpWidgetConfig>(configJson, ConfigJsonOptions)
                 ?? new GenericHttpWidgetConfig(null, null);
         }
         catch
@@ -149,14 +153,14 @@ public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory) : IWi
 
     private static string? NodeToString(JsonElement node) => node.ValueKind switch
     {
+        JsonValueKind.Object => node.GetRawText(),
+        JsonValueKind.Array => node.GetRawText(),
         JsonValueKind.String => node.GetString(),
         JsonValueKind.Number => node.GetRawText(),
         JsonValueKind.True => "true",
         JsonValueKind.False => "false",
         JsonValueKind.Null => null,
-        JsonValueKind.Undefined => throw new NotImplementedException(),
-        JsonValueKind.Object => throw new NotImplementedException(),
-        JsonValueKind.Array => throw new NotImplementedException(),
-        _ => node.GetRawText(),
+        JsonValueKind.Undefined => null,
+        _ => null,
     };
 }

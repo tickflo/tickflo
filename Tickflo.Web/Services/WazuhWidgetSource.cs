@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
+using Tickflo.Core.Config;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Widgets;
 
@@ -19,8 +20,9 @@ public sealed record WazuhWidgetConfig(string? Metric, string? IndexerUrl, strin
 /// Reads a metric from a Wazuh deployment. <c>agents</c> queries the manager API
 /// (port 55000, JWT auth) for the agent count; <c>criticalAlerts</c> queries the
 /// Wazuh indexer (port 9200, basic auth) for the number of level &gt;= 10 alerts.
+/// Both target hosts are SSRF-guarded (unless private targets are allowed).
 /// </summary>
-public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCache memoryCache) : IWidgetSource
+public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCache memoryCache, TickfloConfig tickfloConfig) : IWidgetSource
 {
     private const string CriticalAlertsMetric = "criticalAlerts";
     private const string AgentsMetric = "agents";
@@ -30,6 +32,7 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
 
     private readonly IHttpClientFactory httpClientFactory = httpClientFactory;
     private readonly IMemoryCache memoryCache = memoryCache;
+    private readonly TickfloConfig tickfloConfig = tickfloConfig;
 
     public WidgetType Type => WidgetType.Wazuh;
 
@@ -49,9 +52,17 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
             var metric = string.IsNullOrWhiteSpace(config.Metric) ? AgentsMetric : config.Metric;
             if (metric.Equals(CriticalAlertsMetric, StringComparison.OrdinalIgnoreCase))
             {
-                return await FetchCriticalAlertsAsync(client, config, secret, cancellationToken);
+                var indexerUrl = config.IndexerUrl?.TrimEnd('/');
+                if (string.IsNullOrWhiteSpace(indexerUrl))
+                {
+                    return new WidgetFetchResult(null, WidgetHealth.Error, "The criticalAlerts metric requires an indexerUrl.");
+                }
+
+                await WidgetUrlSafety.EnsureSafeUrlAsync(indexerUrl, this.tickfloConfig.AllowPrivateWidgetTargets, cancellationToken);
+                return await FetchCriticalAlertsAsync(client, indexerUrl, config, secret, cancellationToken);
             }
 
+            await WidgetUrlSafety.EnsureSafeUrlAsync(widget.Url, this.tickfloConfig.AllowPrivateWidgetTargets, cancellationToken);
             return await this.FetchAgentCountAsync(client, widget, config, secret, cancellationToken);
         }
         catch (Exception ex)
@@ -85,16 +96,11 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
 
     private static async Task<WidgetFetchResult> FetchCriticalAlertsAsync(
         HttpClient client,
+        string indexerUrl,
         WazuhWidgetConfig config,
         string secret,
         CancellationToken cancellationToken)
     {
-        var indexerUrl = config.IndexerUrl?.TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(indexerUrl))
-        {
-            return new WidgetFetchResult(null, WidgetHealth.Error, "The criticalAlerts metric requires an indexerUrl.");
-        }
-
         var username = string.IsNullOrWhiteSpace(config.IndexerUsername) ? DefaultIndexerUsername : config.IndexerUsername;
         var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{secret}"));
         var query = JsonSerializer.Serialize(new { query = new { range = new { rule = new { level = new { gte = 10 } } } } });
@@ -145,11 +151,13 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
         return token;
     }
 
+    private static readonly JsonSerializerOptions ConfigJsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     private static WazuhWidgetConfig ParseConfig(string configJson)
     {
         try
         {
-            return JsonSerializer.Deserialize<WazuhWidgetConfig>(configJson)
+            return JsonSerializer.Deserialize<WazuhWidgetConfig>(configJson, ConfigJsonOptions)
                 ?? new WazuhWidgetConfig(null, null, null, null);
         }
         catch
