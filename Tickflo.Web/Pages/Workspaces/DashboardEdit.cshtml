@@ -54,7 +54,7 @@
                 <div class="form-control">
                     <label class="label" asp-for="ConfigJson"><span class="label-text">Config (JSON)</span></label>
                     <textarea asp-for="ConfigJson" rows="5" class="textarea textarea-bordered font-mono text-sm"></textarea>
-                    <label class="label"><span class="label-text-alt">HTTP/JSON: {"jsonPath":"data.count","expect":"0"} · Wazuh: {"username":"admin","metric":"agents"} or {"username":"admin","metric":"criticalAlerts","indexerUrl":"https://HOST:9200"}</span></label>
+                    <label class="label"><span class="label-text-alt">HTTP/JSON: {"jsonPath":"data.count","expect":"0"} · Wazuh agents: {"metric":"agents","apiUsername":"wazuh-wui"} · Wazuh critical alerts: {"metric":"criticalAlerts","indexerUrl":"https://HOST:9200","indexerUsername":"admin"}</span></label>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

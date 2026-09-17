@@ -9,19 +9,23 @@ using Tickflo.Core.Services.Widgets;
 
 /// <summary>
 /// Configuration for the Wazuh widget, deserialized from <see cref="Widget.ConfigJson"/>.
+/// The indexer and the manager API use separate credentials, so each metric names its
+/// own username; the widget's <see cref="Widget.ApiKeyCiphertext"/> holds the password
+/// for the selected metric's backend.
 /// </summary>
-public sealed record WazuhWidgetConfig(string? Username, string? Metric, string? IndexerUrl);
+public sealed record WazuhWidgetConfig(string? Metric, string? IndexerUrl, string? IndexerUsername, string? ApiUsername);
 
 /// <summary>
-/// Reads a metric from a Wazuh deployment. The <c>agents</c> metric queries the
-/// manager API (port 55000) for the agent count; the <c>criticalAlerts</c> metric
-/// queries the Wazuh indexer (port 9200) for the number of level &gt;= 10 alerts.
-/// Manager JWTs are cached; the indexer uses basic auth.
+/// Reads a metric from a Wazuh deployment. <c>agents</c> queries the manager API
+/// (port 55000, JWT auth) for the agent count; <c>criticalAlerts</c> queries the
+/// Wazuh indexer (port 9200, basic auth) for the number of level &gt;= 10 alerts.
 /// </summary>
 public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCache memoryCache) : IWidgetSource
 {
     private const string CriticalAlertsMetric = "criticalAlerts";
     private const string AgentsMetric = "agents";
+    private const string DefaultIndexerUsername = "admin";
+    private const string DefaultApiUsername = "wazuh-wui";
     private static readonly TimeSpan TokenLifetime = TimeSpan.FromMinutes(14); // Wazuh JWTs last 900s; refresh early
 
     private readonly IHttpClientFactory httpClientFactory = httpClientFactory;
@@ -34,9 +38,9 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
         try
         {
             var config = ParseConfig(widget.ConfigJson);
-            if (string.IsNullOrWhiteSpace(config.Username) || string.IsNullOrWhiteSpace(secret))
+            if (string.IsNullOrWhiteSpace(secret))
             {
-                return new WidgetFetchResult(null, WidgetHealth.Error, "A Wazuh widget requires a username and password.");
+                return new WidgetFetchResult(null, WidgetHealth.Error, "A Wazuh widget requires a password.");
             }
 
             var client = this.httpClientFactory.CreateClient();
@@ -63,7 +67,8 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
         string secret,
         CancellationToken cancellationToken)
     {
-        var token = await this.GetManagerTokenAsync(client, widget.Url, config.Username!, secret, cancellationToken);
+        var username = string.IsNullOrWhiteSpace(config.ApiUsername) ? DefaultApiUsername : config.ApiUsername;
+        var token = await this.GetManagerTokenAsync(client, widget.Url, username, secret, cancellationToken);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"{widget.Url.TrimEnd('/')}/agents?limit=1");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -90,7 +95,8 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
             return new WidgetFetchResult(null, WidgetHealth.Error, "The criticalAlerts metric requires an indexerUrl.");
         }
 
-        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{config.Username}:{secret}"));
+        var username = string.IsNullOrWhiteSpace(config.IndexerUsername) ? DefaultIndexerUsername : config.IndexerUsername;
+        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{secret}"));
         var query = JsonSerializer.Serialize(new { query = new { range = new { rule = new { level = new { gte = 10 } } } } });
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{indexerUrl}/wazuh-alerts-*/_count");
@@ -144,11 +150,11 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCach
         try
         {
             return JsonSerializer.Deserialize<WazuhWidgetConfig>(configJson)
-                ?? new WazuhWidgetConfig(null, null, null);
+                ?? new WazuhWidgetConfig(null, null, null, null);
         }
         catch
         {
-            return new WazuhWidgetConfig(null, null, null);
+            return new WazuhWidgetConfig(null, null, null, null);
         }
     }
 }
