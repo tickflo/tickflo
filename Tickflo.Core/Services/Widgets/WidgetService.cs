@@ -5,10 +5,11 @@ using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Exceptions;
 
-public class WidgetService(TickfloDbContext dbContext, IWidgetSecretProtector secretProtector) : IWidgetService
+public class WidgetService(TickfloDbContext dbContext, IWidgetSecretProtector secretProtector, IWidgetSnapshotStore snapshotStore) : IWidgetService
 {
     private readonly TickfloDbContext dbContext = dbContext;
     private readonly IWidgetSecretProtector secretProtector = secretProtector;
+    private readonly IWidgetSnapshotStore snapshotStore = snapshotStore;
 
     public async Task<IReadOnlyList<Widget>> GetWidgetsForWorkspaceAsync(int workspaceId) =>
         await this.dbContext.Widgets
@@ -29,27 +30,19 @@ public class WidgetService(TickfloDbContext dbContext, IWidgetSecretProtector se
             .AsNoTracking()
             .FirstOrDefaultAsync(widget => widget.WorkspaceId == workspaceId && widget.Id == widgetId);
 
-    public async Task<Widget> CreateWidgetAsync(
-        int workspaceId,
-        string name,
-        WidgetType type,
-        string url,
-        string? secret,
-        string configJson,
-        int refreshIntervalSeconds,
-        int sortOrder,
-        int createdBy)
+    public async Task<Widget> CreateWidgetAsync(int workspaceId, WidgetDraft draft, int createdBy)
     {
         var widget = new Widget
         {
             WorkspaceId = workspaceId,
-            Name = name,
-            Type = type,
-            Url = url,
-            ApiKeyCiphertext = this.EncryptSecret(secret),
-            ConfigJson = configJson,
-            RefreshIntervalSeconds = refreshIntervalSeconds,
-            SortOrder = sortOrder,
+            Name = draft.Name,
+            Type = draft.Type,
+            Url = draft.Url,
+            ApiKeyCiphertext = this.EncryptSecret(draft.Secret),
+            ConfigJson = draft.ConfigJson,
+            RefreshIntervalSeconds = draft.RefreshIntervalSeconds,
+            SortOrder = draft.SortOrder,
+            IsEnabled = draft.IsEnabled,
             CreatedBy = createdBy,
         };
 
@@ -58,34 +51,29 @@ public class WidgetService(TickfloDbContext dbContext, IWidgetSecretProtector se
         return widget;
     }
 
-    public async Task<Widget> UpdateWidgetAsync(
-        int workspaceId,
-        int widgetId,
-        string name,
-        WidgetType type,
-        string url,
-        string? secret,
-        string configJson,
-        int refreshIntervalSeconds,
-        int sortOrder,
-        int updatedBy)
+    public async Task<Widget> UpdateWidgetAsync(int workspaceId, int widgetId, WidgetDraft draft, int updatedBy)
     {
         var widget = await this.dbContext.Widgets
             .FirstOrDefaultAsync(widget => widget.WorkspaceId == workspaceId && widget.Id == widgetId)
             ?? throw new NotFoundException("Widget not found.");
 
-        widget.Name = name;
-        widget.Type = type;
-        widget.Url = url;
-        widget.ConfigJson = configJson;
-        widget.RefreshIntervalSeconds = refreshIntervalSeconds;
-        widget.SortOrder = sortOrder;
+        widget.Name = draft.Name;
+        widget.Type = draft.Type;
+        widget.Url = draft.Url;
+        widget.ConfigJson = draft.ConfigJson;
+        widget.RefreshIntervalSeconds = draft.RefreshIntervalSeconds;
+        widget.SortOrder = draft.SortOrder;
+        widget.IsEnabled = draft.IsEnabled;
         widget.UpdatedAt = DateTime.UtcNow;
         widget.UpdatedBy = updatedBy;
 
-        if (!string.IsNullOrWhiteSpace(secret))
+        if (draft.ClearSecret)
         {
-            widget.ApiKeyCiphertext = this.EncryptSecret(secret);
+            widget.ApiKeyCiphertext = null;
+        }
+        else if (!string.IsNullOrWhiteSpace(draft.Secret))
+        {
+            widget.ApiKeyCiphertext = this.EncryptSecret(draft.Secret);
         }
 
         await this.dbContext.SaveChangesAsync();
@@ -100,6 +88,7 @@ public class WidgetService(TickfloDbContext dbContext, IWidgetSecretProtector se
 
         this.dbContext.Widgets.Remove(widget);
         await this.dbContext.SaveChangesAsync();
+        this.snapshotStore.RemoveSnapshot(widgetId);
     }
 
     private string? EncryptSecret(string? secret) =>

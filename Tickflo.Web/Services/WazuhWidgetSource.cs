@@ -3,24 +3,29 @@ namespace Tickflo.Web.Services;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Widgets;
 
 /// <summary>
 /// Configuration for the Wazuh widget, deserialized from <see cref="Widget.ConfigJson"/>.
 /// </summary>
-public sealed record WazuhWidgetConfig(string? Username, string? Metric);
+public sealed record WazuhWidgetConfig(string? Username, string? Metric, string? IndexerUrl);
 
 /// <summary>
-/// Reads a metric from the Wazuh server API (port 55000). Authenticates with a
-/// username/password to obtain a JWT, then queries either the agent count or the
-/// number of critical (level &gt;= 10) alerts.
+/// Reads a metric from a Wazuh deployment. The <c>agents</c> metric queries the
+/// manager API (port 55000) for the agent count; the <c>criticalAlerts</c> metric
+/// queries the Wazuh indexer (port 9200) for the number of level &gt;= 10 alerts.
+/// Manager JWTs are cached; the indexer uses basic auth.
 /// </summary>
-public class WazuhWidgetSource(IHttpClientFactory httpClientFactory) : IWidgetSource
+public class WazuhWidgetSource(IHttpClientFactory httpClientFactory, IMemoryCache memoryCache) : IWidgetSource
 {
     private const string CriticalAlertsMetric = "criticalAlerts";
+    private const string AgentsMetric = "agents";
+    private static readonly TimeSpan TokenLifetime = TimeSpan.FromMinutes(14); // Wazuh JWTs last 900s; refresh early
 
     private readonly IHttpClientFactory httpClientFactory = httpClientFactory;
+    private readonly IMemoryCache memoryCache = memoryCache;
 
     public WidgetType Type => WidgetType.Wazuh;
 
@@ -37,8 +42,13 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory) : IWidgetSo
             var client = this.httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(15);
 
-            var token = await AuthenticateAsync(client, widget.Url, config.Username, secret, cancellationToken);
-            return await FetchMetricAsync(client, widget.Url, token, config.Metric, cancellationToken);
+            var metric = string.IsNullOrWhiteSpace(config.Metric) ? AgentsMetric : config.Metric;
+            if (metric.Equals(CriticalAlertsMetric, StringComparison.OrdinalIgnoreCase))
+            {
+                return await FetchCriticalAlertsAsync(client, config, secret, cancellationToken);
+            }
+
+            return await this.FetchAgentCountAsync(client, widget, config, secret, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -46,38 +56,16 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory) : IWidgetSo
         }
     }
 
-    private static async Task<string> AuthenticateAsync(
+    private async Task<WidgetFetchResult> FetchAgentCountAsync(
         HttpClient client,
-        string baseUrl,
-        string username,
-        string password,
+        Widget widget,
+        WazuhWidgetConfig config,
+        string secret,
         CancellationToken cancellationToken)
     {
-        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/security/user/authenticate");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        var token = await this.GetManagerTokenAsync(client, widget.Url, config.Username!, secret, cancellationToken);
 
-        using var response = await client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        using var document = JsonDocument.Parse(body);
-        return document.RootElement.GetProperty("data").GetProperty("token").GetString()
-            ?? throw new InvalidOperationException("The Wazuh authentication response did not include a token.");
-    }
-
-    private static async Task<WidgetFetchResult> FetchMetricAsync(
-        HttpClient client,
-        string baseUrl,
-        string token,
-        string? metric,
-        CancellationToken cancellationToken)
-    {
-        var endpoint = metric == CriticalAlertsMetric
-            ? "/events?limit=1&q=rule.level%3E%3D10"
-            : "/agents?limit=1";
-
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl.TrimEnd('/')}{endpoint}");
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"{widget.Url.TrimEnd('/')}/agents?limit=1");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         using var response = await client.SendAsync(request, cancellationToken);
@@ -87,15 +75,68 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory) : IWidgetSo
         using var document = JsonDocument.Parse(body);
         var total = document.RootElement.GetProperty("data").GetProperty("total_affected_items").GetInt32();
 
-        if (metric == CriticalAlertsMetric)
+        return new WidgetFetchResult($"{total} agents", WidgetHealth.Ok, null);
+    }
+
+    private static async Task<WidgetFetchResult> FetchCriticalAlertsAsync(
+        HttpClient client,
+        WazuhWidgetConfig config,
+        string secret,
+        CancellationToken cancellationToken)
+    {
+        var indexerUrl = config.IndexerUrl?.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(indexerUrl))
         {
-            return new WidgetFetchResult(
-                $"{total} critical alerts",
-                total > 0 ? WidgetHealth.Critical : WidgetHealth.Ok,
-                null);
+            return new WidgetFetchResult(null, WidgetHealth.Error, "The criticalAlerts metric requires an indexerUrl.");
         }
 
-        return new WidgetFetchResult($"{total} agents", WidgetHealth.Ok, null);
+        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{config.Username}:{secret}"));
+        var query = JsonSerializer.Serialize(new { query = new { range = new { rule = new { level = new { gte = 10 } } } } });
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{indexerUrl}/wazuh-alerts-*/_count");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        request.Content = new StringContent(query, Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var document = JsonDocument.Parse(body);
+        var count = document.RootElement.GetProperty("count").GetInt32();
+
+        return new WidgetFetchResult(
+            $"{count} critical alerts",
+            count > 0 ? WidgetHealth.Critical : WidgetHealth.Ok,
+            null);
+    }
+
+    private async Task<string> GetManagerTokenAsync(
+        HttpClient client,
+        string baseUrl,
+        string username,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        var cacheKey = $"wazuh-token:{baseUrl}:{username}";
+        if (this.memoryCache.TryGetValue<string>(cacheKey, out var cachedToken) && cachedToken is not null)
+        {
+            return cachedToken;
+        }
+
+        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl.TrimEnd('/')}/security/user/authenticate");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var document = JsonDocument.Parse(body);
+        var token = document.RootElement.GetProperty("data").GetProperty("token").GetString()
+            ?? throw new InvalidOperationException("The Wazuh authentication response did not include a token.");
+
+        this.memoryCache.Set(cacheKey, token, TokenLifetime);
+        return token;
     }
 
     private static WazuhWidgetConfig ParseConfig(string configJson)
@@ -103,11 +144,11 @@ public class WazuhWidgetSource(IHttpClientFactory httpClientFactory) : IWidgetSo
         try
         {
             return JsonSerializer.Deserialize<WazuhWidgetConfig>(configJson)
-                ?? new WazuhWidgetConfig(null, null);
+                ?? new WazuhWidgetConfig(null, null, null);
         }
         catch
         {
-            return new WazuhWidgetConfig(null, null);
+            return new WazuhWidgetConfig(null, null, null);
         }
     }
 }

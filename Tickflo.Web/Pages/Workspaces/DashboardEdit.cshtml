@@ -27,6 +27,7 @@
                     <div class="form-control">
                         <label class="label" asp-for="RefreshIntervalSeconds"><span class="label-text">Refresh (seconds)</span></label>
                         <input asp-for="RefreshIntervalSeconds" type="number" min="10" class="input input-bordered" />
+                        <span asp-validation-for="RefreshIntervalSeconds" class="text-error text-sm"></span>
                     </div>
                 </div>
 
@@ -42,15 +43,30 @@
                     <label class="label"><span class="label-text-alt">Stored encrypted. For HTTP/JSON this is the bearer token; for Wazuh it is the API password.</span></label>
                 </div>
 
+                @if (!Model.IsNew)
+                {
+                    <label class="cursor-pointer flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3">
+                        <input asp-for="ClearSecret" type="checkbox" class="checkbox checkbox-sm" />
+                        <span class="text-sm">Clear the stored secret</span>
+                    </label>
+                }
+
                 <div class="form-control">
                     <label class="label" asp-for="ConfigJson"><span class="label-text">Config (JSON)</span></label>
                     <textarea asp-for="ConfigJson" rows="5" class="textarea textarea-bordered font-mono text-sm"></textarea>
-                    <label class="label"><span class="label-text-alt">HTTP/JSON: {"jsonPath":"data.count","expect":"0"} · Wazuh: {"username":"admin","metric":"criticalAlerts"} (metric: agents | criticalAlerts)</span></label>
+                    <label class="label"><span class="label-text-alt">HTTP/JSON: {"jsonPath":"data.count","expect":"0"} · Wazuh: {"username":"admin","metric":"agents"} or {"username":"admin","metric":"criticalAlerts","indexerUrl":"https://HOST:9200"}</span></label>
                 </div>
 
-                <div class="form-control">
-                    <label class="label" asp-for="SortOrder"><span class="label-text">Sort order</span></label>
-                    <input asp-for="SortOrder" type="number" class="input input-bordered" />
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label" asp-for="SortOrder"><span class="label-text">Sort order</span></label>
+                        <input asp-for="SortOrder" type="number" class="input input-bordered" />
+                        <span asp-validation-for="SortOrder" class="text-error text-sm"></span>
+                    </div>
+                    <label class="cursor-pointer flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3">
+                        <input asp-for="IsEnabled" type="checkbox" class="checkbox checkbox-sm" />
+                        <span class="text-sm">Enabled</span>
+                    </label>
                 </div>
 
                 <div class="card-actions justify-end pt-2">

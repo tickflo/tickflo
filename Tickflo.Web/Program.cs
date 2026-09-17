@@ -201,6 +201,7 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
 
 // Ops dashboard widgets
 builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
 var dataProtectionKeyPath = string.IsNullOrWhiteSpace(appConfig.DataProtectionKeyPath)
     ? Path.Combine(builder.Environment.ContentRootPath, "data-protection-keys")
     : appConfig.DataProtectionKeyPath;

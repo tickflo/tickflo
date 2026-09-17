@@ -1,5 +1,6 @@
 namespace Tickflo.Web.Pages.Workspaces;
 
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -23,25 +24,35 @@ public class DashboardEditModel(
     public bool IsNew => this.WidgetId == 0;
 
     [BindProperty]
+    [Required, MinLength(1), MaxLength(200)]
     public string Name { get; set; } = string.Empty;
 
     [BindProperty]
     public WidgetType Type { get; set; } = WidgetType.HttpJson;
 
     [BindProperty]
+    [Required, MaxLength(2000)]
     public string WidgetUrl { get; set; } = string.Empty;
 
     [BindProperty]
     public string? Secret { get; set; }
 
     [BindProperty]
+    public bool ClearSecret { get; set; }
+
+    [BindProperty]
     public string ConfigJson { get; set; } = "{}";
 
     [BindProperty]
+    [Range(10, 86400)]
     public int RefreshIntervalSeconds { get; set; } = 60;
 
     [BindProperty]
+    [Range(0, 10000)]
     public int SortOrder { get; set; }
+
+    [BindProperty]
+    public bool IsEnabled { get; set; } = true;
 
     public List<SelectListItem> TypeOptions { get; } =
     [
@@ -76,6 +87,7 @@ public class DashboardEditModel(
             this.ConfigJson = widget.ConfigJson;
             this.RefreshIntervalSeconds = widget.RefreshIntervalSeconds;
             this.SortOrder = widget.SortOrder;
+            this.IsEnabled = widget.IsEnabled;
         }
 
         return this.Page();
@@ -97,32 +109,24 @@ public class DashboardEditModel(
             return this.Page();
         }
 
+        var draft = new WidgetDraft(
+            this.Name.Trim(),
+            this.Type,
+            this.WidgetUrl.Trim(),
+            this.Secret,
+            this.ClearSecret,
+            this.ConfigJson,
+            this.RefreshIntervalSeconds,
+            this.SortOrder,
+            this.IsEnabled);
+
         if (id == 0)
         {
-            await this.widgetService.CreateWidgetAsync(
-                this.Workspace!.Id,
-                this.Name.Trim(),
-                this.Type,
-                this.WidgetUrl.Trim(),
-                this.Secret,
-                this.ConfigJson,
-                this.RefreshIntervalSeconds,
-                this.SortOrder,
-                this.CurrentUserId);
+            await this.widgetService.CreateWidgetAsync(this.Workspace!.Id, draft, this.CurrentUserId);
         }
         else
         {
-            await this.widgetService.UpdateWidgetAsync(
-                this.Workspace!.Id,
-                id,
-                this.Name.Trim(),
-                this.Type,
-                this.WidgetUrl.Trim(),
-                this.Secret,
-                this.ConfigJson,
-                this.RefreshIntervalSeconds,
-                this.SortOrder,
-                this.CurrentUserId);
+            await this.widgetService.UpdateWidgetAsync(this.Workspace!.Id, id, draft, this.CurrentUserId);
         }
 
         this.SetSuccessMessage("Widget saved.");

@@ -1,6 +1,7 @@
 namespace Tickflo.Web.Services;
 
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Tickflo.Core.Entities;
 using Tickflo.Core.Services.Widgets;
@@ -12,12 +13,15 @@ using Tickflo.Core.Services.Widgets;
 public sealed record GenericHttpWidgetConfig(string? JsonPath, string? Expect);
 
 /// <summary>
-/// Reads a value from any JSON HTTP endpoint. The value is located via a dot
+/// Reads a value from any public JSON HTTP endpoint. The value is located via a dot
 /// path (with optional array indices) and, when <c>Expect</c> is set, the widget
 /// reports <see cref="WidgetHealth.Critical"/> if the value differs from it.
+/// URLs are validated against SSRF and responses are size-bounded.
 /// </summary>
 public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory) : IWidgetSource
 {
+    private const int MaxResponseBytes = 1_048_576; // 1 MB
+
     private readonly IHttpClientFactory httpClientFactory = httpClientFactory;
 
     public WidgetType Type => WidgetType.HttpJson;
@@ -26,6 +30,8 @@ public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory) : IWi
     {
         try
         {
+            await WidgetUrlSafety.EnsureSafeUrlAsync(widget.Url, cancellationToken);
+
             var config = ParseConfig(widget.ConfigJson);
             var client = this.httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(15);
@@ -36,10 +42,10 @@ public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory) : IWi
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secret);
             }
 
-            using var response = await client.SendAsync(request, cancellationToken);
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            var body = await ReadBoundedAsync(response, cancellationToken);
             var value = ExtractValue(body, config.JsonPath);
 
             var health = string.IsNullOrWhiteSpace(config.Expect) || string.Equals(value, config.Expect, StringComparison.Ordinal)
@@ -52,6 +58,29 @@ public class GenericHttpWidgetSource(IHttpClientFactory httpClientFactory) : IWi
         {
             return new WidgetFetchResult(null, WidgetHealth.Error, ex.Message);
         }
+    }
+
+    private static async Task<string> ReadBoundedAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        var buffer = new char[8192];
+        var builder = new StringBuilder();
+        var total = 0;
+
+        while (total < MaxResponseBytes)
+        {
+            var read = await reader.ReadAsync(buffer.AsMemory(), cancellationToken);
+            if (read == 0)
+            {
+                return builder.ToString();
+            }
+
+            builder.Append(buffer, 0, read);
+            total += read;
+        }
+
+        throw new InvalidOperationException("The widget response exceeded the 1 MB size limit.");
     }
 
     private static GenericHttpWidgetConfig ParseConfig(string configJson)
