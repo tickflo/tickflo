@@ -2,7 +2,6 @@ using System.Web;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
@@ -22,7 +21,6 @@ using Tickflo.Core.Services.Tickets;
 using Tickflo.Core.Services.Users;
 using Tickflo.Core.Services.Views;
 using Tickflo.Core.Services.Web;
-using Tickflo.Core.Services.Widgets;
 using Tickflo.Core.Services.Workspace;
 using Tickflo.Web;
 using Tickflo.Web.Authentication;
@@ -198,20 +196,6 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
     };
     return new AmazonS3Client(config.S3AccessKey, config.S3SecretKey, s3Config);
 });
-
-// Ops dashboard widgets
-builder.Services.AddHttpClient();
-builder.Services.AddMemoryCache();
-var dataProtectionKeyPath = string.IsNullOrWhiteSpace(appConfig.DataProtectionKeyPath)
-    ? Path.Combine(builder.Environment.ContentRootPath, "data-protection-keys")
-    : appConfig.DataProtectionKeyPath;
-builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
-builder.Services.AddSingleton<IWidgetSnapshotStore, WidgetSnapshotStore>();
-builder.Services.AddSingleton<IWidgetSecretProtector, WidgetSecretProtector>();
-builder.Services.AddScoped<IWidgetService, WidgetService>();
-builder.Services.AddTransient<IWidgetSource, GenericHttpWidgetSource>();
-builder.Services.AddTransient<IWidgetSource, WazuhWidgetSource>();
-builder.Services.AddHostedService<WidgetPollingService>();
 
 var app = builder.Build();
 

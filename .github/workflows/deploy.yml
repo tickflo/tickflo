@@ -93,14 +93,10 @@ jobs:
             docker stop ${{ env.CONTAINER_NAME }} || true
             docker rm ${{ env.CONTAINER_NAME }} || true
 
-            # Ensure the Data Protection volume is owned by appuser (uid 1000)
-            docker run --rm -v tickflo_dp_keys_stage:/keys alpine:3.20 sh -c 'chown -R 1000:1000 /keys'
-
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               --network tickflo \
-              -v tickflo_dp_keys_stage:/app/data-protection-keys \
               --env-file ~/docker/tickflo/stage.web.env \
               ${{ env.IMAGE_NAME }}:stage
 
@@ -161,14 +157,10 @@ jobs:
             docker stop ${{ env.CONTAINER_NAME }} || true
             docker rm ${{ env.CONTAINER_NAME }} || true
 
-            # Ensure the Data Protection volume is owned by appuser (uid 1000)
-            docker run --rm -v tickflo_dp_keys:/keys alpine:3.20 sh -c 'chown -R 1000:1000 /keys'
-
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               --network tickflo \
-              -v tickflo_dp_keys:/app/data-protection-keys \
               -p 8080:8080 \
               --env-file ~/docker/tickflo/web.env \
               ${{ env.IMAGE_NAME }}:latest

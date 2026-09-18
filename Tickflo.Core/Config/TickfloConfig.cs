@@ -7,14 +7,6 @@ public class TickfloConfig
     public string PostresDatabase { get; set; } = string.Empty;
     public string PostgresHost { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "https://app.tickflo.co";
-    public string DataProtectionKeyPath { get; set; } = string.Empty;
-
-    /// <summary>
-    /// When true, widgets may target private/loopback/LAN hosts (self-hosted deployments
-    /// monitoring their own infrastructure). When false (default, multi-tenant SaaS),
-    /// widget URLs are SSRF-guarded to public hosts only.
-    /// </summary>
-    public bool AllowPrivateWidgetTargets { get; set; }
     public string S3EndPoint { get; set; } = string.Empty;
     public string S3AccessKey { get; set; } = string.Empty;
     public string S3SecretKey { get; set; } = string.Empty;

@@ -31,8 +31,3 @@ services:
       - s3
     ports:
       - "8080:8080"
-    volumes:
-      - "tickflo_dp_keys:/app/data-protection-keys"
-
-volumes:
-  tickflo_dp_keys:
