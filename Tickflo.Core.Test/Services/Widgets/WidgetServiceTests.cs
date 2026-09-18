@@ -85,6 +85,30 @@ public class WidgetServiceTests
     }
 
     [Fact]
+    public async Task UpdateWidgetAsync_WhenClearSecretWithNewSecretProvided_ShouldPersistNewCiphertext()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var workspace = await SeedWorkspaceAsync(databaseContext);
+        var (service, secretProtector, _) = CreateWidgetService(databaseContext);
+        secretProtector.Setup(protector => protector.Protect("top-secret")).Returns("enc:top-secret");
+        secretProtector.Setup(protector => protector.Protect("new-secret")).Returns("enc:new-secret");
+
+        var created = await service.CreateWidgetAsync(
+            workspace.Id,
+            new WidgetDraft("Wazuh", WidgetType.Wazuh, "https://wazuh.example", "top-secret", false, "{}", 60, 0, true),
+            1);
+
+        await service.UpdateWidgetAsync(
+            workspace.Id,
+            created.Id,
+            new WidgetDraft("Wazuh", WidgetType.Wazuh, "https://wazuh.example", "new-secret", true, "{}", 60, 0, true),
+            1);
+
+        var updated = await service.GetWidgetAsync(workspace.Id, created.Id);
+        Assert.Equal("enc:new-secret", updated!.ApiKeyCiphertext);
+    }
+
+    [Fact]
     public async Task UpdateWidgetAsync_WhenSecretEmpty_ShouldKeepExistingCiphertext()
     {
         await using var databaseContext = CreateDatabaseContext();
