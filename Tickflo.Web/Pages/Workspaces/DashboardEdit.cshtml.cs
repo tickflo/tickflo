@@ -1,6 +1,8 @@
 namespace Tickflo.Web.Pages.Workspaces;
 
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -39,6 +41,14 @@ public class DashboardEditModel(
 
     [BindProperty]
     public bool ClearSecret { get; set; }
+
+    /// <summary>
+    /// Wazuh API username (maps to <c>apiUsername</c> / <c>indexerUsername</c> in
+    /// <see cref="ConfigJson"/>). Left empty in the override for other sources.
+    /// </summary>
+    [BindProperty]
+    [MaxLength(200)]
+    public string? Username { get; set; }
 
     [BindProperty]
     public string ConfigJson { get; set; } = "{}";
@@ -85,6 +95,7 @@ public class DashboardEditModel(
             this.Type = widget.Type;
             this.WidgetUrl = widget.Url;
             this.ConfigJson = widget.ConfigJson;
+            this.Username = this.ReadWazuhUsername(widget.ConfigJson);
             this.RefreshIntervalSeconds = widget.RefreshIntervalSeconds;
             this.SortOrder = widget.SortOrder;
             this.IsEnabled = widget.IsEnabled;
@@ -115,7 +126,7 @@ public class DashboardEditModel(
             this.WidgetUrl.Trim(),
             this.Secret,
             this.ClearSecret,
-            this.ConfigJson,
+            this.ApplyWazuhUsername(this.ConfigJson),
             this.RefreshIntervalSeconds,
             this.SortOrder,
             this.IsEnabled);
@@ -131,6 +142,71 @@ public class DashboardEditModel(
 
         this.SetSuccessMessage("Widget saved.");
         return this.RedirectToPage("Dashboard", new { slug = this.WorkspaceSlug });
+    }
+
+    private static readonly JsonSerializerOptions WidgetConfigOptions = new() { PropertyNameCaseInsensitive = true };
+
+    private string? ReadWazuhUsername(string? configJson)
+    {
+        if (this.Type != WidgetType.Wazuh || string.IsNullOrWhiteSpace(configJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(configJson);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var metric = root.TryGetProperty("metric", out var metricElement) && metricElement.ValueKind == JsonValueKind.String
+                ? metricElement.GetString()
+                : null;
+            var key = string.Equals(metric, "criticalAlerts", StringComparison.OrdinalIgnoreCase)
+                ? "indexerUsername"
+                : "apiUsername";
+
+            if (root.TryGetProperty(key, out var usernameElement) && usernameElement.ValueKind == JsonValueKind.String)
+            {
+                return usernameElement.GetString();
+            }
+
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private string ApplyWazuhUsername(string configJson)
+    {
+        if (this.Type != WidgetType.Wazuh || string.IsNullOrWhiteSpace(this.Username))
+        {
+            return configJson;
+        }
+
+        JsonNode node;
+        try
+        {
+            node = JsonNode.Parse(string.IsNullOrWhiteSpace(configJson) ? "{}" : configJson) ?? new JsonObject();
+        }
+        catch (JsonException)
+        {
+            node = new JsonObject();
+        }
+
+        var config = node as JsonObject ?? [];
+        var metric = config["metric"]?.GetValue<string>();
+        var key = string.Equals(metric, "criticalAlerts", StringComparison.OrdinalIgnoreCase)
+            ? "indexerUsername"
+            : "apiUsername";
+
+        config[key] = this.Username.Trim();
+        return config.ToJsonString(WidgetConfigOptions);
     }
 
     private async Task<IActionResult?> GateAsync(string slug)
