@@ -49,6 +49,11 @@
                     <label class="label"><span class="label-text-alt">Only used for Wazuh sources. Stores the API user that owns the password above.</span></label>
                 </div>
 
+                <label class="cursor-pointer flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3">
+                    <input asp-for="SkipTlsVerify" type="checkbox" class="checkbox checkbox-sm" />
+                    <span class="text-sm">Skip TLS verification (self-signed Wazuh certificates)</span>
+                </label>
+
                 @if (!Model.IsNew)
                 {
                     <label class="cursor-pointer flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3">

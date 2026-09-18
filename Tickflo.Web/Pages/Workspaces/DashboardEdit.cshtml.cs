@@ -50,6 +50,13 @@ public class DashboardEditModel(
     [MaxLength(200)]
     public string? Username { get; set; }
 
+    /// <summary>
+    /// Wazuh-only: bypass TLS certificate validation for self-signed internal
+    /// endpoints (maps to <c>skipTlsVerify</c> in <see cref="ConfigJson"/>).
+    /// </summary>
+    [BindProperty]
+    public bool SkipTlsVerify { get; set; }
+
     [BindProperty]
     public string ConfigJson { get; set; } = "{}";
 
@@ -96,6 +103,7 @@ public class DashboardEditModel(
             this.WidgetUrl = widget.Url;
             this.ConfigJson = widget.ConfigJson;
             this.Username = this.ReadWazuhUsername(widget.ConfigJson);
+            this.SkipTlsVerify = this.ReadWazuhSkipTlsVerify(widget.ConfigJson);
             this.RefreshIntervalSeconds = widget.RefreshIntervalSeconds;
             this.SortOrder = widget.SortOrder;
             this.IsEnabled = widget.IsEnabled;
@@ -126,7 +134,7 @@ public class DashboardEditModel(
             this.WidgetUrl.Trim(),
             this.Secret,
             this.ClearSecret,
-            this.ApplyWazuhUsername(this.ConfigJson),
+            this.ApplyWazuhConfig(this.ConfigJson),
             this.RefreshIntervalSeconds,
             this.SortOrder,
             this.IsEnabled);
@@ -182,9 +190,29 @@ public class DashboardEditModel(
         }
     }
 
-    private string ApplyWazuhUsername(string configJson)
+    private bool ReadWazuhSkipTlsVerify(string? configJson)
     {
-        if (this.Type != WidgetType.Wazuh || string.IsNullOrWhiteSpace(this.Username))
+        if (this.Type != WidgetType.Wazuh || string.IsNullOrWhiteSpace(configJson))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(configJson);
+            return document.RootElement.ValueKind == JsonValueKind.Object
+                && document.RootElement.TryGetProperty("skipTlsVerify", out var element)
+                && element.ValueKind == JsonValueKind.True;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private string ApplyWazuhConfig(string configJson)
+    {
+        if (this.Type != WidgetType.Wazuh)
         {
             return configJson;
         }
@@ -205,7 +233,12 @@ public class DashboardEditModel(
             ? "indexerUsername"
             : "apiUsername";
 
-        config[key] = this.Username.Trim();
+        config["skipTlsVerify"] = this.SkipTlsVerify;
+        if (!string.IsNullOrWhiteSpace(this.Username))
+        {
+            config[key] = this.Username.Trim();
+        }
+
         return config.ToJsonString(WidgetConfigOptions);
     }
 
