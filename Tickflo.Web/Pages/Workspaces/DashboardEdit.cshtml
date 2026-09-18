@@ -43,6 +43,12 @@
                     <label class="label"><span class="label-text-alt">Stored encrypted. For HTTP/JSON this is the bearer token; for Wazuh it is the API password.</span></label>
                 </div>
 
+                <div class="form-control">
+                    <label class="label" asp-for="Username"><span class="label-text">Wazuh username</span></label>
+                    <input asp-for="Username" class="input input-bordered" placeholder="wazuh-wui" />
+                    <label class="label"><span class="label-text-alt">Only used for Wazuh sources. Stores the API user that owns the password above.</span></label>
+                </div>
+
                 @if (!Model.IsNew)
                 {
                     <label class="cursor-pointer flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3">
