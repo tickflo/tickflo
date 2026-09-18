@@ -67,13 +67,15 @@ public class WidgetService(TickfloDbContext dbContext, IWidgetSecretProtector se
         widget.UpdatedAt = DateTime.UtcNow;
         widget.UpdatedBy = updatedBy;
 
-        if (draft.ClearSecret)
+        if (!string.IsNullOrWhiteSpace(draft.Secret))
+        {
+            // A newly typed secret always wins over "clear", so saving a password
+            // cannot accidentally wipe an existing one.
+            widget.ApiKeyCiphertext = this.EncryptSecret(draft.Secret);
+        }
+        else if (draft.ClearSecret)
         {
             widget.ApiKeyCiphertext = null;
-        }
-        else if (!string.IsNullOrWhiteSpace(draft.Secret))
-        {
-            widget.ApiKeyCiphertext = this.EncryptSecret(draft.Secret);
         }
 
         await this.dbContext.SaveChangesAsync();
