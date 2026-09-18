@@ -110,7 +110,7 @@ public sealed record WidgetTile(
         WidgetHealth.Warning => "badge-warning",
         WidgetHealth.Critical => "badge-error",
         WidgetHealth.Error => "badge-error",
-        WidgetHealth.Pending => throw new NotImplementedException(),
+        WidgetHealth.Pending => "badge-ghost",
         _ => "badge-ghost",
     };
 
@@ -119,8 +119,8 @@ public sealed record WidgetTile(
         WidgetHealth.Critical => "border-error/40",
         WidgetHealth.Warning => "border-warning/40",
         WidgetHealth.Error => "border-error/40",
-        WidgetHealth.Ok => throw new NotImplementedException(),
-        WidgetHealth.Pending => throw new NotImplementedException(),
+        WidgetHealth.Ok => "border-success/40",
+        WidgetHealth.Pending => "border-white/10",
         _ => "border-white/10",
     };
 }
