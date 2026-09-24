@@ -49,6 +49,7 @@ public class WorkspaceModel : PageModel
     public bool ShowEmailConfirmationPrompt { get; set; }
 
     public Dictionary<string, int> PriorityCounts { get; set; } = [];
+    public Dictionary<string, int> StatusCounts { get; set; } = [];
     public List<TicketPriority> PriorityList { get; set; } = [];
 
     public List<ActivityPoint> ActivitySeries { get; set; } = [];
@@ -265,6 +266,7 @@ public class WorkspaceModel : PageModel
         this.TypeList = [.. view.TypeList];
         this.PriorityList = [.. view.PriorityList];
         this.PriorityCounts = view.PriorityCounts.ToDictionary(k => k.Key, v => v.Value);
+        this.StatusCounts = view.StatusCounts.ToDictionary(k => k.Key, v => v.Value);
 
         this.PrimaryColor = view.PrimaryColor;
         this.PrimaryIsHex = view.PrimaryIsHex;

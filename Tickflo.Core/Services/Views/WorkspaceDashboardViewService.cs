@@ -19,6 +19,7 @@ public record WorkspaceDashboardView(
     IReadOnlyList<TicketType> TypeList,
     IReadOnlyList<TicketPriority> PriorityList,
     IReadOnlyDictionary<string, int> PriorityCounts,
+    IReadOnlyDictionary<string, int> StatusCounts,
     string PrimaryColor,
     bool PrimaryIsHex,
     string SuccessColor,
@@ -80,6 +81,7 @@ public class WorkspaceDashboardViewService(
             .ToListAsync();
 
         var priorityCounts = await this.dashboardService.GetPriorityCountsAsync(workspaceId, userId, scope, [.. teamIds]);
+        var statusCounts = await this.dashboardService.GetStatusCountsAsync(workspaceId, userId, scope, [.. teamIds]);
 
         var (primaryColor, primaryIsHex, successColor, successIsHex) = ResolveColors(statusList);
 
@@ -147,6 +149,7 @@ public class WorkspaceDashboardViewService(
             typeList,
             priorityList,
             priorityCounts,
+            statusCounts,
             primaryColor,
             primaryIsHex,
             successColor,
