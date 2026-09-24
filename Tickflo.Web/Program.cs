@@ -78,7 +78,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         ("fc00::", 7)
     })
     {
-        options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse(address), prefixLength));
+        options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse(address), prefixLength));
     }
 });
 builder.Services.AddScoped<Tickflo.Core.Services.Authentication.IAuthenticationService, Tickflo.Core.Services.Authentication.AuthenticationService>();

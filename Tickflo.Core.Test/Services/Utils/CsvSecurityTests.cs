@@ -11,6 +11,8 @@ public class CsvSecurityTests
     [InlineData("-2+3", "'-2+3")]
     [InlineData("@SUM(A1)", "'@SUM(A1)")]
     [InlineData("=cmd|'/C calc'!A0", "'=cmd|'/C calc'!A0")]
+    [InlineData("\t=HYPERLINK(\"http://evil\",\"click\")", "'\t=HYPERLINK(\"http://evil\",\"click\")")]
+    [InlineData("\r@SUM(A1)", "'\r@SUM(A1)")]
     public void SanitizeCell_WhenValueStartsWithFormulaTrigger_PrefixesSingleQuote(string input, string expected) =>
         Assert.Equal(expected, CsvSecurity.SanitizeCell(input));
 

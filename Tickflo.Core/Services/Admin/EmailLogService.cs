@@ -3,6 +3,7 @@ namespace Tickflo.Core.Services.Admin;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Utils;
 
 public class EmailLogEntry
 {
@@ -66,13 +67,8 @@ public class EmailLogService(TickfloDbContext db) : IEmailLogService
         {
             return string.Empty;
         }
-        var result = template.Subject;
-        foreach (var (key, value) in vars)
-        {
-            result = result.Replace($"{{{{{key}}}}}", value);
-        }
 
-        return result;
+        return EmailTemplateRenderer.ReplaceVariables(template.Subject, vars, htmlEncode: false);
     }
 
     private string RenderBody(int templateId, Dictionary<string, string>? vars)
@@ -87,12 +83,10 @@ public class EmailLogService(TickfloDbContext db) : IEmailLogService
         {
             return string.Empty;
         }
-        var result = template.Body;
-        foreach (var (key, value) in vars)
-        {
-            result = result.Replace($"{{{{{key}}}}}", value);
-        }
 
-        return result;
+        // Route through EmailTemplateRenderer with htmlEncode so user-controlled
+        // variable values cannot inject markup/HTML into the rendered body (stored
+        // XSS guard, same policy as outbound email rendering).
+        return EmailTemplateRenderer.ReplaceVariables(template.Body, vars, htmlEncode: true);
     }
 }
