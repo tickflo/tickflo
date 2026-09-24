@@ -11,9 +11,9 @@ public record PasswordSetResult(string LoginToken, string? WorkspaceSlug, int Us
 public interface IPasswordSetupService
 {
     public Task<(int UserId, string UserEmail)> ValidateResetTokenAsync(string tokenValue);
-    public Task<(int UserId, string UserEmail)> ValidateInitialUserAsync(int userId);
+    public Task<(int UserId, string UserEmail)> ValidateInitialUserAsync(int userId, string capabilityToken);
     public Task<PasswordSetResult> SetPasswordWithTokenAsync(string tokenValue, string newPassword);
-    public Task<PasswordSetResult> SetInitialPasswordAsync(int userId, string newPassword);
+    public Task<PasswordSetResult> SetInitialPasswordAsync(int userId, string capabilityToken, string newPassword);
 }
 
 public class PasswordSetupService(
@@ -57,20 +57,9 @@ public class PasswordSetupService(
         return (user.Id, user.Email);
     }
 
-    public async Task<(int UserId, string UserEmail)> ValidateInitialUserAsync(int userId)
+    public async Task<(int UserId, string UserEmail)> ValidateInitialUserAsync(int userId, string capabilityToken)
     {
-        if (userId <= 0)
-        {
-            throw new BadRequestException("Missing user id.");
-        }
-
-        var user = await this.dbContext.Users.FindAsync(userId) ?? throw new BadRequestException("User not found.");
-
-        if (user.PasswordHash != null)
-        {
-            return (user.Id, user.Email);
-        }
-
+        var user = await this.ResolveInitialUserAsync(userId, capabilityToken);
         return (user.Id, user.Email);
     }
 
@@ -124,9 +113,9 @@ public class PasswordSetupService(
         return new PasswordSetResult(sessionToken.Value, workspaceSlug, user.Id, user.Email);
     }
 
-    public async Task<PasswordSetResult> SetInitialPasswordAsync(int userId, string newPassword)
+    public async Task<PasswordSetResult> SetInitialPasswordAsync(int userId, string capabilityToken, string newPassword)
     {
-        var user = await this.dbContext.Users.FindAsync(userId) ?? throw new BadRequestException("User not found.");
+        var user = await this.ResolveInitialUserAsync(userId, capabilityToken);
 
         if (user.PasswordHash != null)
         {
@@ -157,5 +146,49 @@ public class PasswordSetupService(
         await this.dbContext.SaveChangesAsync();
 
         return new PasswordSetResult(token.Value, workspaceSlug, user.Id, user.Email);
+    }
+
+    /// <summary>
+    /// Resolves the pending invited user whose initial password is being set,
+    /// requiring possession of the one-time capability token (the invitation
+    /// secret emailed to that user, e.g. their email-confirmation code). Without
+    /// the correct capability the lookup fails generically so the endpoint
+    /// neither sets a password nor reveals whether a userId exists.
+    /// </summary>
+    private async Task<User> ResolveInitialUserAsync(int userId, string capabilityToken)
+    {
+        if (userId <= 0)
+        {
+            throw new BadRequestException("Invalid invitation link.");
+        }
+
+        if (string.IsNullOrWhiteSpace(capabilityToken))
+        {
+            throw new BadRequestException("Invalid invitation link.");
+        }
+
+        var user = await this.dbContext.Users.FindAsync(userId)
+            ?? throw new BadRequestException("Invalid invitation link.");
+
+        if (!TokenMatches(user.EmailConfirmationCode, capabilityToken))
+        {
+            throw new BadRequestException("Invalid invitation link.");
+        }
+
+        return user;
+    }
+
+    private static bool TokenMatches(string? expected, string provided)
+    {
+        if (string.IsNullOrEmpty(expected) || string.IsNullOrEmpty(provided))
+        {
+            return false;
+        }
+
+        var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expected);
+        var providedBytes = System.Text.Encoding.UTF8.GetBytes(provided);
+
+        return expectedBytes.Length == providedBytes.Length
+            && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedBytes, providedBytes);
     }
 }

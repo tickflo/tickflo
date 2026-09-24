@@ -13,6 +13,10 @@ public class RateLimitMiddleware(RequestDelegate next)
     private const int MaxRequests = 10;
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
 
+    // Tracks when the expired-bucket sweep last ran (per process), so we prune at most
+    // once per window and the static store stays bounded.
+    private static long lastPruneUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
     // Auth-related paths that should be rate-limited
     private static readonly string[] AuthPaths =
     [
@@ -30,20 +34,22 @@ public class RateLimitMiddleware(RequestDelegate next)
     {
         var path = context.Request.Path.Value?.ToLowerInvariant();
 
+        PruneExpiredBuckets();
+
         if (path != null && PathRequiresRateLimiting(path))
         {
             var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             var key = $"{ip}:{path}";
-            var now = DateTime.UtcNow;
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-            var entry = Buckets.GetOrAdd(key, _ => new RateLimitEntry { WindowStart = now, Count = 0 });
+            var entry = Buckets.GetOrAdd(key, _ => new RateLimitEntry { Count = 0 });
             var blocked = false;
 
             lock (entry)
             {
-                if (now - entry.WindowStart > Window)
+                if (now - entry.WindowStartUnixMs > (long)Window.TotalMilliseconds)
                 {
-                    entry.WindowStart = now;
+                    entry.WindowStartUnixMs = now;
                     entry.Count = 0;
                 }
 
@@ -82,9 +88,39 @@ public class RateLimitMiddleware(RequestDelegate next)
         return false;
     }
 
+    /// <summary>
+    /// Removes buckets that have been idle for longer than the rate-limit window so the
+    /// static store does not grow without bound. Runs at most once per window.
+    /// </summary>
+    private static void PruneExpiredBuckets()
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var last = Interlocked.Read(ref lastPruneUnixMs);
+
+        if (now - last < (long)Window.TotalMilliseconds)
+        {
+            return;
+        }
+
+        // Claim the sweep so concurrent requests don't all prune simultaneously.
+        if (Interlocked.CompareExchange(ref lastPruneUnixMs, now, last) != last)
+        {
+            return;
+        }
+
+        var cutoff = now - (long)Window.TotalMilliseconds;
+        foreach (var bucketKey in Buckets.Keys)
+        {
+            if (Buckets.TryGetValue(bucketKey, out var entry) && entry.WindowStartUnixMs < cutoff)
+            {
+                Buckets.TryRemove(bucketKey, out _);
+            }
+        }
+    }
+
     private sealed class RateLimitEntry
     {
-        public DateTime WindowStart { get; set; }
+        public long WindowStartUnixMs { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         public int Count { get; set; }
     }
 }

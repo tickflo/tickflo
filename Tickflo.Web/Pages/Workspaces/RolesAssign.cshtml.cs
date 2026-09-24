@@ -129,8 +129,8 @@ public class RolesAssignModel(
 
     private async Task<IActionResult?> AuthorizeAndLoadWorkspaceAsync(string slug)
     {
-        var workspace = await this.workspaceService.GetWorkspaceBySlugAsync(slug);
-        if (workspace == null)
+        this.Workspace = await this.workspaceService.GetWorkspaceBySlugAsync(slug);
+        if (this.Workspace == null)
         {
             return this.NotFound();
         }
@@ -141,13 +141,13 @@ public class RolesAssignModel(
             return this.Forbid();
         }
 
-        var hasMembership = await this.workspaceService.UserHasMembershipAsync(uid, workspace.Id);
+        var hasMembership = await this.workspaceService.UserHasMembershipAsync(uid, this.Workspace.Id);
         if (!hasMembership)
         {
             return this.Forbid();
         }
 
-        var data = await this.workspaceRolesAssignViewService.BuildAsync(workspace.Id, uid);
+        var data = await this.workspaceRolesAssignViewService.BuildAsync(this.Workspace.Id, uid);
         if (!data.IsAdmin)
         {
             return this.Forbid();

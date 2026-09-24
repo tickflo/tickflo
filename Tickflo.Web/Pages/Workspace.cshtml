@@ -287,9 +287,9 @@
                         <div class="space-y-4 mt-4">
                             @foreach (var status in Model.StatusList.OrderBy(x => x.SortOrder))
                             {
-                                var count = Model.RecentTickets.Count(ticket => ticket.Status == status.Name);
-                                var percentage = Model.RecentTickets.Count > 0 ? Math.Round((double)count /
-                                Model.RecentTickets.Count * 100) : 0;
+                                var count = Model.StatusCounts.TryGetValue(status.Name, out var statusCount) ? statusCount : 0;
+                                var percentage = Model.TotalTickets > 0 ? Math.Round((double)count /
+                                Model.TotalTickets * 100) : 0;
                                 var statusColor = string.IsNullOrWhiteSpace(status.Color) ? "neutral" : status.Color;
                                 var statusIsHex = statusColor.StartsWith("#");
                                 var badgeCls = statusIsHex ? "badge badge-soft" : $"badge badge-soft badge-{statusColor}";
@@ -322,8 +322,8 @@
                             @foreach (var priorityCount in Model.PriorityCounts.OrderByDescending(x => x.Value))
                             {
                                 var prio = Model.PriorityList.FirstOrDefault(x => x.Name == priorityCount.Key);
-                                var percentage = Model.RecentTickets.Count > 0 ? Math.Round((double)priorityCount.Value /
-                                Model.RecentTickets.Count * 100) : 0;
+                                var percentage = Model.TotalTickets > 0 ? Math.Round((double)priorityCount.Value /
+                                Model.TotalTickets * 100) : 0;
                                 var pColor = string.IsNullOrWhiteSpace(prio?.Color) ? "neutral" : prio!.Color;
                                 var pIsHex = pColor.StartsWith("#");
                                 var badgeCls = pIsHex ? "badge badge-soft" : $"badge badge-soft badge-{pColor}";

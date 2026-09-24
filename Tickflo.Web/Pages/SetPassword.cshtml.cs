@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
+using Tickflo.Web.Authentication;
 
 [AllowAnonymous]
 public class SetPasswordModel(
@@ -23,6 +24,14 @@ public class SetPasswordModel(
     [FromQuery]
     public int UserId { get; set; }
 
+    /// <summary>
+    /// The one-time capability token (the invitation/email-confirmation secret)
+    /// that proves the caller is the invited user. Without it, GET reveals no
+    /// email and POST cannot set a password.
+    /// </summary>
+    [FromQuery]
+    public string? Code { get; set; }
+
     public string? ErrorMessage { get; set; }
     public string? UserEmail { get; set; }
 
@@ -30,7 +39,7 @@ public class SetPasswordModel(
     {
         try
         {
-            var (_, userEmail) = await this.passwordSetupService.ValidateInitialUserAsync(this.UserId);
+            var (_, userEmail) = await this.passwordSetupService.ValidateInitialUserAsync(this.UserId, this.Code ?? string.Empty);
             this.UserEmail = userEmail;
             return this.Page();
         }
@@ -44,7 +53,7 @@ public class SetPasswordModel(
     {
         try
         {
-            var (userId, userEmail) = await this.passwordSetupService.ValidateInitialUserAsync(this.UserId);
+            var (userId, userEmail) = await this.passwordSetupService.ValidateInitialUserAsync(this.UserId, this.Code ?? string.Empty);
             this.UserEmail = userEmail;
 
             if (!this.ModelState.IsValid)
@@ -52,12 +61,12 @@ public class SetPasswordModel(
                 return this.Page();
             }
 
-            var result = await this.passwordSetupService.SetInitialPasswordAsync(userId, this.Input.Password);
+            var result = await this.passwordSetupService.SetInitialPasswordAsync(userId, this.Code ?? string.Empty, this.Input.Password);
 
             this.Response.Cookies.Append(this.config.SessionCookieName, result.LoginToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = this.Request.IsHttps,
+                Secure = SecureCookiePolicy.IsSecure(this.config) || this.Request.IsHttps,
                 SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddMinutes(this.config.SessionTimeoutMinutes)
             });

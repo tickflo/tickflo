@@ -1,7 +1,9 @@
+using System.Net;
 using System.Web;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
@@ -54,6 +56,30 @@ builder.Services.AddHsts(options =>
     options.MaxAge = TimeSpan.FromDays(180);
     options.IncludeSubDomains = true;
     options.Preload = true;
+});
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    // The app runs behind nginx-proxy-manager, which terminates TLS and forwards
+    // X-Forwarded-For / X-Forwarded-Proto. Trust those headers only from loopback
+    // and private/container address ranges (the reverse proxy and the Docker/LAN
+    // networks it sits on); the Kestrel backend is not exposed to the internet, so
+    // restricting the trusted sources prevents an external client from spoofing the
+    // forwarded headers. This makes Request.IsHttps reflect the real (TLS) scheme
+    // (fixing Secure-cookie marking) and RemoteIpAddress resolve to the real client
+    // IP (fixing per-client rate limiting).
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    foreach (var (address, prefixLength) in new[]
+    {
+        ("127.0.0.0", 8),
+        ("10.0.0.0", 8),
+        ("172.16.0.0", 12),
+        ("192.168.0.0", 16),
+        ("::1", 128),
+        ("fc00::", 7)
+    })
+    {
+        options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse(address), prefixLength));
+    }
 });
 builder.Services.AddScoped<Tickflo.Core.Services.Authentication.IAuthenticationService, Tickflo.Core.Services.Authentication.AuthenticationService>();
 builder.Services.AddScoped<IPasswordSetupService, PasswordSetupService>();
@@ -210,6 +236,8 @@ using (var scope = app.Services.CreateScope())
         await demoDataSeeder.SeedDemoDataAsync();
     }
 }
+
+app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
 {

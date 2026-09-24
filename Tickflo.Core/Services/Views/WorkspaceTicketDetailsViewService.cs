@@ -3,6 +3,7 @@ namespace Tickflo.Core.Services.Views;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Workspace;
 
 /// <summary>
@@ -194,13 +195,12 @@ public class WorkspaceTicketDetailsViewService(
         // Load ticket (if exists)
         if (ticketId > 0)
         {
+            // Distinguish a missing ticket (404) from a permission failure
+            // (the permission guard above returns null → 403). Matches contacts behavior.
             data.Ticket = await this.dbContext.Tickets
                 .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId, cancellationToken);
-            if (data.Ticket == null)
-            {
-                return null;
-            }
+                .FirstOrDefaultAsync(t => t.WorkspaceId == workspaceId && t.Id == ticketId, cancellationToken)
+                ?? throw new NotFoundException("Ticket not found.");
 
             // Enforce scope for details
             if (!data.IsWorkspaceAdmin && userId > 0)

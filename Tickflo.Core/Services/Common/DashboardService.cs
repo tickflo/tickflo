@@ -90,6 +90,20 @@ public interface IDashboardService
         List<int> userTeamIds);
 
     /// <summary>
+    /// Gets ticket counts by status (over the full scoped/filtered ticket set).
+    /// </summary>
+    /// <param name="workspaceId">The workspace</param>
+    /// <param name="userId">Current user (for scope filtering)</param>
+    /// <param name="ticketViewScope">Scope filter</param>
+    /// <param name="userTeamIds">Team IDs the user belongs to</param>
+    /// <returns>Status counts dictionary keyed by status name</returns>
+    public Task<Dictionary<string, int>> GetStatusCountsAsync(
+        int workspaceId,
+        int userId,
+        string ticketViewScope,
+        List<int> userTeamIds);
+
+    /// <summary>
     /// Filters tickets by assignment status.
     /// </summary>
     /// <param name="tickets">All tickets to filter</param>
@@ -280,6 +294,31 @@ public class DashboardService(TickfloDbContext db) : IDashboardService
         }
 
         return priorityCounts;
+    }
+
+    public async Task<Dictionary<string, int>> GetStatusCountsAsync(
+        int workspaceId,
+        int userId,
+        string ticketViewScope,
+        List<int> userTeamIds)
+    {
+        var tickets = await this.db.Tickets.Where(t => t.WorkspaceId == workspaceId).ToListAsync();
+        var visibleTickets = await this.ApplyTicketScopeFilterAsync(tickets, workspaceId, userId, ticketViewScope, userTeamIds);
+
+        var statuses = await this.db.TicketStatuses.Where(s => s.WorkspaceId == workspaceId).ToListAsync();
+
+        var byId = statuses.ToDictionary(s => s.Id, s => 0);
+        foreach (var ticket in visibleTickets)
+        {
+            if (ticket.StatusId.HasValue && byId.TryGetValue(ticket.StatusId.Value, out var value))
+            {
+                byId[ticket.StatusId.Value] = ++value;
+            }
+        }
+
+        return statuses.ToDictionary(
+            s => s.Name,
+            s => byId.TryGetValue(s.Id, out var cnt) ? cnt : 0);
     }
 
     public List<Ticket> FilterTicketsByAssignment(

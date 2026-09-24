@@ -15,30 +15,30 @@
   <div class="card-body">
     <form method="post" class="grid gap-4">
       <div class="form-control">
-        <label class="label"><span class="label-text">Name</span></label>
+        <label class="label" for="Name"><span class="label-text">Name</span></label>
         <input class="input input-bordered validator w-full" asp-for="Name" />
         <span class="validator-hint text-xs text-error" asp-validation-for="Name"></span>
       </div>
       <div class="form-control">
-        <label class="label"><span class="label-text">Email</span></label>
+        <label class="label" for="Email"><span class="label-text">Email</span></label>
         <input class="input input-bordered validator w-full" asp-for="Email" />
         <span class="validator-hint text-xs text-error" asp-validation-for="Email"></span>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="form-control">
-          <label class="label"><span class="label-text">Phone</span></label>
+          <label class="label" for="Phone"><span class="label-text">Phone</span></label>
           <input class="input input-bordered w-full" asp-for="Phone" />
         </div>
         <div class="form-control">
-          <label class="label"><span class="label-text">Company</span></label>
+          <label class="label" for="Company"><span class="label-text">Company</span></label>
           <input class="input input-bordered w-full" asp-for="Company" />
         </div>
         <div class="form-control">
-          <label class="label"><span class="label-text">Title</span></label>
+          <label class="label" for="Title"><span class="label-text">Title</span></label>
           <input class="input input-bordered w-full" asp-for="Title" />
         </div>
         <div class="form-control">
-          <label class="label"><span class="label-text">Preferred Channel</span></label>
+          <label class="label" for="PreferredChannel"><span class="label-text">Preferred Channel</span></label>
           <select class="select select-bordered w-full" asp-for="PreferredChannel">
             <option>Email</option>
             <option>Phone</option>
@@ -46,7 +46,7 @@
           </select>
         </div>
         <div class="form-control">
-          <label class="label"><span class="label-text">Priority</span></label>
+          <label class="label" for="Priority"><span class="label-text">Priority</span></label>
           <select class="select select-bordered w-full" asp-for="Priority">
             @if (ViewData["Priorities"] is IReadOnlyList<Tickflo.Core.Entities.TicketPriority> plist)
             {
@@ -71,11 +71,11 @@
           </select>
         </div>
         <div class="md:col-span-2 form-control">
-          <label class="label"><span class="label-text">Tags</span></label>
+          <label class="label" for="Tags"><span class="label-text">Tags</span></label>
           <input class="input input-bordered w-full" asp-for="Tags" />
         </div>
         <div class="md:col-span-2 form-control">
-          <label class="label"><span class="label-text">Notes</span></label>
+          <label class="label" for="Notes"><span class="label-text">Notes</span></label>
           <textarea class="textarea textarea-bordered w-full" asp-for="Notes"></textarea>
         </div>
       </div>

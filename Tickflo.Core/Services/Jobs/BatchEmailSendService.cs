@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
+using Tickflo.Core.Utils;
 
 public interface IBatchEmailSendService
 {
@@ -70,8 +71,10 @@ public class MailgunEmailSendService(
                 {
                     { "from", $"{this.config.Email.FromName} <{this.config.Email.FromAddress}>" },
                     { "to", email.To },
-                    { "subject", RenderTemplate(emailTemplates[email.TemplateId].Subject, email.Vars) },
-                    { "html", RenderTemplate(emailTemplates[email.TemplateId].Body, email.Vars) }
+                    // Subject is a plain-text header; the body is sent as HTML, so its
+                    // variables are HTML-encoded to block stored HTML injection.
+                    { "subject", RenderTemplate(emailTemplates[email.TemplateId].Subject, email.Vars, htmlEncode: false) },
+                    { "html", RenderTemplate(emailTemplates[email.TemplateId].Body, email.Vars, htmlEncode: true) }
                 };
 
                 if (this.config.AppEnv != "Production")
@@ -106,19 +109,6 @@ public class MailgunEmailSendService(
         }
     }
 
-    private static string RenderTemplate(string template, Dictionary<string, string>? vars)
-    {
-        if (vars == null)
-        {
-            return template;
-        }
-
-        var result = template;
-        foreach (var (key, value) in vars)
-        {
-            result = result.Replace($"{{{{{key}}}}}", value);
-        }
-
-        return result;
-    }
+    private static string RenderTemplate(string template, Dictionary<string, string>? vars, bool htmlEncode) =>
+        EmailTemplateRenderer.ReplaceVariables(template, vars, htmlEncode);
 }
