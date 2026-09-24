@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
+using Tickflo.Web.Authentication;
 
 [AllowAnonymous]
 public class LogoutModel(TickfloConfig config) : PageModel
@@ -20,7 +21,7 @@ public class LogoutModel(TickfloConfig config) : PageModel
         {
             Path = "/",
             HttpOnly = true,
-            Secure = this.Request.IsHttps,
+            Secure = SecureCookiePolicy.IsSecure(this.config) || this.Request.IsHttps,
             SameSite = SameSiteMode.Lax
         });
 

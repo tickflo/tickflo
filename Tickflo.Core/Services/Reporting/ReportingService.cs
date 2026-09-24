@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Utils;
 using InventoryEntity = Entities.Inventory;
 
 public record ReportExecutionResult(int RowCount, string FilePath, byte[] Bytes, string FileName, string ContentType);
@@ -757,6 +758,9 @@ public class ReportingService(TickfloDbContext dbContext) : IReportingService
     private string EscapeCsv(string? v)
     {
         v ??= string.Empty;
+        // Neutralize CSV formula injection — prefix formula trigger chars so
+        // spreadsheet apps treat the cell as text, not evaluate it as a formula.
+        v = CsvSecurity.SanitizeCell(v);
         if (v.Contains('"') || v.Contains(',') || v.Contains('\n') || v.Contains('\r'))
         {
             return "\"" + v.Replace("\"", "\"\"") + "\"";

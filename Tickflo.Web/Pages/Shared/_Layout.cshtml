@@ -1,6 +1,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject Tickflo.Core.Data.TickfloDbContext dbContext
 @inject Tickflo.Core.Services.Common.ICurrentUserService CurrentUserService
+@inject Tickflo.Core.Config.TickfloConfig AppConfig
 
 @* TODO: This view should NOT be using TickfloDbContext directly. The logic needs moved into a Tickflo.Core service *@
 
@@ -47,7 +48,7 @@
             {
                 Path = "/",
                 HttpOnly = true,
-                Secure = Context.Request.IsHttps,
+                Secure = Tickflo.Web.Authentication.SecureCookiePolicy.IsSecure(AppConfig) || Context.Request.IsHttps,
                 SameSite = Microsoft.AspNetCore.Http.SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddDays(30),
                 IsEssential = true
