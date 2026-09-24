@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
+using Tickflo.Web.Authentication;
 
 [AllowAnonymous]
 public class SetPasswordModel(
@@ -57,7 +58,7 @@ public class SetPasswordModel(
             this.Response.Cookies.Append(this.config.SessionCookieName, result.LoginToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = this.Request.IsHttps,
+                Secure = SecureCookiePolicy.IsSecure(this.config) || this.Request.IsHttps,
                 SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddMinutes(this.config.SessionTimeoutMinutes)
             });

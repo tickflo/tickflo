@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Utils;
 
 /// <summary>
 /// Implementation of data export service.
@@ -245,7 +246,7 @@ public class ExportService(TickfloDbContext dbContext) : IExportService
             foreach (var field in fields)
             {
                 var value = GetFieldValue(ticket, field)?.ToString() ?? string.Empty;
-                row.Add($"\"{value}\"");
+                row.Add($"\"{CsvSecurity.SanitizeCell(value)}\"");
             }
             sb.AppendLine(string.Join(",", row));
         }
@@ -284,7 +285,7 @@ public class ExportService(TickfloDbContext dbContext) : IExportService
 
         foreach (var contact in contacts)
         {
-            sb.AppendLine($"{contact.Id},\"{contact.Name}\",\"{contact.Email}\",\"{contact.Phone ?? ""}\",\"{contact.Company ?? ""}\",{contact.CreatedAt}");
+            sb.AppendLine($"{contact.Id},\"{CsvSecurity.SanitizeCell(contact.Name)}\",\"{CsvSecurity.SanitizeCell(contact.Email)}\",\"{CsvSecurity.SanitizeCell(contact.Phone ?? "")}\",\"{CsvSecurity.SanitizeCell(contact.Company ?? "")}\",{contact.CreatedAt}");
         }
 
         var content = Encoding.UTF8.GetBytes(sb.ToString());
@@ -316,7 +317,7 @@ public class ExportService(TickfloDbContext dbContext) : IExportService
 
         foreach (var item in inventory)
         {
-            sb.AppendLine($"{item.Id},\"{item.Sku}\",\"{item.Name}\",{item.Quantity},{item.Cost},{item.LocationId},\"{item.CreatedAt}\"");
+            sb.AppendLine($"{item.Id},\"{CsvSecurity.SanitizeCell(item.Sku)}\",\"{CsvSecurity.SanitizeCell(item.Name)}\",{item.Quantity},{item.Cost},{item.LocationId},\"{item.CreatedAt}\"");
         }
 
         var content = Encoding.UTF8.GetBytes(sb.ToString());

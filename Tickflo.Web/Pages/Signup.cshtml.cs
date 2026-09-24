@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Tickflo.Core.Config;
 using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
+using Tickflo.Web.Authentication;
 
 [AllowAnonymous]
 public class SignupModel(IAuthenticationService authenticationService, TickfloConfig config, ILogger<SignupModel> logger) : PageModel
@@ -109,7 +110,7 @@ public class SignupModel(IAuthenticationService authenticationService, TickfloCo
     private void AppendAuthenticationCookie(string token) => this.Response.Cookies.Append(this.config.SessionCookieName, token, new CookieOptions
     {
         HttpOnly = true,
-        Secure = this.Request.IsHttps,
+        Secure = SecureCookiePolicy.IsSecure(this.config) || this.Request.IsHttps,
         SameSite = SameSiteMode.Lax,
         Expires = DateTimeOffset.UtcNow.AddMinutes(this.config.SessionTimeoutMinutes),
     });

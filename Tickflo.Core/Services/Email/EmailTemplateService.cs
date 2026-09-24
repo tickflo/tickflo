@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Utils;
 
 public interface IEmailTemplateService
 {
@@ -26,8 +27,11 @@ public class EmailTemplateService(TickfloDbContext dbContext) : IEmailTemplateSe
     {
         var template = await this.GetTemplateOrThrowAsync(templateType);
 
-        var subject = ReplaceVariables(template.Subject, variables);
-        var body = ReplaceVariables(template.Body, variables);
+        // The subject is a plain-text header (no HTML encoding); the body is sent to
+        // Mailgun as HTML, so substituted variables are HTML-encoded to prevent stored
+        // HTML injection into recipients' email clients.
+        var subject = EmailTemplateRenderer.ReplaceVariables(template.Subject, variables, htmlEncode: false);
+        var body = EmailTemplateRenderer.ReplaceVariables(template.Body, variables, htmlEncode: true);
 
         return (subject, body);
     }
@@ -39,16 +43,5 @@ public class EmailTemplateService(TickfloDbContext dbContext) : IEmailTemplateSe
             ?? throw new InvalidOperationException(string.Format(null, TemplateNotFoundErrorFormat, (int)templateType));
 
         return template;
-    }
-
-    private static string ReplaceVariables(string text, Dictionary<string, string> variables)
-    {
-        var result = text;
-        foreach (var kvp in variables)
-        {
-            var placeholder = $"{{{{{kvp.Key}}}}}";
-            result = result.Replace(placeholder, kvp.Value);
-        }
-        return result;
     }
 }
