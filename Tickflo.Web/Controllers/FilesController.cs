@@ -293,6 +293,18 @@ public class FilesController(
                 return this.Unauthorized();
             }
 
+            // Verify workspace exists and user is a member (same guard as sibling actions)
+            var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
+            if (workspace == null)
+            {
+                return this.NotFound();
+            }
+
+            if (!await this.workspaceAccessService.UserHasAccessAsync(userId, workspaceId))
+            {
+                return this.Forbid();
+            }
+
             var query = this.dbContext.FileStorages
                 .Where(f => f.WorkspaceId == workspaceId && !f.IsArchived);
 
@@ -347,6 +359,18 @@ public class FilesController(
             if (!this.currentUserService.TryGetUserId(this.User, out var userId))
             {
                 return this.Unauthorized();
+            }
+
+            // Verify workspace exists and user is a member (same guard as sibling actions)
+            var workspace = await this.dbContext.Workspaces.FindAsync(workspaceId);
+            if (workspace == null)
+            {
+                return this.NotFound();
+            }
+
+            if (!await this.workspaceAccessService.UserHasAccessAsync(userId, workspaceId))
+            {
+                return this.Forbid();
             }
 
             var usedBytes = await this.dbContext.FileStorages
