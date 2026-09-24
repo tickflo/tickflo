@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Tickflo.Core.Config;
 using Tickflo.Core.Data;
 using Tickflo.Core.Entities;
+using Tickflo.Core.Exceptions;
 using Tickflo.Core.Services.Authentication;
 using Xunit;
 
@@ -48,7 +49,7 @@ public class PasswordSetupServiceTests
             new Argon2idPasswordHasher(),
             new PasswordValidationService());
 
-        var result = await passwordSetupService.SetInitialPasswordAsync(user.Id, "demo-password");
+        var result = await passwordSetupService.SetInitialPasswordAsync(user.Id, user.EmailConfirmationCode!, "demo-password");
 
         Assert.False(string.IsNullOrWhiteSpace(result.LoginToken));
         Assert.Equal(workspace.Slug, result.WorkspaceSlug);
@@ -58,6 +59,75 @@ public class PasswordSetupServiceTests
 
         var persistedToken = await databaseContext.Tokens.FirstOrDefaultAsync(token => token.UserId == user.Id && token.Value == result.LoginToken);
         Assert.NotNull(persistedToken);
+    }
+
+    [Fact]
+    public async Task SetInitialPasswordAsync_WhenCapabilityTokenDoesNotMatch_ShouldThrowBadRequestAndNotPersistPassword()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash")
+        {
+            PasswordHash = null,
+        };
+
+        databaseContext.Users.Add(user);
+        await databaseContext.SaveChangesAsync();
+
+        var passwordSetupService = new PasswordSetupService(
+            databaseContext,
+            new TickfloConfig { SessionTimeoutMinutes = 20 },
+            new Argon2idPasswordHasher(),
+            new PasswordValidationService());
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            passwordSetupService.SetInitialPasswordAsync(user.Id, "not-the-invite-code", "demo-password"));
+
+        Assert.Equal("Invalid invitation link.", ex.Message);
+
+        var persistedUser = await databaseContext.Users.FindAsync(user.Id);
+        Assert.Null(persistedUser?.PasswordHash);
+    }
+
+    [Fact]
+    public async Task SetInitialPasswordAsync_WhenCapabilityTokenMissing_ShouldThrowBadRequest()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash")
+        {
+            PasswordHash = null,
+        };
+
+        databaseContext.Users.Add(user);
+        await databaseContext.SaveChangesAsync();
+
+        var passwordSetupService = new PasswordSetupService(
+            databaseContext,
+            new TickfloConfig { SessionTimeoutMinutes = 20 },
+            new Argon2idPasswordHasher(),
+            new PasswordValidationService());
+
+        await Assert.ThrowsAsync<BadRequestException>(() =>
+            passwordSetupService.SetInitialPasswordAsync(user.Id, string.Empty, "demo-password"));
+    }
+
+    [Fact]
+    public async Task ValidateInitialUserAsync_WhenCapabilityTokenDoesNotMatch_ShouldThrowBadRequestAndNotLeakEmail()
+    {
+        await using var databaseContext = CreateDatabaseContext();
+        var user = new User("Demo Admin", "admin@demo.com", "recovery@example.com", "password-hash");
+        databaseContext.Users.Add(user);
+        await databaseContext.SaveChangesAsync();
+
+        var passwordSetupService = new PasswordSetupService(
+            databaseContext,
+            new TickfloConfig { SessionTimeoutMinutes = 20 },
+            new Argon2idPasswordHasher(),
+            new PasswordValidationService());
+
+        var ex = await Assert.ThrowsAsync<BadRequestException>(() =>
+            passwordSetupService.ValidateInitialUserAsync(user.Id, "wrong-code"));
+
+        Assert.Equal("Invalid invitation link.", ex.Message);
     }
 
     private static TickfloDbContext CreateDatabaseContext()
