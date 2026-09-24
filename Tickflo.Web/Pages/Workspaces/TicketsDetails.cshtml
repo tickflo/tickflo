@@ -205,22 +205,22 @@
             <div class="space-y-4">
               <!-- Subject Field -->
               <div class="form-control">
-                <label class="label">
+                <label class="label" for="EditSubject">
                   <span class="label-text text-white/80 font-medium">Subject *</span>
                   <span class="label-text-alt text-white/40">Required</span>
                 </label>
-                <input name="EditSubject" value="@Model.Ticket!.Subject" class="input w-full bg-neutral-900/80 focus:bg-neutral-900" placeholder="Brief description of the issue" required />
+                <input name="EditSubject" id="EditSubject" value="@Model.Ticket!.Subject" class="input w-full bg-neutral-900/80 focus:bg-neutral-900" placeholder="Brief description of the issue" required />
               </div>
               
               <!-- Type, Status, Priority in a row -->
               <div class="grid gap-4 sm:grid-cols-3">
                 <div class="form-control">
-                  <label class="label">
+                  <label class="label" for="EditTicketTypeId">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-tag mr-1"></i>Type
                     </span>
                   </label>
-                  <select name="EditTicketTypeId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
+                  <select name="EditTicketTypeId" id="EditTicketTypeId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
                     @foreach (var ticketType in Model.Types)
                     {
                       if (Model.Ticket!.TicketTypeId == ticketType.Id) {<option value="@ticketType.Id" selected>@ticketType.Name</option>} else {<option value="@ticketType.Id">@ticketType.Name</option>}
@@ -228,12 +228,12 @@
                   </select>
                 </div>
                 <div class="form-control">
-                  <label class="label">
+                  <label class="label" for="EditStatusId">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-circle mr-1"></i>Status
                     </span>
                   </label>
-                  <select name="EditStatusId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
+                  <select name="EditStatusId" id="EditStatusId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
                     @foreach (var status in Model.Statuses)
                     {
                       if (Model.Ticket!.StatusId == status.Id) {<option value="@status.Id" selected>@status.Name</option>} else {<option value="@status.Id">@status.Name</option>}
@@ -241,12 +241,12 @@
                   </select>
                 </div>
                 <div class="form-control">
-                  <label class="label">
+                  <label class="label" for="EditPriorityId">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-exclamation-circle mr-1"></i>Priority
                     </span>
                   </label>
-                  <select name="EditPriorityId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
+                  <select name="EditPriorityId" id="EditPriorityId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
                     @foreach (var priority in Model.Priorities)
                     {
                       if (Model.Ticket!.PriorityId == priority.Id) {<option value="@priority.Id" selected>@priority.Name</option>} else {<option value="@priority.Id">@priority.Name</option>}
@@ -257,11 +257,11 @@
               
               <!-- Description Field -->
               <div class="form-control">
-                <label class="label">
+                <label class="label" for="EditDescription">
                   <span class="label-text text-white/80 font-medium">Description</span>
                   <span class="label-text-alt text-white/40">Optional</span>
                 </label>
-                <textarea name="EditDescription" class="textarea w-full bg-neutral-900/80 focus:bg-neutral-900 min-h-[150px]" placeholder="Provide detailed context, steps to reproduce, or additional notes...">@Model.Ticket!.Description</textarea>
+                <textarea name="EditDescription" id="EditDescription" class="textarea w-full bg-neutral-900/80 focus:bg-neutral-900 min-h-[150px]" placeholder="Provide detailed context, steps to reproduce, or additional notes...">@Model.Ticket!.Description</textarea>
               </div>
             </div>
           </div>
@@ -277,7 +277,7 @@
             <div class="grid gap-4 lg:grid-cols-2">
               <div class="space-y-4">
                 <div class="form-control">
-                  <label class="label">
+                  <label class="label" for="assignee-search">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-user mr-1"></i>Assignee
                     </span>
@@ -293,7 +293,7 @@
                   </datalist>
                 </div>
                 <div class="form-control">
-                  <label class="label">
+                  <label class="label" for="team-search">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-users mr-1"></i>Team
                     </span>
@@ -311,7 +311,7 @@
               </div>
               <div class="space-y-4">
                 <div class="form-control">
-                  <label class="label">
+                  <label class="label" for="contact-search">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-user mr-1"></i>Contact
                     </span>
@@ -326,12 +326,12 @@
                   </datalist>
                 </div>
                 <div class="form-control">
-                  <label class="label">
+                  <label class="label" for="locationId">
                     <span class="label-text text-white/80 font-medium">
                       <i class="fa fa-map-marker-alt mr-1"></i>Location
                     </span>
                   </label>
-                  <select name="locationId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
+                  <select name="locationId" id="locationId" class="select w-full bg-neutral-900/80 focus:bg-neutral-900">
                     <option value="">None</option>
                     @foreach (var location in Model.LocationOptions)
                     {
